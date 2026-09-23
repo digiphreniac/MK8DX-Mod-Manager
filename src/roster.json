@@ -1,0 +1,1556 @@
+{
+  "characters": [
+    "Mario",
+    "Luigi",
+    "Peach",
+    "Daisy",
+    "Rosalina",
+    "Tanooki Mario",
+    "Cat Peach",
+    "Yoshi",
+    "Toad",
+    "Koopa Troopa",
+    "Shy Guy",
+    "Lakitu",
+    "Toadette",
+    "Baby Mario",
+    "Baby Luigi",
+    "Baby Peach",
+    "Baby Daisy",
+    "Baby Rosalina",
+    "Metal Mario",
+    "Pink Gold Peach",
+    "Wario",
+    "Waluigi",
+    "Donkey Kong",
+    "Bowser",
+    "Dry Bones",
+    "Bowser Jr.",
+    "King Boo",
+    "Dry Bowser",
+    "Lemmy",
+    "Larry",
+    "Wendy",
+    "Ludwig",
+    "Iggy",
+    "Roy",
+    "Morton",
+    "Inkling Girl",
+    "Inkling Boy",
+    "Link",
+    "Villager (Boy)",
+    "Villager (Girl)",
+    "Isabelle",
+    "Mii",
+    "Birdo",
+    "Petey Piranha",
+    "Wiggler",
+    "Kamek",
+    "Diddy Kong",
+    "Funky Kong",
+    "Pauline",
+    "Peachette"
+  ],
+  "courses": [
+    {
+      "cup": "Mushroom Cup",
+      "courses": [
+        {
+          "name": "Mario Kart Stadium",
+          "internal": [
+            "Gu_FirstCircuit"
+          ],
+          "music": [
+            "WU_FIRST_CIRCUIT"
+          ]
+        },
+        {
+          "name": "Water Park",
+          "internal": [
+            "Gu_WaterPark"
+          ],
+          "music": [
+            "WU_WATER_PARK"
+          ]
+        },
+        {
+          "name": "Sweet Sweet Canyon",
+          "internal": [
+            "Gu_Cake"
+          ],
+          "music": [
+            "WU_CAKE"
+          ]
+        },
+        {
+          "name": "Thwomp Ruins",
+          "internal": [
+            "Gu_DossunIseki"
+          ],
+          "music": [
+            "WU_DOSSUN"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Flower Cup",
+      "courses": [
+        {
+          "name": "Mario Circuit",
+          "internal": [
+            "Gu_MarioCircuit"
+          ],
+          "music": [
+            "WU_CIRCUIT"
+          ]
+        },
+        {
+          "name": "Toad Harbor",
+          "internal": [
+            "Gu_City"
+          ],
+          "music": [
+            "WU_CITY"
+          ]
+        },
+        {
+          "name": "Twisted Mansion",
+          "internal": [
+            "Gu_HorrorHouse"
+          ],
+          "music": [
+            "WU_HAUNTED"
+          ]
+        },
+        {
+          "name": "Shy Guy Falls",
+          "internal": [
+            "Gu_Expert"
+          ],
+          "music": [
+            "WU_EXPERT"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Star Cup",
+      "courses": [
+        {
+          "name": "Sunshine Airport",
+          "internal": [
+            "Gu_Airport"
+          ],
+          "music": [
+            "WU_AIRPORT"
+          ]
+        },
+        {
+          "name": "Dolphin Shoals",
+          "internal": [
+            "Gu_Ocean"
+          ],
+          "music": [
+            "WU_OCEAN"
+          ]
+        },
+        {
+          "name": "Electrodrome",
+          "internal": [
+            "Gu_Techno"
+          ],
+          "music": [
+            "WU_TECHNO"
+          ]
+        },
+        {
+          "name": "Mount Wario",
+          "internal": [
+            "Gu_SnowMountain"
+          ],
+          "music": [
+            "WU_SNOW_MOUNTAIN"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Special Cup",
+      "courses": [
+        {
+          "name": "Cloudtop Cruise",
+          "internal": [
+            "Gu_Cloud"
+          ],
+          "music": [
+            "WU_CLOUD"
+          ]
+        },
+        {
+          "name": "Bone-Dry Dunes",
+          "internal": [
+            "Gu_Desert"
+          ],
+          "music": [
+            "WU_DESERT"
+          ]
+        },
+        {
+          "name": "Bowser's Castle",
+          "internal": [
+            "Gu_BowserCastle"
+          ],
+          "music": [
+            "WU_BOWSER_CASTLE"
+          ]
+        },
+        {
+          "name": "Rainbow Road",
+          "internal": [
+            "Gu_RainbowRoad"
+          ],
+          "music": [
+            "WU_RAINBOW_ROAD"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Shell Cup",
+      "courses": [
+        {
+          "name": "Wii Moo Moo Meadows",
+          "internal": [
+            "Gwii_MooMooMeadows"
+          ],
+          "music": [
+            "WII_MOO_MOO_MEADOWS"
+          ]
+        },
+        {
+          "name": "GBA Mario Circuit",
+          "internal": [
+            "Gagb_MarioCircuit"
+          ],
+          "music": [
+            "AGB_MARIO_CIRCUIT"
+          ]
+        },
+        {
+          "name": "DS Cheep Cheep Beach",
+          "internal": [
+            "Gds_PukupukuBeach"
+          ],
+          "music": [
+            "DS_PUKUPUKU_BEACH"
+          ]
+        },
+        {
+          "name": "N64 Toad's Turnpike",
+          "internal": [
+            "G64_KinopioHighway"
+          ],
+          "music": [
+            "N64_KINOPIO_HIGHWAY"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Banana Cup",
+      "courses": [
+        {
+          "name": "GCN Dry Dry Desert",
+          "internal": [
+            "Ggc_DryDryDesert"
+          ],
+          "music": [
+            "GC_DRY_DRY_DESERT"
+          ]
+        },
+        {
+          "name": "SNES Donut Plains 3",
+          "internal": [
+            "Gsfc_DonutsPlain3"
+          ],
+          "music": [
+            "SFC_DONUTS_PLAIN3"
+          ]
+        },
+        {
+          "name": "N64 Royal Raceway",
+          "internal": [
+            "G64_PeachCircuit"
+          ],
+          "music": [
+            "N64_PEACH_CIRCUIT"
+          ]
+        },
+        {
+          "name": "3DS DK Jungle",
+          "internal": [
+            "G3ds_DKJungle"
+          ],
+          "music": [
+            "3DS_DK_JUNGLE"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Leaf Cup",
+      "courses": [
+        {
+          "name": "DS Wario Stadium",
+          "internal": [
+            "Gds_WarioStadium"
+          ],
+          "music": [
+            "DS_WARIO_STADIUM"
+          ]
+        },
+        {
+          "name": "GCN Sherbet Land",
+          "internal": [
+            "Ggc_SherbetLand"
+          ],
+          "music": [
+            "GC_SHERBET_LAND"
+          ]
+        },
+        {
+          "name": "3DS Music Park",
+          "internal": [
+            "G3ds_MusicPark"
+          ],
+          "music": [
+            "3DS_MUSIC_PARK"
+          ]
+        },
+        {
+          "name": "N64 Yoshi Valley",
+          "internal": [
+            "G64_YoshiValley"
+          ],
+          "music": [
+            "N64_YOSHI_VALLEY"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Lightning Cup",
+      "courses": [
+        {
+          "name": "DS Tick-Tock Clock",
+          "internal": [
+            "Gds_TickTockClock"
+          ],
+          "music": [
+            "DS_TICK_TOCK_CLOCK"
+          ]
+        },
+        {
+          "name": "3DS Piranha Plant Slide",
+          "internal": [
+            "G3ds_PackunSlider"
+          ],
+          "music": [
+            "3DS_PACKUN_SLIDER"
+          ]
+        },
+        {
+          "name": "Wii Grumble Volcano",
+          "internal": [
+            "Gwii_GrumbleVolcano"
+          ],
+          "music": [
+            "WII_GRUMBLE_VOLCANO"
+          ]
+        },
+        {
+          "name": "N64 Rainbow Road",
+          "internal": [
+            "G64_RainbowRoad"
+          ],
+          "music": [
+            "N64_RAINBOW_ROAD"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Egg Cup",
+      "courses": [
+        {
+          "name": "Yoshi Circuit",
+          "internal": [
+            "Dgc_YoshiCircuit"
+          ],
+          "music": [
+            "GC_YOSHICIRCUIT"
+          ]
+        },
+        {
+          "name": "Excitebike Arena",
+          "internal": [
+            "Du_ExciteBike"
+          ],
+          "music": [
+            "WU_EXCITEBIKE"
+          ]
+        },
+        {
+          "name": "Dragon Driftway",
+          "internal": [
+            "Du_DragonRoad"
+          ],
+          "music": [
+            "WU_DRAGONROAD"
+          ]
+        },
+        {
+          "name": "Mute City",
+          "internal": [
+            "Du_MuteCity"
+          ],
+          "music": [
+            "WU_MUTECITY"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Triforce Cup",
+      "courses": [
+        {
+          "name": "Wii Wario's Gold Mine",
+          "internal": [
+            "Dwii_WariosMine"
+          ],
+          "music": [
+            "WII_WARIOSMINE"
+          ]
+        },
+        {
+          "name": "SNES Rainbow Road",
+          "internal": [
+            "Dsfc_RainbowRoad"
+          ],
+          "music": [
+            "SFC_RAINBOWROAD"
+          ]
+        },
+        {
+          "name": "Ice Ice Outpost",
+          "internal": [
+            "Du_IcePark"
+          ],
+          "music": [
+            "WU_ICEPARK"
+          ]
+        },
+        {
+          "name": "Hyrule Circuit",
+          "internal": [
+            "Du_Hyrule"
+          ],
+          "music": [
+            "WU_HYRULE"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Crossing Cup",
+      "courses": [
+        {
+          "name": "Animal Crossing",
+          "internal": [
+            "Du_Animal_Spring",
+            "Du_Animal_Summer",
+            "Du_Animal_Autumn",
+            "Du_Animal_Winter"
+          ],
+          "music": [
+            "WU_ANIMALSPRING",
+            "WU_ANIMALSUMMER",
+            "WU_ANIMALAUTUMN",
+            "WU_ANIMALWINTER"
+          ]
+        },
+        {
+          "name": "GBA Cheese Land",
+          "internal": [
+            "Dagb_CheeseLand"
+          ],
+          "music": [
+            "GBA_CHEESELAND"
+          ]
+        },
+        {
+          "name": "Wild Woods",
+          "internal": [
+            "Du_Woods"
+          ],
+          "music": [
+            "WU_WOOD"
+          ]
+        },
+        {
+          "name": "GCN Baby Park",
+          "internal": [
+            "Dgc_BabyPark"
+          ],
+          "music": [
+            "GC_BABYPARK"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Bell Cup",
+      "courses": [
+        {
+          "name": "3DS Neo Bowser City",
+          "internal": [
+            "D3ds_NeoBowserCity"
+          ],
+          "music": [
+            "3DS_NEOBOWSERCITY"
+          ]
+        },
+        {
+          "name": "GBA Ribbon Road",
+          "internal": [
+            "Dagb_RibbonRoad"
+          ],
+          "music": [
+            "GBA_RIBBONROAD"
+          ]
+        },
+        {
+          "name": "Super Bell Subway",
+          "internal": [
+            "Du_Metro"
+          ],
+          "music": [
+            "WU_METRO"
+          ]
+        },
+        {
+          "name": "Big Blue",
+          "internal": [
+            "Du_BigBlue"
+          ],
+          "music": [
+            "WU_BIGBLUE"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Golden Dash Cup",
+      "courses": [
+        {
+          "name": "Tour Paris Promenade",
+          "internal": [
+            "Cnsw_11"
+          ],
+          "music": [
+            "Cnsw_11"
+          ]
+        },
+        {
+          "name": "3DS Toad Circuit",
+          "internal": [
+            "Cnsw_12"
+          ],
+          "music": [
+            "Cnsw_12"
+          ]
+        },
+        {
+          "name": "N64 Choco Mountain",
+          "internal": [
+            "Cnsw_13"
+          ],
+          "music": [
+            "Cnsw_13"
+          ]
+        },
+        {
+          "name": "Wii Coconut Mall",
+          "internal": [
+            "Cnsw_14"
+          ],
+          "music": [
+            "Cnsw_14"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Lucky Cat Cup",
+      "courses": [
+        {
+          "name": "Tour Tokyo Blur",
+          "internal": [
+            "Cnsw_15"
+          ],
+          "music": [
+            "Cnsw_15"
+          ]
+        },
+        {
+          "name": "DS Shroom Ridge",
+          "internal": [
+            "Cnsw_16"
+          ],
+          "music": [
+            "Cnsw_16"
+          ]
+        },
+        {
+          "name": "GBA Sky Garden",
+          "internal": [
+            "Cnsw_17"
+          ],
+          "music": [
+            "Cnsw_17"
+          ]
+        },
+        {
+          "name": "Ninja Hideaway",
+          "internal": [
+            "Cnsw_18"
+          ],
+          "music": [
+            "Cnsw_18"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Turnip Cup",
+      "courses": [
+        {
+          "name": "Tour New York Minute",
+          "internal": [
+            "Cnsw_21"
+          ],
+          "music": [
+            "Cnsw_21"
+          ]
+        },
+        {
+          "name": "SNES Mario Circuit 3",
+          "internal": [
+            "Cnsw_22"
+          ],
+          "music": [
+            "Cnsw_22"
+          ]
+        },
+        {
+          "name": "N64 Kalimari Desert",
+          "internal": [
+            "Cnsw_23"
+          ],
+          "music": [
+            "Cnsw_23"
+          ]
+        },
+        {
+          "name": "DS Waluigi Pinball",
+          "internal": [
+            "Cnsw_24"
+          ],
+          "music": [
+            "Cnsw_24"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Propeller Cup",
+      "courses": [
+        {
+          "name": "Tour Sydney Sprint",
+          "internal": [
+            "Cnsw_25"
+          ],
+          "music": [
+            "Cnsw_25"
+          ]
+        },
+        {
+          "name": "GBA Snow Land",
+          "internal": [
+            "Cnsw_26"
+          ],
+          "music": [
+            "Cnsw_26"
+          ]
+        },
+        {
+          "name": "Wii Mushroom Gorge",
+          "internal": [
+            "Cnsw_27"
+          ],
+          "music": [
+            "Cnsw_27"
+          ]
+        },
+        {
+          "name": "Sky-High Sundae",
+          "internal": [
+            "Cnsw_28"
+          ],
+          "music": [
+            "Cnsw_28"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Rock Cup",
+      "courses": [
+        {
+          "name": "Tour London Loop",
+          "internal": [
+            "Cnsw_31"
+          ],
+          "music": [
+            "Cnsw_31"
+          ]
+        },
+        {
+          "name": "GBA Boo Lake",
+          "internal": [
+            "Cnsw_33"
+          ],
+          "music": [
+            "Cnsw_33"
+          ]
+        },
+        {
+          "name": "3DS Rock Rock Mountain",
+          "internal": [
+            "Cnsw_34"
+          ],
+          "music": [
+            "Cnsw_34"
+          ]
+        },
+        {
+          "name": "Wii Maple Treeway",
+          "internal": [
+            "Cnsw_62"
+          ],
+          "music": [
+            "Cnsw_62"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Moon Cup",
+      "courses": [
+        {
+          "name": "Tour Berlin Byways",
+          "internal": [
+            "Cnsw_35"
+          ],
+          "music": [
+            "Cnsw_35"
+          ]
+        },
+        {
+          "name": "DS Peach Gardens",
+          "internal": [
+            "Cnsw_32"
+          ],
+          "music": [
+            "Cnsw_32"
+          ]
+        },
+        {
+          "name": "Merry Mountain",
+          "internal": [
+            "Cnsw_37"
+          ],
+          "music": [
+            "Cnsw_37"
+          ]
+        },
+        {
+          "name": "3DS Rainbow Road",
+          "internal": [
+            "Cnsw_38"
+          ],
+          "music": [
+            "Cnsw_38"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Fruit Cup",
+      "courses": [
+        {
+          "name": "Tour Amsterdam Drift",
+          "internal": [
+            "Cnsw_41"
+          ],
+          "music": [
+            "Cnsw_41"
+          ]
+        },
+        {
+          "name": "GBA Riverside Park",
+          "internal": [
+            "Cnsw_47"
+          ],
+          "music": [
+            "Cnsw_47"
+          ]
+        },
+        {
+          "name": "Wii DK Summit",
+          "internal": [
+            "Cnsw_42"
+          ],
+          "music": [
+            "Cnsw_42"
+          ]
+        },
+        {
+          "name": "Yoshi's Island",
+          "internal": [
+            "Cnsw_44"
+          ],
+          "music": [
+            "Cnsw_44"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Boomerang Cup",
+      "courses": [
+        {
+          "name": "Tour Bangkok Rush",
+          "internal": [
+            "Cnsw_55"
+          ],
+          "music": [
+            "Cnsw_55"
+          ]
+        },
+        {
+          "name": "DS Mario Circuit",
+          "internal": [
+            "Cnsw_43"
+          ],
+          "music": [
+            "Cnsw_43"
+          ]
+        },
+        {
+          "name": "GCN Waluigi Stadium",
+          "internal": [
+            "Cnsw_36"
+          ],
+          "music": [
+            "Cnsw_36"
+          ]
+        },
+        {
+          "name": "Tour Singapore Speedway",
+          "internal": [
+            "Cnsw_45"
+          ],
+          "music": [
+            "Cnsw_45"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Feather Cup",
+      "courses": [
+        {
+          "name": "Tour Athens Dash",
+          "internal": [
+            "Cnsw_65"
+          ],
+          "music": [
+            "Cnsw_65"
+          ]
+        },
+        {
+          "name": "GCN Daisy Cruiser",
+          "internal": [
+            "Cnsw_46"
+          ],
+          "music": [
+            "Cnsw_46"
+          ]
+        },
+        {
+          "name": "Wii Moonview Highway",
+          "internal": [
+            "Cnsw_63"
+          ],
+          "music": [
+            "Cnsw_63"
+          ]
+        },
+        {
+          "name": "Squeaky Clean Sprint",
+          "internal": [
+            "Cnsw_58"
+          ],
+          "music": [
+            "Cnsw_58"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Cherry Cup",
+      "courses": [
+        {
+          "name": "Tour Los Angeles Laps",
+          "internal": [
+            "Cnsw_48"
+          ],
+          "music": [
+            "Cnsw_48"
+          ]
+        },
+        {
+          "name": "GBA Sunset Wilds",
+          "internal": [
+            "Cnsw_53"
+          ],
+          "music": [
+            "Cnsw_53"
+          ]
+        },
+        {
+          "name": "Wii Koopa Cape",
+          "internal": [
+            "Cnsw_52"
+          ],
+          "music": [
+            "Cnsw_52"
+          ]
+        },
+        {
+          "name": "Tour Vancouver Velocity",
+          "internal": [
+            "Cnsw_61"
+          ],
+          "music": [
+            "Cnsw_61"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Acorn Cup",
+      "courses": [
+        {
+          "name": "Tour Rome Avanti",
+          "internal": [
+            "Cnsw_54"
+          ],
+          "music": [
+            "Cnsw_54"
+          ]
+        },
+        {
+          "name": "GCN DK Mountain",
+          "internal": [
+            "Cnsw_56"
+          ],
+          "music": [
+            "Cnsw_56"
+          ]
+        },
+        {
+          "name": "Wii Daisy Circuit",
+          "internal": [
+            "Cnsw_66"
+          ],
+          "music": [
+            "Cnsw_66"
+          ]
+        },
+        {
+          "name": "Piranha Plant Cove",
+          "internal": [
+            "Cnsw_64"
+          ],
+          "music": [
+            "Cnsw_64"
+          ]
+        }
+      ]
+    },
+    {
+      "cup": "Spiny Cup",
+      "courses": [
+        {
+          "name": "Tour Madrid Drive",
+          "internal": [
+            "Cnsw_51"
+          ],
+          "music": [
+            "Cnsw_51"
+          ]
+        },
+        {
+          "name": "3DS Rosalina's Ice World",
+          "internal": [
+            "Cnsw_67"
+          ],
+          "music": [
+            "Cnsw_67"
+          ]
+        },
+        {
+          "name": "SNES Bowser Castle 3",
+          "internal": [
+            "Cnsw_57"
+          ],
+          "music": [
+            "Cnsw_57"
+          ]
+        },
+        {
+          "name": "Wii Rainbow Road",
+          "internal": [
+            "Cnsw_68"
+          ],
+          "music": [
+            "Cnsw_68"
+          ]
+        }
+      ]
+    }
+  ],
+  "vehicles": [
+    {
+      "name": "Standard Kart",
+      "type": "kart",
+      "internal": "BodyK_Std",
+      "aliases": []
+    },
+    {
+      "name": "Pipe Frame",
+      "type": "kart",
+      "internal": "BodyK_Skl",
+      "aliases": []
+    },
+    {
+      "name": "Mach 8",
+      "type": "kart",
+      "internal": "BodyK_Ufo",
+      "aliases": []
+    },
+    {
+      "name": "Steel Driver",
+      "type": "kart",
+      "internal": "BodyK_Sbm",
+      "aliases": []
+    },
+    {
+      "name": "Cat Cruiser",
+      "type": "kart",
+      "internal": "BodyK_Cat",
+      "aliases": []
+    },
+    {
+      "name": "Circuit Special",
+      "type": "kart",
+      "internal": "BodyK_Fml",
+      "aliases": []
+    },
+    {
+      "name": "Tri-Speeder",
+      "type": "kart",
+      "internal": "BodyK_Tri",
+      "aliases": []
+    },
+    {
+      "name": "Badwagon",
+      "type": "kart",
+      "internal": "BodyK_Wld",
+      "aliases": [
+        "Bad Wagon"
+      ]
+    },
+    {
+      "name": "Prancer",
+      "type": "kart",
+      "internal": "BodyK_Pch",
+      "aliases": []
+    },
+    {
+      "name": "Biddybuggy",
+      "type": "kart",
+      "internal": "BodyK_Ten",
+      "aliases": [
+        "Biddy Buggy",
+        "Buggybud"
+      ]
+    },
+    {
+      "name": "Landship",
+      "type": "kart",
+      "internal": "BodyK_Shp",
+      "aliases": []
+    },
+    {
+      "name": "Sneeker",
+      "type": "kart",
+      "internal": "BodyK_Snk",
+      "aliases": [
+        "Bounder",
+        "Sneaker"
+      ]
+    },
+    {
+      "name": "Sports Coupe",
+      "type": "kart",
+      "internal": "BodyK_Spo",
+      "aliases": [
+        "Sports Coupé"
+      ]
+    },
+    {
+      "name": "Gold Standard",
+      "type": "kart",
+      "internal": "BodyK_Gld",
+      "aliases": [
+        "Gold Kart"
+      ]
+    },
+    {
+      "name": "GLA",
+      "type": "kart",
+      "internal": "BodyK_Gla",
+      "aliases": []
+    },
+    {
+      "name": "W 25 Silver Arrow",
+      "type": "kart",
+      "internal": "BodyK_Slv",
+      "aliases": []
+    },
+    {
+      "name": "300 SL Roadster",
+      "type": "kart",
+      "internal": "BodyK_Rst",
+      "aliases": []
+    },
+    {
+      "name": "Blue Falcon",
+      "type": "kart",
+      "internal": "BodyK_Bfl",
+      "aliases": []
+    },
+    {
+      "name": "Tanooki Kart",
+      "type": "kart",
+      "internal": "BodyK_Tnk",
+      "aliases": []
+    },
+    {
+      "name": "B Dasher",
+      "type": "kart",
+      "internal": "BodyK_Bds",
+      "aliases": []
+    },
+    {
+      "name": "Streetle",
+      "type": "kart",
+      "internal": "BodyK_Btl",
+      "aliases": []
+    },
+    {
+      "name": "P-Wing",
+      "type": "kart",
+      "internal": "BodyK_Pwc",
+      "aliases": []
+    },
+    {
+      "name": "Koopa Clown",
+      "type": "kart",
+      "internal": "BodyK_Kpc",
+      "aliases": [
+        "Clown Car",
+        "Koopa Clown Car"
+      ]
+    },
+    {
+      "name": "Standard Bike",
+      "type": "bike",
+      "internal": "BodyB_Std",
+      "aliases": [],
+      "bike_class": "standard"
+    },
+    {
+      "name": "The Duke",
+      "type": "bike",
+      "internal": "BodyB_Big",
+      "aliases": [],
+      "bike_class": "standard"
+    },
+    {
+      "name": "Flame Rider",
+      "type": "bike",
+      "internal": "BodyB_Amb",
+      "aliases": [],
+      "bike_class": "standard"
+    },
+    {
+      "name": "Varmint",
+      "type": "bike",
+      "internal": "BodyB_Mix",
+      "aliases": [],
+      "bike_class": "standard"
+    },
+    {
+      "name": "Mr. Scooty",
+      "type": "bike",
+      "internal": "BodyB_Kid",
+      "aliases": [
+        "Mr Scooty"
+      ],
+      "bike_class": "standard"
+    },
+    {
+      "name": "Master Cycle Zero",
+      "type": "bike",
+      "internal": "BodyB_Bow",
+      "aliases": [],
+      "bike_class": "standard"
+    },
+    {
+      "name": "City Tripper",
+      "type": "bike",
+      "internal": "BodyB_Sct",
+      "aliases": [],
+      "bike_class": "standard"
+    },
+    {
+      "name": "Comet",
+      "type": "bike",
+      "internal": "BodyB_Fro",
+      "aliases": [],
+      "bike_class": "sport"
+    },
+    {
+      "name": "Sport Bike",
+      "type": "bike",
+      "internal": "BodyB_Mgp",
+      "aliases": [],
+      "bike_class": "sport"
+    },
+    {
+      "name": "Jet Bike",
+      "type": "bike",
+      "internal": "BodyB_Jet",
+      "aliases": [],
+      "bike_class": "sport"
+    },
+    {
+      "name": "Yoshi Bike",
+      "type": "bike",
+      "internal": "BodyB_Ysi",
+      "aliases": [],
+      "bike_class": "sport"
+    },
+    {
+      "name": "Master Cycle",
+      "type": "bike",
+      "internal": "BodyB_Zlb",
+      "aliases": [],
+      "bike_class": "sport"
+    },
+    {
+      "name": "Standard ATV",
+      "type": "atv",
+      "internal": "BodyV_Atv",
+      "aliases": [
+        "Standard Quad"
+      ]
+    },
+    {
+      "name": "Wild Wiggler",
+      "type": "atv",
+      "internal": "BodyV_Hnc",
+      "aliases": []
+    },
+    {
+      "name": "Teddy Buggy",
+      "type": "atv",
+      "internal": "BodyV_Bea",
+      "aliases": []
+    },
+    {
+      "name": "Bone Rattler",
+      "type": "atv",
+      "internal": "BodyV_Drb",
+      "aliases": []
+    },
+    {
+      "name": "Splat Buggy",
+      "type": "atv",
+      "internal": "BodyV_Spl",
+      "aliases": []
+    },
+    {
+      "name": "Inkstriker",
+      "type": "atv",
+      "internal": "BodyV_Tnd",
+      "aliases": []
+    }
+  ],
+  "wheels": [
+    {
+      "name": "Standard",
+      "internal": "Std",
+      "aliases": []
+    },
+    {
+      "name": "Monster",
+      "internal": "Big",
+      "aliases": []
+    },
+    {
+      "name": "Roller",
+      "internal": "Sml",
+      "aliases": []
+    },
+    {
+      "name": "Slim",
+      "internal": "Rng",
+      "aliases": []
+    },
+    {
+      "name": "Slick",
+      "internal": "Slk",
+      "aliases": []
+    },
+    {
+      "name": "Metal",
+      "internal": "Mtl",
+      "aliases": []
+    },
+    {
+      "name": "Button",
+      "internal": "Btn",
+      "aliases": []
+    },
+    {
+      "name": "Off-Road",
+      "internal": "Ofr",
+      "aliases": []
+    },
+    {
+      "name": "Sponge",
+      "internal": "Spg",
+      "aliases": []
+    },
+    {
+      "name": "Wood",
+      "internal": "Wod",
+      "aliases": []
+    },
+    {
+      "name": "Cushion",
+      "internal": "Fun",
+      "aliases": []
+    },
+    {
+      "name": "Blue Standard",
+      "internal": "Zst",
+      "aliases": []
+    },
+    {
+      "name": "Hot Monster",
+      "internal": "Zbi",
+      "aliases": []
+    },
+    {
+      "name": "Azure Roller",
+      "internal": "Zsm",
+      "aliases": []
+    },
+    {
+      "name": "Crimson Slim",
+      "internal": "Zrn",
+      "aliases": []
+    },
+    {
+      "name": "Cyber Slick",
+      "internal": "Zsl",
+      "aliases": []
+    },
+    {
+      "name": "Retro Off-Road",
+      "internal": "Zof",
+      "aliases": []
+    },
+    {
+      "name": "Gold Tires",
+      "internal": "Gld",
+      "aliases": []
+    },
+    {
+      "name": "GLA Tires",
+      "internal": "Gla",
+      "aliases": []
+    },
+    {
+      "name": "Triforce Tires",
+      "internal": "Tri",
+      "aliases": []
+    },
+    {
+      "name": "Leaf Tires",
+      "internal": "Anm",
+      "aliases": []
+    },
+    {
+      "name": "Ancient Tires",
+      "internal": "Bow",
+      "aliases": []
+    }
+  ],
+  "gliders": [
+    {
+      "name": "Super Glider",
+      "internal": "Wing_Std",
+      "aliases": [
+        "Standard Glider",
+        "Standard MK8D Glider",
+        "Super Kite"
+      ]
+    },
+    {
+      "name": "Cloud Glider",
+      "internal": "Wing_Jgm",
+      "aliases": [
+        "Balloons",
+        "Cloud Balloons",
+        "Clouds"
+      ]
+    },
+    {
+      "name": "Wario Wing",
+      "internal": "Wing_Wlo",
+      "aliases": [
+        "Wario Glider",
+        "Wario's Glider Kite"
+      ]
+    },
+    {
+      "name": "Waddle Wing",
+      "internal": "Wing_Zng",
+      "aliases": [
+        "Waddlewing Kite"
+      ]
+    },
+    {
+      "name": "Peach Parasol",
+      "internal": "Wing_Umb",
+      "aliases": [
+        "Parasol",
+        "Peach Umbrella"
+      ]
+    },
+    {
+      "name": "Parachute",
+      "internal": "Wing_Prc",
+      "aliases": []
+    },
+    {
+      "name": "Parafoil",
+      "internal": "Wing_Prf",
+      "aliases": []
+    },
+    {
+      "name": "Flower Glider",
+      "internal": "Wing_Flw",
+      "aliases": [
+        "Flower Wing",
+        "Flowery Wing"
+      ]
+    },
+    {
+      "name": "Bowser Kite",
+      "internal": "Wing_Kpa",
+      "aliases": [
+        "Bowser Glider",
+        "Kuppa Dako"
+      ]
+    },
+    {
+      "name": "Plane Glider",
+      "internal": "Wing_Spl",
+      "aliases": [
+        "Sail Plane",
+        "Sailplane"
+      ]
+    },
+    {
+      "name": "MKTV Parafoil",
+      "internal": "Wing_Ptv",
+      "aliases": [
+        "MKTV Glider",
+        "MKTV Wing",
+        "MTV Parafoil",
+        "PTV",
+        "Parafoil MKTV"
+      ]
+    },
+    {
+      "name": "Gold Glider",
+      "internal": "Wing_Gld",
+      "aliases": []
+    },
+    {
+      "name": "Hylian Kite",
+      "internal": "Wing_Hyr",
+      "aliases": [
+        "Hyrule Glider",
+        "Hyrule Kite"
+      ]
+    },
+    {
+      "name": "Paraglider",
+      "internal": "Wing_Bow",
+      "aliases": [
+        "BotW Paraglider",
+        "Link's Paraglider",
+        "Parasail"
+      ]
+    },
+    {
+      "name": "Paper Glider",
+      "internal": "Wing_Pap",
+      "aliases": [
+        "Paper Airplane",
+        "Paper Plane",
+        "Paper Wing"
+      ]
+    }
+  ]
+}

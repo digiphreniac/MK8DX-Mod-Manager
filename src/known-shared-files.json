@@ -1,0 +1,22 @@
+{
+  "MapObj/DL_HyFlagSquare/DL_HyFlagSquare.bfres": {
+    "label": "Hyrule Circuit's flag-square plaza prop",
+    "note": "A decorative foreground model native to Hyrule Circuit (the flag-lined plaza structure), occasionally reused by unrelated custom tracks as a ready-made building-block asset instead of modeling one from scratch. Omitting it just falls back to whichever copy the other checked mod provides (or the stock vanilla prop) at that spot - cosmetic only, never breaks the track."
+  },
+  "MapObj/IronBall/IronBall.bfres": {
+    "label": "Waluigi Pinball's wrecking-ball obstacle",
+    "note": "The swinging wrecking-ball hazard native to DS Waluigi Pinball, sometimes reused by unrelated custom tracks that want a ready-made moving obstacle model. Choosing one mod's copy over the other only changes that object's look/texture where it appears - it's cosmetic, LayeredFS falls back to vanilla or the other mod's copy either way."
+  },
+  "MapObj/Sanbo/Sanbo.bfres": {
+    "label": "Dry Dry Desert's pyramid/sphinx statue",
+    "note": "The large sphinx/pyramid statue prop native to GCN Dry Dry Desert, occasionally borrowed by unrelated custom tracks as an existing desert-ruins-style model rather than building a new one. Omitting it is cosmetic only - the spot just shows the vanilla or other mod's version of the statue, nothing functional breaks."
+  },
+  "MapObj/VRCnsw17/VRCnsw17.bfres": {
+    "label": "GBA Sky Garden's skybox (Booster Course Pass)",
+    "note": "The background skybox model native to GBA Sky Garden (Booster Course Pass Wave 1). Skybox models are common building blocks that custom-track makers reuse wholesale on unrelated tracks needing a similar sky, then retexture them. Picking a side only changes the background scenery on that track - purely cosmetic, no gameplay impact."
+  },
+  "MapObj/VRGcDesert/VRGcDesert.bfres": {
+    "label": "Dry Dry Desert's skybox",
+    "note": "The background skybox model native to GCN Dry Dry Desert, frequently reused by desert- or ruins-themed custom tracks as a base sky instead of building a new one. Omitting it just falls back to the stock desert sky or the other mod's repainted version in the background - cosmetic only."
+  }
+}

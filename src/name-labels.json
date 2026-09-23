@@ -1,0 +1,587 @@
+{
+ "_note": "Which numeric text entry of the game's Common.msbt holds each character's / course's name (the numbers are the same in every language). Plain reference data - no game text is included. Derived from English message files; Villager (Boy)/(Girl) are not listed because two identical 'Villager' entries (1035, 1053) can't be told apart.",
+ "characters": {
+  "Mario": [
+   "1001"
+  ],
+  "Luigi": [
+   "1002"
+  ],
+  "Peach": [
+   "1003"
+  ],
+  "Daisy": [
+   "1013"
+  ],
+  "Rosalina": [
+   "1016"
+  ],
+  "Tanooki Mario": [
+   "1031"
+  ],
+  "Cat Peach": [
+   "1032"
+  ],
+  "Yoshi": [
+   "1004"
+  ],
+  "Toad": [
+   "1007"
+  ],
+  "Koopa Troopa": [
+   "1008"
+  ],
+  "Shy Guy": [
+   "1017"
+  ],
+  "Lakitu": [
+   "1018"
+  ],
+  "Toadette": [
+   "1021"
+  ],
+  "Baby Mario": [
+   "1009"
+  ],
+  "Baby Luigi": [
+   "1010"
+  ],
+  "Baby Peach": [
+   "1011"
+  ],
+  "Baby Daisy": [
+   "1012"
+  ],
+  "Baby Rosalina": [
+   "1030"
+  ],
+  "Metal Mario": [
+   "1019"
+  ],
+  "Pink Gold Peach": [
+   "1022"
+  ],
+  "Wario": [
+   "1014"
+  ],
+  "Waluigi": [
+   "1015"
+  ],
+  "Donkey Kong": [
+   "1006"
+  ],
+  "Bowser": [
+   "1005"
+  ],
+  "Dry Bones": [
+   "1055"
+  ],
+  "Bowser Jr.": [
+   "1056"
+  ],
+  "King Boo": [
+   "1057"
+  ],
+  "Dry Bowser": [
+   "1033"
+  ],
+  "Lemmy": [
+   "1028"
+  ],
+  "Larry": [
+   "1023"
+  ],
+  "Wendy": [
+   "1025"
+  ],
+  "Ludwig": [
+   "1029"
+  ],
+  "Iggy": [
+   "1026"
+  ],
+  "Roy": [
+   "1027"
+  ],
+  "Morton": [
+   "1024"
+  ],
+  "Inkling Girl": [
+   "1058"
+  ],
+  "Inkling Boy": [
+   "1059"
+  ],
+  "Link": [
+   "1034"
+  ],
+  "Isabelle": [
+   "1036"
+  ],
+  "Mii": [
+   "1020"
+  ],
+  "Birdo": [
+   "1060"
+  ],
+  "Petey Piranha": [
+   "1071"
+  ],
+  "Wiggler": [
+   "1070"
+  ],
+  "Kamek": [
+   "1069"
+  ],
+  "Diddy Kong": [
+   "1072"
+  ],
+  "Funky Kong": [
+   "1073"
+  ],
+  "Pauline": [
+   "1074"
+  ],
+  "Peachette": [
+   "1075"
+  ]
+ },
+ "courses": {
+  "Mario Kart Stadium": [
+   "1401",
+   "1501"
+  ],
+  "Water Park": [
+   "1402",
+   "1502"
+  ],
+  "Sweet Sweet Canyon": [
+   "1403",
+   "1503"
+  ],
+  "Thwomp Ruins": [
+   "1404",
+   "1504"
+  ],
+  "Mario Circuit": [
+   "1406",
+   "1442",
+   "1506",
+   "1542",
+   "11730",
+   "11830"
+  ],
+  "Toad Harbor": [
+   "1405",
+   "1505"
+  ],
+  "Twisted Mansion": [
+   "1408",
+   "1508"
+  ],
+  "Shy Guy Falls": [
+   "1411",
+   "1511"
+  ],
+  "Sunshine Airport": [
+   "1409",
+   "1509"
+  ],
+  "Dolphin Shoals": [
+   "1410",
+   "1510"
+  ],
+  "Electrodrome": [
+   "1407",
+   "1507"
+  ],
+  "Mount Wario": [
+   "1412",
+   "1512"
+  ],
+  "Cloudtop Cruise": [
+   "1414",
+   "1514"
+  ],
+  "Bone-Dry Dunes": [
+   "1413",
+   "1513"
+  ],
+  "Bowser's Castle": [
+   "1415",
+   "1515"
+  ],
+  "Rainbow Road": [
+   "1416",
+   "1456",
+   "1486",
+   "1516",
+   "1556",
+   "1586",
+   "11724",
+   "11748",
+   "11824",
+   "11848"
+  ],
+  "Wii Moo Moo Meadows": [
+   "1441",
+   "1541"
+  ],
+  "GBA Mario Circuit": [
+   "1406",
+   "1442",
+   "1506",
+   "1542",
+   "11730",
+   "11830"
+  ],
+  "DS Cheep Cheep Beach": [
+   "1443",
+   "1543"
+  ],
+  "N64 Toad's Turnpike": [
+   "1445",
+   "1545"
+  ],
+  "GCN Dry Dry Desert": [
+   "1447",
+   "1547"
+  ],
+  "SNES Donut Plains 3": [
+   "1446",
+   "1546"
+  ],
+  "N64 Royal Raceway": [
+   "1451",
+   "1551"
+  ],
+  "3DS DK Jungle": [
+   "1448",
+   "1548"
+  ],
+  "DS Wario Stadium": [
+   "1454",
+   "1554"
+  ],
+  "GCN Sherbet Land": [
+   "1449",
+   "1549"
+  ],
+  "3DS Music Park": [
+   "1452",
+   "1552"
+  ],
+  "N64 Yoshi Valley": [
+   "1453",
+   "1553"
+  ],
+  "DS Tick-Tock Clock": [
+   "1450",
+   "1550"
+  ],
+  "3DS Piranha Plant Slide": [
+   "1444",
+   "1544"
+  ],
+  "Wii Grumble Volcano": [
+   "1455",
+   "1555"
+  ],
+  "N64 Rainbow Road": [
+   "1416",
+   "1456",
+   "1486",
+   "1516",
+   "1556",
+   "1586",
+   "11724",
+   "11748",
+   "11824",
+   "11848"
+  ],
+  "Yoshi Circuit": [
+   "1485",
+   "1585"
+  ],
+  "Excitebike Arena": [
+   "1482",
+   "1582"
+  ],
+  "Dragon Driftway": [
+   "1483",
+   "1583"
+  ],
+  "Mute City": [
+   "1484",
+   "1584"
+  ],
+  "Wii Wario's Gold Mine": [
+   "1481",
+   "1581"
+  ],
+  "SNES Rainbow Road": [
+   "1416",
+   "1456",
+   "1486",
+   "1516",
+   "1556",
+   "1586",
+   "11724",
+   "11748",
+   "11824",
+   "11848"
+  ],
+  "Ice Ice Outpost": [
+   "1487",
+   "1587"
+  ],
+  "Hyrule Circuit": [
+   "1488",
+   "1588"
+  ],
+  "Animal Crossing": [
+   "1492",
+   "1592"
+  ],
+  "GBA Cheese Land": [
+   "1489",
+   "1589"
+  ],
+  "Wild Woods": [
+   "1491",
+   "1591"
+  ],
+  "GCN Baby Park": [
+   "1490",
+   "1590"
+  ],
+  "3DS Neo Bowser City": [
+   "1493",
+   "1593"
+  ],
+  "GBA Ribbon Road": [
+   "1494",
+   "1594"
+  ],
+  "Super Bell Subway": [
+   "1495",
+   "1595"
+  ],
+  "Big Blue": [
+   "1496",
+   "1596"
+  ],
+  "Tour Paris Promenade": [
+   "11701",
+   "11801"
+  ],
+  "3DS Toad Circuit": [
+   "11702",
+   "11802"
+  ],
+  "N64 Choco Mountain": [
+   "11703",
+   "11803"
+  ],
+  "Wii Coconut Mall": [
+   "11704",
+   "11804"
+  ],
+  "Tour Tokyo Blur": [
+   "11705",
+   "11805"
+  ],
+  "DS Shroom Ridge": [
+   "11706",
+   "11806"
+  ],
+  "GBA Sky Garden": [
+   "11707",
+   "11807"
+  ],
+  "Ninja Hideaway": [
+   "11708",
+   "11808"
+  ],
+  "Tour New York Minute": [
+   "11709",
+   "11809"
+  ],
+  "SNES Mario Circuit 3": [
+   "11710",
+   "11810"
+  ],
+  "N64 Kalimari Desert": [
+   "11711",
+   "11811"
+  ],
+  "DS Waluigi Pinball": [
+   "11712",
+   "11812"
+  ],
+  "Tour Sydney Sprint": [
+   "11713",
+   "11813"
+  ],
+  "GBA Snow Land": [
+   "11714",
+   "11814"
+  ],
+  "Wii Mushroom Gorge": [
+   "11715",
+   "11815"
+  ],
+  "Sky-High Sundae": [
+   "11716",
+   "11816"
+  ],
+  "Tour London Loop": [
+   "11717",
+   "11817"
+  ],
+  "GBA Boo Lake": [
+   "11718",
+   "11818"
+  ],
+  "3DS Rock Rock Mountain": [
+   "11719",
+   "11819"
+  ],
+  "Wii Maple Treeway": [
+   "11720",
+   "11820"
+  ],
+  "Tour Berlin Byways": [
+   "11721",
+   "11821"
+  ],
+  "DS Peach Gardens": [
+   "11722",
+   "11822"
+  ],
+  "Merry Mountain": [
+   "11723",
+   "11823"
+  ],
+  "3DS Rainbow Road": [
+   "1416",
+   "1456",
+   "1486",
+   "1516",
+   "1556",
+   "1586",
+   "11724",
+   "11748",
+   "11824",
+   "11848"
+  ],
+  "Tour Amsterdam Drift": [
+   "11725",
+   "11825"
+  ],
+  "GBA Riverside Park": [
+   "11726",
+   "11826"
+  ],
+  "Wii DK Summit": [
+   "11727",
+   "11827"
+  ],
+  "Yoshi's Island": [
+   "11728",
+   "11828"
+  ],
+  "Tour Bangkok Rush": [
+   "11729",
+   "11829"
+  ],
+  "DS Mario Circuit": [
+   "1406",
+   "1442",
+   "1506",
+   "1542",
+   "11730",
+   "11830"
+  ],
+  "GCN Waluigi Stadium": [
+   "11731",
+   "11831"
+  ],
+  "Tour Singapore Speedway": [
+   "11732",
+   "11832"
+  ],
+  "Tour Athens Dash": [
+   "11733",
+   "11833"
+  ],
+  "GCN Daisy Cruiser": [
+   "11734",
+   "11834"
+  ],
+  "Wii Moonview Highway": [
+   "11735",
+   "11835"
+  ],
+  "Squeaky Clean Sprint": [
+   "11736",
+   "11836"
+  ],
+  "Tour Los Angeles Laps": [
+   "11737",
+   "11837"
+  ],
+  "GBA Sunset Wilds": [
+   "11738",
+   "11838"
+  ],
+  "Wii Koopa Cape": [
+   "11739",
+   "11839"
+  ],
+  "Tour Vancouver Velocity": [
+   "11740",
+   "11840"
+  ],
+  "Tour Rome Avanti": [
+   "11741",
+   "11841"
+  ],
+  "GCN DK Mountain": [
+   "11742",
+   "11842"
+  ],
+  "Wii Daisy Circuit": [
+   "11743",
+   "11843"
+  ],
+  "Piranha Plant Cove": [
+   "11744",
+   "11844"
+  ],
+  "Tour Madrid Drive": [
+   "11745",
+   "11845"
+  ],
+  "3DS Rosalina's Ice World": [
+   "11746",
+   "11846"
+  ],
+  "SNES Bowser Castle 3": [
+   "11747",
+   "11847"
+  ],
+  "Wii Rainbow Road": [
+   "1416",
+   "1456",
+   "1486",
+   "1516",
+   "1556",
+   "1586",
+   "11724",
+   "11748",
+   "11824",
+   "11848"
+  ]
+ }
+}

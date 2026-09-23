@@ -1,0 +1,8 @@
+# Machine-specific - points at wherever this machine's real mod data lives.
+# Each machine sets its own via Settings > "Change master directory" on first run.
+app-config.json
+
+.venv/
+__pycache__/
+**__pycache__/
+*.pyc
