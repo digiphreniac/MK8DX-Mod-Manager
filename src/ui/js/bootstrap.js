@@ -30,6 +30,8 @@
     "js/views.js",
     "js/vehicle-screen.js",
     "js/vehicle-card.js",
+    "js/item-screen.js",
+    "js/item-card.js",
     "js/add-mod.js",
     "js/data-and-conflicts.js",
     "js/settings-panels.js",

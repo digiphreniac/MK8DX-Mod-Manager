@@ -33,13 +33,14 @@ function flowStepInfo(key, st) {
 }
 
 function updateTabCounts() {
-  const counts = { characters: 0, courses: 0, vehicles: 0, more: 0 };
+  const counts = { characters: 0, courses: 0, vehicles: 0, items: 0, more: 0 };
   for (const [k, v] of Object.entries(state.checked || {})) {
     if (!v) continue;
     const c = k.split("/")[0];
     if (c === "characters") counts.characters++;
     else if (c === "courses") counts.courses++;
     else if (VEHICLE_SECTION_KEYS.includes(c)) counts.vehicles++;
+    else if (c === ITEMS_CATEGORY) counts.items++;
     else counts.more++;
   }
   for (const [k, n] of Object.entries(counts)) {
@@ -130,7 +131,7 @@ async function goStep(step, opts) {
     return;
   }
   flow.step = step;
-  for (const v of ["characters", "courses", "vehicles", "more", "list"]) document.getElementById("view-" + v).hidden = true;
+  for (const v of ["characters", "courses", "vehicles", "items", "more", "list"]) document.getElementById("view-" + v).hidden = true;
   for (const id of Object.values(FLOW_PAGES)) document.getElementById(id).hidden = true;
   document.getElementById(FLOW_PAGES[step]).hidden = false;
   document.getElementById("tabs").hidden = true;
@@ -200,7 +201,7 @@ function pgWarnEl(w) {
     if (w.action === "settings") m.appendChild(button("Open Settings", "ghost small", () => openSettingsModal()));
     for (const item of (w.items || []).slice(0, 8)) {
       const a = cgEl("a", null, item);
-      a.addEventListener("click", () => { goStep("mods"); openCharacterModal(item); });
+      a.addEventListener("click", () => { goStep("mods"); if (isItemName(item)) openItemCard(item); else openCharacterModal(item); });
       m.appendChild(a);
     }
     const shown = (w.mods || []).slice(0, 6);

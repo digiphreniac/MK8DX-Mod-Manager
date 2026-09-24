@@ -7,7 +7,9 @@ let dockedKey = null;
 
 function dockedLayout() { return window.innerWidth >= DOCK_MIN_WIDTH; }
 function wantsDock(name) {
-  return viewMode === "characters" && dockedLayout() && (name === null || isCharacterName(name));
+  if (!dockedLayout()) return false;
+  if (viewMode === "items") return name === null || isItemName(name);   // (Items has its own card: item-screen.js)
+  return viewMode === "characters" && (name === null || isCharacterName(name));
 }
 
 // The grid item that a character is one of two of (Villager: Boy and Girl), or undefined.
@@ -90,6 +92,7 @@ function markActiveTile() {
   for (const tile of document.querySelectorAll("#char-grid .char-tile")) tile.classList.toggle("active", key !== null && tile.dataset.char === key);
   updateNameBar();
   markActiveVehicle();
+  markActiveItem();
 }
 
 function applyCharacterLayout() {
@@ -175,6 +178,7 @@ function closeDetail() {
 function beginDetail(docked, key) {
   const backdrop = document.getElementById("modal-backdrop");
   backdrop.classList.remove("above-settings");
+  if (docked && viewMode === "items") return beginItemDetail(key);
   if (docked) {
     backdrop.hidden = true;   // a pop-up left open for a character gives way to the docked card
     openCharacter = null;
@@ -190,7 +194,9 @@ function beginDetail(docked, key) {
 
 // ...and at the end: show the pop-up, or mark the tile and scroll the docked card to its top.
 function endDetail(docked) {
-  if (docked) {
+  if (docked && viewMode === "items") {
+    document.getElementById("item-detail-body").scrollTop = 0;
+  } else if (docked) {
     document.getElementById("char-detail-body").scrollTop = 0;
   } else {
     document.getElementById("modal-backdrop").hidden = false;
@@ -232,6 +238,7 @@ function refreshBehindModal() {
   renderCharacterGrid();
   renderCupOrCourseGrid();
   renderVehiclesView();
+  renderItemsView();
   renderMoreList();
 }
 

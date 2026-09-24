@@ -1,7 +1,7 @@
   /* The widest the app's content gets (--app-max). The bars and pages keep their full-width backgrounds and
      scrollbars; only the side padding grows on a wider window, so everything stays lined up and centred. */
   header, #tabs, #step-hint, #stats-footer,
-  #view-characters, #view-courses, #view-vehicles, #view-more, #view-list, #view-commit, #view-switch {
+  #view-characters, #view-courses, #view-vehicles, #view-items, #view-more, #view-list, #view-commit, #view-switch {
     padding-left: max(20px, calc((100% - var(--app-max)) / 2));
     padding-right: max(20px, calc((100% - var(--app-max)) / 2));
   }

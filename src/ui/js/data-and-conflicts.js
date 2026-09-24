@@ -1,19 +1,21 @@
 // Reloads every roster-backed view's data (characters, courses, the simple
-// categories, vehicle parts) into state - used after anything that adds or
+// categories, vehicle parts, items) into state - used after anything that adds or
 // removes a downloaded mod.
 async function refreshViewsState() {
-  const [charResult, courseResult, simpleResult, vehicleResult, linkResult] = await Promise.all([
+  const [charResult, courseResult, simpleResult, vehicleResult, linkResult, itemResult] = await Promise.all([
     pywebview.api.get_character_view(),
     pywebview.api.get_course_view(),
     pywebview.api.get_simple_categories_view(),
     pywebview.api.get_vehicles_view(),
     pywebview.api.get_vehicle_links(),
+    pywebview.api.get_items_view(),
   ]);
   state.roster = charResult.roster;
   state.cups = courseResult.cups;
   state.simpleCategories = simpleResult.categories;
   state.vehicles = vehicleResult.sections;
   state.vehicleLinks = linkResult;
+  state.items = itemResult.items;
 }
 
 async function loadMods() {

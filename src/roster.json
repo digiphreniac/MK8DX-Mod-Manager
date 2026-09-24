@@ -1552,5 +1552,208 @@
         "Paper Wing"
       ]
     }
+  ],
+  "items": [
+    {
+      "name": "Banana",
+      "icon": "Banana",
+      "internal": "ItemBanana",
+      "aliases": [
+        "Bananas",
+        "Banana Peel",
+        "Triple Banana"
+      ]
+    },
+    {
+      "name": "Green Shell",
+      "icon": "Koura",
+      "aliases": [
+        "Green Shells",
+        "Koura",
+        "Triple Green Shells"
+      ]
+    },
+    {
+      "name": "Red Shell",
+      "icon": "RedKoura",
+      "aliases": [
+        "Red Shells",
+        "Homing Shell",
+        "Triple Red Shells"
+      ]
+    },
+    {
+      "name": "Spiny Shell",
+      "icon": "Togezo",
+      "internal": "ItemTogezo",
+      "aliases": [
+        "Blue Shell",
+        "Blue Shells",
+        "Spiny",
+        "Spiny Shells",
+        "Togezo"
+      ]
+    },
+    {
+      "name": "Bob-omb",
+      "icon": "Bomb",
+      "internal": "ItemBomhei",
+      "aliases": [
+        "Bomb",
+        "Bobomb",
+        "Bomhei"
+      ]
+    },
+    {
+      "name": "Mushroom",
+      "icon": "Mush",
+      "internal": "ItemKinoko",
+      "aliases": [
+        "Super Mushroom",
+        "Mushrooms",
+        "Triple Mushrooms",
+        "Kinoko"
+      ]
+    },
+    {
+      "name": "Golden Mushroom",
+      "icon": "PKinoko",
+      "internal": "ItemPowerKinoko",
+      "aliases": [
+        "Gold Mushroom",
+        "Golden Mushrooms"
+      ]
+    },
+    {
+      "name": "Super Star",
+      "icon": "Star",
+      "aliases": [
+        "Star",
+        "Starman",
+        "Invincibility Star"
+      ]
+    },
+    {
+      "name": "Lightning",
+      "icon": "Thunder",
+      "internal": "ItemThunder",
+      "aliases": [
+        "Thunder",
+        "Lightning Bolt"
+      ]
+    },
+    {
+      "name": "Boomerang Flower",
+      "icon": "Boomerang",
+      "internal": "ItemBoomerang",
+      "aliases": [
+        "Boomerang"
+      ]
+    },
+    {
+      "name": "Fire Flower",
+      "icon": "Flower",
+      "internal": "ItemFireBall",
+      "aliases": [
+        "Fireball",
+        "Fire Ball",
+        "Fireballs"
+      ]
+    },
+    {
+      "name": "Piranha Plant",
+      "icon": "PackunFlower",
+      "internal": "ItemPackun",
+      "aliases": [
+        "Piranha",
+        "Packun",
+        "Pakkun"
+      ]
+    },
+    {
+      "name": "Bullet Bill",
+      "icon": "Killer",
+      "internal": "ItemKiller",
+      "aliases": [
+        "Bullet",
+        "Killer"
+      ]
+    },
+    {
+      "name": "Blooper",
+      "icon": "Gesso",
+      "internal": "ItemGesso",
+      "aliases": [
+        "Gesso",
+        "Squid"
+      ]
+    },
+    {
+      "name": "Boo",
+      "icon": "Teresa",
+      "internal": "TS_ItemTeresa",
+      "aliases": [
+        "Teresa",
+        "Ghost"
+      ]
+    },
+    {
+      "name": "Super Horn",
+      "icon": "SuperHorn",
+      "internal": "ItemSHorn",
+      "aliases": [
+        "Horn"
+      ]
+    },
+    {
+      "name": "Crazy Eight",
+      "icon": "SP8",
+      "aliases": [
+        "Crazy 8",
+        "Crazy8",
+        "Crazy Eights"
+      ]
+    },
+    {
+      "name": "Feather",
+      "icon": "Feather",
+      "internal": "TS_ItemFeather",
+      "aliases": [
+        "Feathers"
+      ]
+    },
+    {
+      "name": "Coin",
+      "icon": "Coin",
+      "internal": "ItemCoin",
+      "aliases": [
+        "Coins"
+      ]
+    },
+    {
+      "name": "Rupee",
+      "internal": "DL_ItemRupee",
+      "aliases": [
+        "Rupees"
+      ]
+    },
+    {
+      "name": "Bell",
+      "internal": "DL_ItemBell",
+      "aliases": [
+        "Super Bell",
+        "Bells"
+      ]
+    },
+    {
+      "name": "Item Box",
+      "internal": "ItemBox",
+      "aliases": [
+        "Item Boxes",
+        "Itembox",
+        "Question Box",
+        "Item Block"
+      ]
+    }
   ]
 }

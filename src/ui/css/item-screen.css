@@ -1,0 +1,56 @@
+  /* Items: every item as the game's own picture of it on a board, like Character Select - the grid on the left and, on a wide
+     window, the picked item's card docked on the right (below DOCK_MIN_WIDTH the card is a pop-up and the board takes the whole
+     width), a name plate along the bottom. Nothing scrolls: fitItemGrid() (item-screen.js) works out the tile size --it, the gap
+     --ig and the number of columns --ic from the room there is, and everything below is drawn from those. */
+  #view-items:not([hidden]) { display: flex; flex-direction: column; overflow: hidden; padding-top: 12px; padding-bottom: 0; position: relative; }
+  #item-layout { flex: 1 1 auto; min-height: 0; display: flex; align-items: stretch; justify-content: center; gap: 16px; }
+  #item-detail { display: none; }
+  /* the board (same look as Character Select's - see tiles-and-grids.css): the grid centred on it, the board as tall as its grid */
+  #item-grid-col { flex: 0 0 auto; align-self: center; max-height: 100%; min-width: 0; overflow: hidden; display: flex; }
+  #item-grid {
+    display: grid; grid-template-columns: repeat(var(--ic, 6), var(--it, 80px)); grid-auto-rows: var(--it, 80px); gap: var(--ig, 10px);
+    width: max-content; margin: auto; --it: 80px; --ig: 10px; --ic: 6;
+  }
+  #item-layout.docked #item-grid-col { flex: 0 0 calc(55% - 8px); overflow-y: auto; overflow-x: hidden; }
+  #item-layout.docked #item-detail {
+    display: flex; flex-direction: column; flex: 0 0 calc(45% - 8px); min-height: 0;
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px; box-shadow: var(--shadow);
+  }
+  #item-layout.docked #item-detail-header { display: none; }   /* the name lives on the plate below; the pop-up keeps its title */
+  #item-detail-header { padding: 14px 16px; border-bottom: 1px solid var(--panel-border); display: flex; align-items: center; gap: 8px; }
+  #item-detail-header h2 { margin: 0; font-size: 16px; flex: 1; }
+  #item-detail-body { padding: 14px 16px 16px 16px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+  #item-namebar { flex: 0 0 auto; height: 76px; display: flex; align-items: center; justify-content: center; }
+
+  /* An item is a rounded square holding the game's picture of it; the name is on the plate (the tile keeps its own name only
+     while there is no picture - the Item Box, the Rupee and the Bell have none in the game). */
+  #item-grid .char-tile {
+    aspect-ratio: auto; box-sizing: border-box; width: 100%; height: 100%; padding: calc(var(--it) * 0.06);
+    border-radius: calc(var(--it) * 0.16); overflow: visible; border: 2px solid rgba(160, 165, 175, 0.8);
+  }
+  #view-items .char-tile:hover { transform: none; }
+  /* the white frame that follows the mouse is the hover mark: no accent border on top of it (a ticked item or a clash keeps its own) */
+  #item-grid .char-tile:not(.has-selected):not(.has-conflict):hover { border-color: rgba(160, 165, 175, 0.8); }
+  #item-grid .char-tile.has-conflict { border-color: var(--danger); }
+  #item-grid .char-tile.no-mods:hover, #item-grid .char-tile.no-mods.active { opacity: 1; }
+  #item-grid .char-tile.has-art { border-color: transparent; background: transparent; box-shadow: none; }
+  #item-grid .char-tile.has-art.has-selected { border-color: var(--accent); background: var(--accent-soft); }
+  #item-grid .char-tile.has-art.has-conflict { border-color: var(--danger); }
+  .item-icon { width: 100%; height: 100%; display: block; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+  #item-grid .char-tile.has-art .char-name { display: none; }
+  #item-grid .char-name { font-size: clamp(9px, calc(var(--it) * 0.16), 15px); line-height: 1.15; overflow: hidden; overflow-wrap: anywhere; max-height: 100%; text-align: center; }
+  #item-grid .tile-count-bubble {
+    top: calc(var(--it) * -0.04); right: calc(var(--it) * -0.04);
+    min-width: clamp(17px, calc(var(--it) * 0.27), 27px); height: clamp(17px, calc(var(--it) * 0.27), 27px);
+    padding: 0 5px; font-size: clamp(9.5px, calc(var(--it) * 0.15), 14px);
+  }
+  #item-grid .char-conflict-badge { top: 3px; left: 3px; width: clamp(13px, calc(var(--it) * 0.22), 18px); height: clamp(13px, calc(var(--it) * 0.22), 18px); font-size: clamp(9px, calc(var(--it) * 0.15), 12px); }
+  #item-grid .char-attention-dot { top: 5px; left: 5px; }
+
+  /* The item card (item-card.js): the game's picture of the item in the head, and the row that moves a mod to another item. */
+  .cc-item-pic { width: 56px; height: 56px; flex: none; object-fit: contain; }
+  .cc-move { margin: 0 0 10px 0; padding: 8px 12px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel); }
+  .cc-move > summary { cursor: pointer; font-size: 13px; color: var(--text-dim); }
+  .cc-move[open] > summary { margin-bottom: 8px; }
+  .cc-move-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 6px 0; }
+  .cc-move-name { flex: 1 1 160px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }

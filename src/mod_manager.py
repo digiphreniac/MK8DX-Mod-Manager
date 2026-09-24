@@ -30,6 +30,7 @@ import webview
 import bntx_decode
 import bntx_encode
 import cup_icons
+import item_icons
 import vehicle_icons
 import gamebanana_api
 import ui_setup
@@ -107,8 +108,17 @@ VEHICLES_CATEGORY_ID = 10530  # parent of the vehicle-part section categories, s
 SIMPLE_MOD_CATEGORIES = {
     "mechanics": {"label": "Mechanics", "gb_category_id": 5088},
     "ui": {"label": "UI", "gb_category_id": 2162},
-    "items": {"label": "Items", "gb_category_id": 10579},
 }
+# Items got their own screen and a fixed per-item roster (roster.json's "items": Banana, Green Shell, Super Horn ...) like
+# vehicle parts. GameBanana has one flat "Items" category (no subcategory per item), so - as with tires and gliders - it lists
+# every item mod and each is annotated with the item its text says it replaces (see match_vehicle_targets, which reads the
+# roster's names / aliases / model-folder ids). Mods are filed under mods/extracted/items/<item name>/. Anything filed before
+# items had a roster sits in items/Items/ (the one fixed pseudo-item they used to be): it stays where it is, and shows as the
+# last tile, "Other items" - the place for a mod that fits none of the listed items too (or several of them: an item pack).
+ITEMS_CATEGORY = "items"
+ITEMS_GB_CATEGORY_ID = 10579
+ITEMS_OTHER = "Items"          # the catch-all's name (its folder, its download records); shown as ITEMS_OTHER_LABEL
+ITEMS_OTHER_LABEL = "Other items"
 # Vehicle parts get their own tab and a fixed per-item roster (roster.json:
 # 41 bodies, 22 tires, 15 gliders) instead of a single pseudo-item. GameBanana
 # has no per-part subcategory, only these section categories under Vehicles
@@ -1016,6 +1026,8 @@ _GENERIC_PART_WORDS = {
     "standard", "monster", "roller", "slim", "slick", "metal", "button", "sponge", "wood",
     "cushion", "leaf", "leaf tires", "ancient", "gold", "comet", "parachute", "parasol",
     "triforce",
+    # items (roster.json's "items"): single words that turn up in any description
+    "star", "bell", "coin", "killer", "bomb", "ghost", "squid", "bullet",
 }
 _OVER_PREFIX = (
     r"(?:\bover\b|\breplaces\b|\breplace\b|\breplacing\b|\binstead of\b|\bin place of\b|"
@@ -1665,6 +1677,10 @@ class Api(VoiceEditMixin):
         data = self._load_roster_data()
         return {key: list(data.get(key, [])) for key in VEHICLE_SECTIONS}
 
+    def _load_item_roster(self):
+        """roster.json's items: [{name, icon, internal, aliases}] (the icon and internal id are optional)."""
+        return list(self._load_roster_data().get("items", []))
+
     def _vehicle_item(self, item_name):
         """(section key, roster item) for a vehicle-part name, or (None, None)."""
         for section, items in self._load_vehicle_roster().items():
@@ -2151,18 +2167,46 @@ class Api(VoiceEditMixin):
                         "record_type": (mod or {}).get("record_type", "Mod")}
         return out
 
+    def get_item_mod_ids(self, item_name, unit_keys):
+        """For an item card's "move to another item" row: {unit key: {"mod_id", "record_type"}} of these downloaded mods
+        (unit keys filed under `item_name`) that are tracked from GameBanana - a mod added by hand has no id, so it can't be
+        moved (it is left out)."""
+        if self.mod_root is None or self._movable_item(item_name)[1] is None:
+            return {}
+        tracked = self._load_gb_mods().get(item_name, [])
+        out = {}
+        for key in unit_keys or []:
+            unit = self._unit_dir(key)
+            if not unit.is_dir():
+                continue
+            mod = next((m for m in tracked for f in m.get("files", [])
+                        if f.get("downloaded_to") and (Path(f["downloaded_to"]) == unit or Path(f["downloaded_to"]) in unit.parents)), None)
+            if mod:
+                out[key] = {"mod_id": mod["mod_id"], "record_type": mod.get("record_type", "Mod")}
+        return out
+
+    def _movable_item(self, name):
+        """(category folder, roster entry) of a vehicle part or an item (the "Other items" catch-all too) - the things a mod
+        can be re-filed between - or (None, None)."""
+        section, part = self._vehicle_item(name)
+        if part is not None:
+            return section, part
+        if name == ITEMS_OTHER or any(i["name"] == name for i in self._load_item_roster()):
+            return ITEMS_CATEGORY, {"name": name}
+        return None, None
+
     def gb_move_mod(self, from_item, mod_id, to_item, record_type="Mod"):
-        """Re-files a tracked vehicle-part mod under a different part - what
-        the "ships X's file, not this part's" warning offers - without a
-        remove-and-re-add: its tracking entry, extracted folders, archives and
-        ticked state all move together, and each moved file's slot check is
-        re-run against its new home. Refuses if the mod is already tracked
-        under the target (two entries for one mod would need merging) or the
-        move would touch anything but vehicle parts."""
-        from_section, from_part = self._vehicle_item(from_item)
-        to_section, to_part = self._vehicle_item(to_item)
+        """Re-files a tracked vehicle-part (or item) mod under a different part / item - what the "ships X's file, not this
+        part's" warning offers, and how a mod filed under "Other items" gets its item - without a remove-and-re-add: its
+        tracking entry, extracted folders, archives and ticked state all move together, and each moved file's slot check is
+        re-run against its new home. Refuses if the mod is already tracked under the target (two entries for one mod would
+        need merging) or the move would touch anything but vehicle parts and items, or cross from one to the other."""
+        from_section, from_part = self._movable_item(from_item)
+        to_section, to_part = self._movable_item(to_item)
         if from_part is None or to_part is None:
-            return {"success": False, "error": "Only vehicle parts can be moved this way."}
+            return {"success": False, "error": "Only vehicle parts and items can be moved this way."}
+        if (from_section == ITEMS_CATEGORY) != (to_section == ITEMS_CATEGORY):
+            return {"success": False, "error": "A mod can't be moved between an item and a vehicle part."}
         if from_item == to_item:
             return {"success": False, "error": "That's already where it is."}
         gb_mods = self._load_gb_mods()
@@ -2197,7 +2241,7 @@ class Api(VoiceEditMixin):
                     new_rel = new.relative_to(extracted_root).as_posix()
                     for key in [k for k in state if k == old_rel or k.startswith(old_rel + "/")]:
                         state[new_rel + key[len(old_rel):]] = state.pop(key)
-                    f["slot_mismatch"] = self._vehicle_slot_mismatch(to_item, new)
+                    f["slot_mismatch"] = None if to_section == ITEMS_CATEGORY else self._vehicle_slot_mismatch(to_item, new)
                 old_archive = f.get("archive_path")
                 if old_archive and Path(old_archive).is_file():
                     archive_parent = downloads_root / to_section / to_dir
@@ -2259,6 +2303,31 @@ class Api(VoiceEditMixin):
                 ],
             })
         return {"sections": sections, "checked": self._load_state()}
+
+    def get_items_view(self):
+        """Same idea as get_vehicles_view(), for the Items screen: every roster item always shows up (even with nothing
+        downloaded yet) with its discovered mod units grouped by the item folder they were downloaded into, and a last
+        catch-all ("Items": the folder everything filed before items had a roster is in) for what fits none of them."""
+        categories = discover_mods(self.mod_root)
+        gb_attempted = self._gb_attempted_names()
+        roster = self._load_item_roster()
+        norm_to_name = {normalize_char_name(sanitize_filename(i["name"])): i["name"] for i in roster}
+        grouped = {i["name"]: [] for i in roster}
+        grouped[ITEMS_OTHER] = []
+        for unit in categories.get(ITEMS_CATEGORY, []):
+            canonical = norm_to_name.get(normalize_char_name(unit.parts[0]), ITEMS_OTHER)
+            grouped[canonical].append(f"{ITEMS_CATEGORY}/{unit.as_posix()}")
+        items = [{
+            "name": i["name"],
+            "internal": i.get("internal"),
+            "units": sorted(grouped[i["name"]]),
+            "gb_attempted": i["name"] in gb_attempted,
+        } for i in roster]
+        items.append({
+            "name": ITEMS_OTHER, "label": ITEMS_OTHER_LABEL, "internal": None, "catch_all": True,
+            "units": sorted(grouped[ITEMS_OTHER]), "gb_attempted": ITEMS_OTHER in gb_attempted,
+        })
+        return {"key": ITEMS_CATEGORY, "label": "Items", "items": items, "checked": self._load_state()}
 
     def _course_internal_names(self, course_name):
         """Looks up the known internal romfs Course/-slot id(s) for a course
@@ -3379,6 +3448,8 @@ class Api(VoiceEditMixin):
         # download that's really just UI art, say) get their own label.
         simple_labels = {info["label"]: info["label"] for info in SIMPLE_MOD_CATEGORIES.values()}
         simple_labels["UI"] = "UI mods"
+        simple_labels.update({i["name"]: i["name"] for i in self._load_item_roster()})
+        simple_labels[ITEMS_OTHER] = ITEMS_OTHER_LABEL
         entries = []
         for item_name, mods in gb_mods.items():
             if item_name not in roster and item_name not in simple_labels:
@@ -3625,6 +3696,7 @@ class Api(VoiceEditMixin):
              if info["gb_category_id"] in (cat_id, super_cat_id)),
             None,
         )
+        is_item_mod = ITEMS_GB_CATEGORY_ID in (cat_id, super_cat_id)
         if super_cat_id == CHARACTERS_CATEGORY_ID and cat_name:
             match = next(
                 (name for name in roster if normalize_char_name(name) == normalize_char_name(cat_name)),
@@ -3659,6 +3731,12 @@ class Api(VoiceEditMixin):
             # its generic "couldn't tell what this is" message.
             guess_category = best[1] if best else (section or "vehicle_unsorted")
             guess_target = best[2] if best else None
+        elif is_item_mod:
+            # An item mod: the category is the one flat "Items" category, so which item is read from the text (a suggestion
+            # only, like a vehicle part's); the catch-all when nothing names one - or several do (an item pack).
+            matches = match_vehicle_targets("items", self._load_item_roster(), detail["name"], detail["description"])
+            guess_category = ITEMS_CATEGORY
+            guess_target = matches[0][0] if len(matches) == 1 else ITEMS_OTHER
         elif simple_key is not None:
             # Some of these (Mechanics, Items) file mods directly at the
             # category itself (category_id matches), others (UI) have real
@@ -3676,6 +3754,7 @@ class Api(VoiceEditMixin):
             "course_candidates": course_candidates,
             "all_characters": roster,
             "all_courses": [c["name"] for cup in self._load_course_roster() for c in cup["courses"]],
+            "all_items": [i["name"] for i in self._load_item_roster()] + [ITEMS_OTHER],
             "all_vehicle_parts": [
                 {"section": key, "label": VEHICLE_SECTIONS[key]["label"], "items": [i["name"] for i in items]}
                 for key, items in self._load_vehicle_roster().items()
@@ -3746,8 +3825,34 @@ class Api(VoiceEditMixin):
         result["target_name"] = item_name
         return result
 
+    def gb_browse_item(self, item_name, page=1, sort="most_viewed"):
+        """Browses GameBanana's one flat Items category for an item's card. Like a vehicle part's browse, every item mod is
+        listed and each is annotated with the item(s) its text says it replaces (`targets`), so the card can mark the likely
+        matches. The catch-all ("Other items") is any item mod at all."""
+        try:
+            result = gamebanana_api.browse_category(ITEMS_GB_CATEGORY_ID, page=page, sort=sort)
+        except gamebanana_api.GameBananaError as e:
+            return {"error": str(e), "records": [], "total": 0, "is_complete": True, "page": page,
+                    "per_page": 15, "subcategory_id": ITEMS_GB_CATEGORY_ID}
+        seen = set()
+        records = []
+        for rec in result["records"]:  # GameBanana can repeat a mod within a listing
+            if rec["mod_id"] not in seen:
+                seen.add(rec["mod_id"])
+                records.append(rec)
+        if not self._load_settings().get("show_nsfw", False):
+            records = [r for r in records if not r.get("has_content_ratings")]
+        self._annotate_targets("items", self._load_item_roster(), records)
+        result["records"] = records
+        result["error"] = None
+        result["subcategory_id"] = ITEMS_GB_CATEGORY_ID
+        result["target_name"] = item_name
+        return result
+
     def _annotate_vehicle_targets(self, section, records):
-        items = self._load_vehicle_roster()[section]
+        self._annotate_targets(section, self._load_vehicle_roster()[section], records)
+
+    def _annotate_targets(self, section, items, records):
         cache = self._vehicle_desc_cache
         todo = [r for r in records if r["mod_id"] not in cache]
 
@@ -5688,6 +5793,26 @@ class Api(VoiceEditMixin):
             pngs = vehicle_icons.load(menu, parts, lambda f: game_files.find_current_vehicle_pict(self.mod_root, f))
             icons = {n: "data:image/png;base64," + base64.b64encode(png).decode("ascii") for n, png in pngs.items()}
             self._vehicle_icon_cache = cached = (stamp, icons)
+        return cached[1]
+
+    def get_item_icons(self):
+        """{item name: PNG data URI} - the game's own picture of every item that has one, for the Items screen (see
+        item_icons.py). {} before Setup or when the copy can't be read; the tiles then keep their plain names. Decoded once per
+        copy: remembered until menu.sarc changes."""
+        if self.mod_root is None:
+            return {}
+        menu = self._game_files().get("menu")
+        if menu is None:
+            return {}
+        try:
+            stamp = (str(menu), menu.stat().st_mtime_ns, menu.stat().st_size)
+        except OSError:
+            return {}
+        cached = getattr(self, "_item_icon_cache", None)
+        if cached is None or cached[0] != stamp:
+            pngs = item_icons.load(menu, self._load_item_roster())
+            icons = {n: "data:image/png;base64," + base64.b64encode(png).decode("ascii") for n, png in pngs.items()}
+            self._item_icon_cache = cached = (stamp, icons)
         return cached[1]
 
     def get_base_files_status(self):

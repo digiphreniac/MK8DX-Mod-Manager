@@ -1,6 +1,6 @@
   /* The board the character grid sits on (both layouts): a light translucent panel with slightly
      rounded corners and a ridge border. The padding leaves room for the corner brackets. */
-  #char-grid-col, #cup-board {
+  #char-grid-col, #cup-board, #item-grid-col {
     position: relative; box-sizing: border-box; padding: 10px;
     background: rgba(219, 219, 219, 0.25);
     background-clip: padding-box;   /* so the border isn't drawn over the panel's own fill (that would double its opacity) */

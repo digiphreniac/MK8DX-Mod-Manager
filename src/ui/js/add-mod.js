@@ -111,6 +111,20 @@ function populateAddModSelects(result) {
   }
   vehicleSelect.value = isVehicleGuess(result.guess_category) && result.guess_target ? result.guess_target : "";
 
+  const itemSelect = document.getElementById("add-mod-item-select");
+  itemSelect.innerHTML = "";
+  const itemPlaceholder = document.createElement("option");
+  itemPlaceholder.value = "";
+  itemPlaceholder.textContent = "— pick an item —";
+  itemSelect.appendChild(itemPlaceholder);
+  for (const name of result.all_items || []) {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name === ITEMS_OTHER ? ITEMS_OTHER_LABEL : name;
+    itemSelect.appendChild(opt);
+  }
+  itemSelect.value = result.guess_category === ITEMS_CATEGORY && result.guess_target ? result.guess_target : "";
+
   const otherSelect = document.getElementById("add-mod-other-select");
   const otherLabelInput = document.getElementById("add-mod-other-label");
   const simpleGuess = SIMPLE_CATEGORIES.find(c => c.key === result.guess_category);
@@ -391,6 +405,11 @@ async function identifyAddMod() {
       ? `GameBanana lists this under "${result.mod.category_name}" - its description suggests it replaces ${result.guess_target}. That's a guess from the text, so double-check before confirming.`
       : `GameBanana lists this under "${result.mod.category_name}" - it's a vehicle part mod, but its text doesn't say which part. Pick one below (after downloading, the app checks the files and tells you if it's under the wrong part).`;
     noteEl.hidden = false;
+  } else if (result.guess_category === ITEMS_CATEGORY) {
+    noteEl.textContent = result.guess_target && result.guess_target !== ITEMS_OTHER
+      ? `GameBanana lists this under "${result.mod.category_name}" - its description suggests it replaces ${result.guess_target}. That's a guess from the text, so double-check before confirming.`
+      : `GameBanana lists this under "${result.mod.category_name}" - it's an item mod, but its text doesn't name a single one of the listed items (or names several, like an item pack). It goes under "${ITEMS_OTHER_LABEL}" unless you pick an item below.`;
+    noteEl.hidden = false;
   } else if (simpleGuess) {
     noteEl.textContent = `GameBanana lists this under "${result.mod.category_name}" - looks like a ${simpleGuess.label} mod.`;
     noteEl.hidden = false;
@@ -406,6 +425,7 @@ async function identifyAddMod() {
   const radioValue = result.guess_category === "characters" ? "character"
     : result.guess_category === "courses" ? "course"
     : isVehicleGuess(result.guess_category) ? "vehicle"
+    : result.guess_category === ITEMS_CATEGORY ? "item"
     : "other";
   document.querySelector(`input[name="add-mod-target-type"][value="${radioValue}"]`).checked = true;
   buildAddModFilesPanel(result);
@@ -431,6 +451,9 @@ document.getElementById("add-mod-vehicle-select").addEventListener("focus", () =
   document.getElementById("add-mod-radio-vehicle").checked = true;
   updateAddModFilesPanel();
 });
+document.getElementById("add-mod-item-select").addEventListener("focus", () => {
+  document.getElementById("add-mod-radio-item").checked = true;
+});
 document.getElementById("add-mod-other-select").addEventListener("focus", () => {
   document.getElementById("add-mod-radio-other").checked = true;
 });
@@ -452,12 +475,14 @@ async function confirmAddMod() {
     return confirmAddModPerFile(link, errEl, confirmBtn);
   }
 
-  if (targetType === "character" || targetType === "course" || targetType === "vehicle") {
+  if (targetType === "character" || targetType === "course" || targetType === "vehicle" || targetType === "item") {
     const target = targetType === "character"
       ? document.getElementById("add-mod-character-select").value
       : targetType === "course"
         ? document.getElementById("add-mod-course-select").value
-        : document.getElementById("add-mod-vehicle-select").value;
+        : targetType === "item"
+          ? document.getElementById("add-mod-item-select").value
+          : document.getElementById("add-mod-vehicle-select").value;
     if (!target) {
       errEl.textContent = "Pick one from the dropdown first.";
       errEl.hidden = false;
@@ -475,8 +500,12 @@ async function confirmAddMod() {
     }
     await refreshViewsState();
     closeAddModModal();
-    switchView(targetType === "character" ? "characters" : targetType === "course" ? "courses" : "vehicles");
-    openCharacterModal(target);
+    if (targetType === "item") {
+      await openItemCard(target);
+    } else {
+      switchView(targetType === "character" ? "characters" : targetType === "course" ? "courses" : "vehicles");
+      openCharacterModal(target);
+    }
     refreshBehindModal();
     return;
   }
@@ -484,7 +513,7 @@ async function confirmAddMod() {
   const otherKey = document.getElementById("add-mod-other-select").value;
   const simpleTarget = SIMPLE_CATEGORIES.find(c => c.key === otherKey);
   if (simpleTarget) {
-    // A simple category (Mechanics/UI/Items) behaves exactly like
+    // A simple category (Mechanics/UI) behaves exactly like
     // a character/course target above - fetch metadata, then hand off into
     // its own modal (reached via the More tab) so files get picked the
     // normal way, not auto-downloaded.

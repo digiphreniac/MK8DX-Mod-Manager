@@ -451,6 +451,11 @@ async function jumpToModKey(key) {
     openCharacterModal(item.name);
     return;
   }
+  if (category === ITEMS_CATEGORY) {
+    const item = state.items.find(i => i.units.includes(key));
+    if (item) await openItemCard(item.name);
+    return;
+  }
   const simple = SIMPLE_CATEGORIES.find(c => c.key === category);
   if (simple) {
     switchView("more");

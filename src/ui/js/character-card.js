@@ -733,13 +733,14 @@ function openCharacterModal(name) {
   const docked = wantsDock(name);
   const t = beginDetail(docked, name);
   const entry = findRosterEntry(name);
-  t.title.textContent = name;
+  t.title.textContent = isItemName(name) ? itemLabel(name) : name;
   const body = t.body;
   body.innerHTML = "";
   const isCharCard = resolveItemCategory(name) === "characters";
   const isCourseCard = resolveItemCategory(name) === "courses";
   const isVehicleCard = VEHICLE_SECTION_KEYS.includes(resolveItemCategory(name));
-  const guided = isCharCard || isCourseCard || isVehicleCard;   // the guided cards: a status head, the mods in use, then their steps
+  const isItemCard = isItemName(name);
+  const guided = isCharCard || isCourseCard || isVehicleCard || isItemCard;   // the guided cards: a status head, the mods in use, then their steps
 
   const mainCol = document.createElement("div");
   mainCol.className = "modal-main-col";
@@ -858,7 +859,7 @@ function openCharacterModal(name) {
     const emptyCategory = resolveItemCategory(name);
     const emptyNoun = emptyCategory === "characters" ? "this character"
       : emptyCategory === "courses" ? "this course"
-      : name;
+      : itemLabel(name);
     // Vehicle parts can have mods filed elsewhere that also ship their model
     // file (see the "Also ships this part" card below) - "nothing downloaded"
     // would contradict that card, so say what's actually true.
@@ -892,7 +893,7 @@ function openCharacterModal(name) {
       cb.checked = !!state.checked[key];
       if (cb.checked) row.classList.add("checked");
       const label = document.createElement("label");
-      label.textContent = isCharCard ? charModLabel(key) : key.split("/").slice(isCourseCard || isVehicleCard ? 2 : 1).join("/");
+      label.textContent = isCharCard ? charModLabel(key) : key.split("/").slice(isCourseCard || isVehicleCard || isItemCard ? 2 : 1).join("/");
       if (isCharCard) label.title = modLabel(key, true);
       cb.addEventListener("change", () => {
         state.checked[key] = cb.checked;
@@ -1182,6 +1183,13 @@ function openCharacterModal(name) {
   }
   if (isCourseCard) {
     assembleCourseCard({ name, entry, body, mainCol, conflictBox, modCheckboxes, secondaryCard,
+      refreshCount: refreshModsCount, refreshToggle: refreshModsToggleBtn, refreshConflicts: updateModalConflicts });
+    endDetail(docked);
+    return;
+  }
+
+  if (isItemCard) {
+    assembleItemCard({ name, entry, body, mainCol, conflictBox, modCheckboxes, secondaryCard,
       refreshCount: refreshModsCount, refreshToggle: refreshModsToggleBtn, refreshConflicts: updateModalConflicts });
     endDetail(docked);
     return;

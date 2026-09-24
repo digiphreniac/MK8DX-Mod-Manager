@@ -532,15 +532,20 @@ function openGbBrowseModal(itemName, category, onUseMod) {
   const sortSelect = document.getElementById("gb-browse-modal-sort");
   const isCourse = category === "courses";
   const isSimple = SIMPLE_CATEGORIES.some(c => c.key === category);
-  const isVehicle = VEHICLE_SECTION_KEYS.includes(category);
-  titleEl.textContent = `Browse GameBanana — ${itemName}`;
+  const isItem = category === ITEMS_CATEGORY;
+  // vehicle parts and items: one flat GameBanana category each, no per-part subcategory - see the badges below
+  const isVehicle = VEHICLE_SECTION_KEYS.includes(category) || isItem;
+  const shownName = itemLabel(itemName);
+  titleEl.textContent = `Browse GameBanana — ${shownName}`;
   sortSelect.hidden = isCourse; // course search has no sort support, relevance-ordered only
   // GameBanana's "Most Liked" paging repeats/skips mods in the big vehicle
   // categories (verified), so vehicle parts default to Most Viewed instead.
   sortSelect.value = isVehicle ? "most_viewed" : "most_liked";
 
   let page = 1;
-  let likelyOnly = false; // vehicle parts only: hide mods not matched to this part
+  // vehicle parts and items: on by default - hide mods not matched to this part / item (a category holds every mod of its kind).
+  // (Not for the "Other items" catch-all, which is for what matches no single item.)
+  let likelyOnly = isVehicle && !(isItem && itemName === ITEMS_OTHER);
 
   function renderCharacterGridResults(result) {
     if (result.subcategory_id === null) {
@@ -565,14 +570,24 @@ function openGbBrowseModal(itemName, category, onUseMod) {
       likelyBox.addEventListener("change", () => { likelyOnly = likelyBox.checked; render(); });
       toolbar.appendChild(likelyBox);
       toolbar.appendChild(document.createTextNode(
-        `Only show mods that look like they replace ${itemName} (badges are guessed from each mod's description)`
+        isItem && itemName === ITEMS_OTHER
+          ? "Only show mods that don't look like they replace one single listed item - packs, and ones that name none (badges are guessed from each mod's description)"
+          : `Only show mods that look like they replace ${shownName} (badges are guessed from each mod's description)`
       ));
       resultsEl.appendChild(toolbar);
-      if (likelyOnly) records = records.filter(r => (r.targets || []).includes(itemName));
+      // (the catch-all's "likely" ones are those that name no single listed item)
+      const likelyFor = (r) => itemName === ITEMS_OTHER && isItem ? (r.targets || []).length !== 1 : (r.targets || []).includes(itemName);
+      if (likelyOnly) records = records.filter(likelyFor);
       if (records.length === 0) {
         const none = document.createElement("div");
         none.className = "gb-browse-status";
-        none.textContent = "No mods on this page look like they replace this part - try the next page, or untick the filter.";
+        none.textContent = `No mods on this page look like they replace this ${isItem ? "item" : "part"} - try the next page, or `;
+        const showAll = document.createElement("a");
+        showAll.href = "#";
+        showAll.textContent = "show every mod on this page";
+        showAll.addEventListener("click", (e) => { e.preventDefault(); likelyOnly = false; render(); });
+        none.appendChild(showAll);
+        none.appendChild(document.createTextNode("."));
         resultsEl.appendChild(none);
         return;
       }
@@ -604,7 +619,7 @@ function openGbBrowseModal(itemName, category, onUseMod) {
         const badge = document.createElement("span");
         badge.className = "gb-target-badge" + (isThisPart ? " match" : "");
         badge.textContent = isThisPart
-          ? `✓ ${verb} ${itemName}`
+          ? `✓ ${verb} ${shownName}`
           : `${verb} ${rec.targets.slice(0, 2).join(", ")}${rec.targets.length > 2 ? "…" : ""}`;
         badge.title = rec.target_strength >= 2
           ? "Guessed from a 'goes over / replaces' phrase or a file name in the mod's description."
@@ -683,6 +698,8 @@ function openGbBrowseModal(itemName, category, onUseMod) {
       ? await pywebview.api.gb_browse_course(itemName, page)
       : isSimple
         ? await pywebview.api.gb_browse_simple(category, page, sortSelect.value)
+        : isItem
+          ? await pywebview.api.gb_browse_item(itemName, page, sortSelect.value)
         : isVehicle
           ? await pywebview.api.gb_browse_vehicle(itemName, page, sortSelect.value)
           : await pywebview.api.gb_browse(itemName, page, sortSelect.value);

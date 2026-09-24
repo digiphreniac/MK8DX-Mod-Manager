@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="css/course-screen.css">
 <link rel="stylesheet" href="css/course-card.css">
 <link rel="stylesheet" href="css/vehicle-screen.css">
+<link rel="stylesheet" href="css/item-screen.css">
 </head>
 <body>
 
@@ -44,6 +45,7 @@
   <button id="tab-characters" class="active">Characters</button>
   <button id="tab-courses">Courses</button>
   <button id="tab-vehicles">Vehicles</button>
+  <button id="tab-items">Items</button>
   <button id="tab-more">More</button>
   <button id="tab-list">Full List</button>
 </div>
@@ -95,9 +97,25 @@
     <!-- The part being viewed, or the one under the mouse: same plate as Character Select. -->
     <div id="vehicle-namebar"><div id="vehicle-name-plate"></div></div>
   </div>
+  <div id="view-items" hidden>
+    <!-- Every item as the game's own picture of it, on a board; on a wide window the picked item's card is docked beside it
+         (like Character Select - on a small one it opens as a pop-up). Sized to fit the window (fitItemGrid), so nothing
+         scrolls. -->
+    <div id="item-layout">
+      <div id="item-grid-col"><div id="item-grid"></div></div>
+      <aside id="item-detail" aria-label="Item details">
+        <div id="item-detail-header">
+          <h2 id="item-detail-title"></h2>
+        </div>
+        <div id="item-detail-body"></div>
+      </aside>
+    </div>
+    <!-- The item being viewed, or the one under the mouse: same plate as Character Select. -->
+    <div id="item-namebar"><div id="item-name-plate"></div></div>
+  </div>
   <div id="view-more" hidden>
     <div class="settings-hint" id="more-intro">
-      Broader mod categories that aren't tied to a specific character or course - each still supports browsing GameBanana and adding links the same way.
+      Broader mod categories that aren't tied to a specific character, course, vehicle part or item - each still supports browsing GameBanana and adding links the same way.
     </div>
     <div id="more-list"></div>
   </div>

@@ -45,6 +45,7 @@ Given a character or a course, it can:
   see "Course Select" below.
 - `src/vehicle_icons.py` - the same for the game's own pictures of every vehicle part, for the Vehicles screen - see "Vehicle
   parts" below.
+- `src/item_icons.py` - and for the game's own pictures of every item, for the Items screen - see "Items" below.
 - `src/bntx_decode.py` - decodes a course mod's own `ym_CoursePict_*.bntx`
   select-screen thumbnail (a Switch BC7 or RGBA8 texture) to PNG, for the
   inline preview in Course Select - see its own docstring for exactly what
@@ -56,7 +57,7 @@ Given a character or a course, it can:
   generation" below.
 - `src/roster.json` - the full roster: every character and course (courses
   grouped into their 24 cups) plus every vehicle part (bodies, wheels,
-  gliders - see "Vehicle parts" below), used so every item shows up in the
+  gliders - see "Vehicle parts" below) and every item (see "Items" below), used so every one shows up in the
   app even before anything's downloaded for it. Each course entry also
   carries its real internal `romfs/Course/<id>/` folder name (see below).
 - `gamebanana-mods.json` / `mod-manager-state.json` - your tracked downloads
@@ -129,7 +130,7 @@ script is in.
 Which file holds what, roughly: `tiles-and-review.js` (character/course tiles, the "have you checked the look" review),
 `character-select-layout.js` (the docked card, hover name bar), `gamebanana.js` (browse / detail / the GameBanana card),
 `voice.js` (playback, the voice editor, the "Use my own sound" tool, the card's Voice row), `character-card.js` (the card
-itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, More, Course Select, tab switching), `vehicle-screen.js` (the Vehicles screen), `vehicle-card.js` (the vehicle card's "Right part" step), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
+itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, More, Course Select, tab switching), `vehicle-screen.js` (the Vehicles screen), `vehicle-card.js` (the vehicle card's "Right part" step), `item-screen.js` (the Items screen, its docked card and fit), `item-card.js` (the item card), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
 `settings-panels.js` (master directory, UI setup card), `menu-icons-text.js` / `menu-look.js` (the base-file copy and the
 Menu Look cards), `flow.js` (step bar, Commit, Copy to Switch), `setup-wizard.js`, `tooltips.js`.
 
@@ -1171,8 +1172,9 @@ character modal / GameBanana card / conflict machinery unchanged.
   the files ~98% of the time when present; titles alone are unreliable. The
   listing has no descriptions, so each browsed page fetches its mods' profiles
   (3 at a time, cached - GameBanana rate-limits bursts with HTTP 429) and tiles
-  get a "Replaces X" / "Mentions X" badge plus an optional "only likely
-  matches" filter. It's a guess, never a filter you can't turn off.
+  get a "Replaces X" / "Mentions X" badge plus an "only likely matches"
+  filter, on by default (for items too, except the "Other items" tile). A page with no likely match says so and offers
+  "show every mod on this page". It's a guess, never a filter you can't turn off.
 - **The downloaded files are the real check**: the model files a mod ships
   (`Kart/Body/BodyK_*.szs`, `Kart/Tire/TireK_*.szs`, `Kart/Wing/Wing_*.szs`)
   name the exact part they replace, so a download whose files don't include the
@@ -1241,6 +1243,45 @@ character modal / GameBanana card / conflict machinery unchanged.
   on its card (`game_id` is stored with every fetched mod) - it very likely
   won't load on a Switch. Re-fetching a mod also keeps its recorded slot
   warnings and archive location now (it used to drop them).
+
+## Items
+
+**Items** has its own tab (it used to be a row on the More tab, one fixed pseudo-item with a plain list). It is a fixed roster from
+`src/roster.json`'s `"items"` - 22 items (Banana, Green Shell, Red Shell, Spiny Shell, Bob-omb, Mushroom, Golden Mushroom, Super
+Star, Lightning, Boomerang Flower, Fire Flower, Piranha Plant, Bullet Bill, Blooper, Boo, Super Horn, Crazy Eight, Feather, Coin,
+Rupee, Bell, Item Box) plus a last tile, **Other items**. Each entry has a `name`, `aliases`, an optional `internal` (the model
+folder under `RaceCommon/Item/`, e.g. `ItemKoura` - left out where two items share one, the Green and Red Shell, which are both in
+`ItemKoura.bfres`) and an optional `icon`.
+
+**The pictures** (`item_icons.py`, `Api.get_item_icons()`): 19 of the 22 have a 192x192 RGBA texture `tc_Item_<icon>^l` in
+`menu.sarc` -> `mn_L_ItemSwitch_Item_00.szs` (the Item Switch screen of a custom race: `Koura` = Green Shell, `PKinoko` = Golden
+Mushroom, `SP8` = Crazy Eight ...), so nothing new is copied into the base-game copy. The same textures are in `race.sarc`
+(`rc_L_ItemBox_00.szs`, the race HUD's item slot, along with the double / triple forms and the Rupee's), which the copy doesn't
+have. The Item Box, Rupee and Bell are models only, so their tiles keep their name. Every picture was checked by looking at it.
+
+**The screen** is laid out like Character Select: on a wide window (`DOCK_MIN_WIDTH`, 1100 px) the board is the left 55% and the
+picked item's card is docked on the right, always with an item in it (the last viewed, else the first with a mod); on a small
+one the board takes the width and the card is a pop-up, and resizing across the threshold moves an open card between the two
+(`js/item-screen.js`; `beginDetail()` / `endDetail()` / `wantsDock()` in `character-select-layout.js` hand the card to the Items
+view when it is showing). The name plate along the bottom shows the viewed item - or the one under the mouse, with a white
+frame following - and how its mods stand. Nothing scrolls: `fitItemGrid()` takes the biggest square tile at which the whole
+grid fits its board, over whichever number of columns gives the biggest (the count isn't tied to the game's 8), capped at 150 px;
+`css/item-screen.css` comes after `vehicle-screen.css`.
+
+**Mods and GameBanana.** Mods are filed under `mods/extracted/items/<item name>/<mod name>/`. GameBanana has one flat Items category
+(10579), so - like tires and gliders - browsing it lists every item mod and marks each with the item its text says it replaces
+(`gb_browse_item()`, reusing `match_vehicle_targets()` with the roster's names, aliases and model-folder ids; common one-word names
+like "star" or "coin" only count after a "replaces / goes over" phrase). "Add a mod" has an **Item** target, prefilled from the
+same guess; a mod naming no single item (or several: an item pack) is suggested for **Other items**. A mod that lands under the
+wrong item, or in Other items, is re-filed from the card's "Filed under the wrong item?" row (`gb_move_mod()`, which now moves
+between items as well as between vehicle parts, taking the tick and the GameBanana record with it; `get_item_mod_ids()` says which
+mods can be moved - a mod added by hand has no id). What was filed before items had a roster sits in `items/Items/` (the old
+fixed pseudo-item): it isn't moved - the catch-all tile (name `Items`, shown as "Other items") collects it, along with anything in
+a folder that matches no item.
+
+Not done for items (unlike vehicle parts): the **Name and Icons steps** - an item's picture (`tc_Item_*`, in both `menu.sarc` and
+`race.sarc`) has no override yet, and where the game's text names the items hasn't been found - and the "wrong model file" check
+(`RaceCommon/Item/<model>/` in a mod's files would say which item it replaces).
 
 ## Vehicle parts: names and pictures in the menus
 

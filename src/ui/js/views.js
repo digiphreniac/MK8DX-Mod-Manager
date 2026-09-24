@@ -105,6 +105,7 @@ function renderAll() {
   renderCharacterGrid();
   renderCupOrCourseGrid();
   renderVehiclesView();
+  renderItemsView();
   renderMoreList();
   renderListView();
   refreshStats();
@@ -555,16 +556,20 @@ function switchView(mode) {
   document.getElementById("view-characters").hidden = mode !== "characters";
   document.getElementById("view-courses").hidden = mode !== "courses";
   document.getElementById("view-vehicles").hidden = mode !== "vehicles";
+  document.getElementById("view-items").hidden = mode !== "items";
   document.getElementById("view-more").hidden = mode !== "more";
   document.getElementById("view-list").hidden = mode !== "list";
   document.getElementById("tab-characters").classList.toggle("active", mode === "characters");
   document.getElementById("tab-courses").classList.toggle("active", mode === "courses");
   document.getElementById("tab-vehicles").classList.toggle("active", mode === "vehicles");
+  document.getElementById("tab-items").classList.toggle("active", mode === "items");
   document.getElementById("tab-more").classList.toggle("active", mode === "more");
   document.getElementById("tab-list").classList.toggle("active", mode === "list");
   applyCharacterLayout();
   if (mode === "courses") fitCourseScreen();   // (it was hidden, so it hasn't been measured since the window last changed)
   if (mode === "vehicles") fitVehicleScreen();
+  if (mode === "items") showItemsView();
+  else if (itemDockedKey !== null) closeItemDetail();
   if (mode === "characters") {
     if (dockedLayout()) ensureDockedSelection();
     else if (dockedKey !== null) closeDetail();
@@ -574,6 +579,7 @@ function switchView(mode) {
 document.getElementById("tab-characters").addEventListener("click", () => switchView("characters"));
 document.getElementById("tab-courses").addEventListener("click", () => switchView("courses"));
 document.getElementById("tab-vehicles").addEventListener("click", () => { switchView("vehicles"); renderVehiclesView(); });
+document.getElementById("tab-items").addEventListener("click", () => { switchView("items"); renderItemsView(); });
 document.getElementById("tab-more").addEventListener("click", () => { switchView("more"); renderMoreList(); });
 document.getElementById("tab-list").addEventListener("click", () => switchView("list"));
 

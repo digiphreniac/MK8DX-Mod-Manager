@@ -1,8 +1,9 @@
-let state = { categories: {}, checked: {}, roster: [], cups: [], settings: {}, simpleCategories: [], vehicles: [], vehicleLinks: { by_item: {}, by_unit: {} } };
+let state = { categories: {}, checked: {}, roster: [], cups: [], settings: {}, simpleCategories: [], vehicles: [], items: [], vehicleLinks: { by_item: {}, by_unit: {} } };
 let viewMode = "characters";
 let openCharacter = null;
 let selectedCup = "Mushroom Cup";
 let selectedVehicle = null;  // the vehicle part last opened on the Vehicles screen (its card is, or was, open)
+let selectedItem = null;     // the item last opened on the Items screen (its card is, or was, open)
 let selectedCourse = null;   // the course picked in the selected cup (Course Select), if any
 const DLC_CUP_START = "Golden Dash Cup"; // first Booster Course Pass cup
 
@@ -25,8 +26,17 @@ const isVehicleGuess = (g) => VEHICLE_SECTION_KEYS.includes(g) || g === "vehicle
 const SIMPLE_CATEGORIES = [
   { key: "mechanics", label: "Mechanics" },
   { key: "ui", label: "UI" },
-  { key: "items", label: "Items" },
 ];
+// Items (mirrors mod_manager.py's ITEMS_*) have their own screen and a per-item roster, loaded from Api.get_items_view() into
+// state.items as [{name, internal, units, gb_attempted, catch_all?, label?}]. The last one is the catch-all ("Items", the folder
+// everything filed before items had a roster is in), shown as "Other items".
+const ITEMS_CATEGORY = "items";
+const ITEMS_OTHER = "Items";
+const ITEMS_OTHER_LABEL = "Other items";
+function findItem(name) { return state.items.find(i => i.name === name) || null; }
+function isItemName(name) { return state.items.some(i => i.name === name); }
+// what an item is called on screen (only the catch-all differs from its name)
+function itemLabel(name) { const it = findItem(name); return it && it.label ? it.label : name; }
 function findSimpleCategoryByLabel(name) {
   return SIMPLE_CATEGORIES.find(c => c.label === name) || null;
 }
@@ -218,6 +228,8 @@ function findRosterEntry(name) {
   }
   const vehicle = findVehicleItem(name);
   if (vehicle) return vehicle.item;
+  const item = findItem(name);
+  if (item) return item;
   return { name, units: [] };
 }
 
@@ -240,6 +252,7 @@ function resolveItemCategory(name) {
   if (simple) return simple.key;
   const vehicle = findVehicleItem(name);
   if (vehicle) return vehicle.section;
+  if (isItemName(name)) return ITEMS_CATEGORY;
   return "courses";
 }
 

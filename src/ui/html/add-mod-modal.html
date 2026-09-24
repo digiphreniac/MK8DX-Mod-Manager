@@ -49,6 +49,13 @@
         </div>
         <div class="add-mod-choice-row">
           <label class="add-mod-choice-label">
+            <input type="radio" name="add-mod-target-type" value="item" id="add-mod-radio-item">
+            Item
+          </label>
+          <select id="add-mod-item-select"></select>
+        </div>
+        <div class="add-mod-choice-row">
+          <label class="add-mod-choice-label">
             <input type="radio" name="add-mod-target-type" value="other" id="add-mod-radio-other">
             Other
           </label>
@@ -56,7 +63,6 @@
             <select id="add-mod-other-select">
               <option value="mechanics">Mechanics</option>
               <option value="ui">UI</option>
-              <option value="items">Items</option>
               <option value="custom">Custom label&hellip;</option>
             </select>
             <input type="text" id="add-mod-other-label" placeholder="Label for this mod" hidden>
