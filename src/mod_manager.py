@@ -18,6 +18,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import types
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
@@ -200,6 +201,24 @@ def load_master_dir_pointer():
 def save_master_dir_pointer(path: Path):
     config_path = APP_ROOT / APP_CONFIG_FILENAME
     config_path.write_text(json.dumps({"master_dir": str(path)}, indent=2))
+
+
+def show_in_file_manager(path: Path, select: bool = False):
+    """Opens the system file manager at a folder, or (select=True) on a file with
+    it highlighted. Finder on macOS, Explorer on Windows and under WSL, the desktop's
+    default handler elsewhere. Raises OSError if it couldn't be launched."""
+    if sys.platform == "darwin":
+        subprocess.run(["open", "-R", str(path)] if select else ["open", str(path)], check=True)
+    elif sys.platform == "win32" or (hasattr(os, "uname") and "microsoft" in os.uname().release.lower()):
+        # explorer.exe's /select switch needs quotes around just the path,
+        # not the whole "/select,path" argument (which is what Python's
+        # normal list-based quoting produces) - so build the command line
+        # ourselves and pass it as a single string.
+        # It's also well known to return a non-zero exit code even on
+        # success, so we only treat "couldn't launch it at all" as failure.
+        subprocess.run(f'explorer.exe /select,"{path}"' if select else f'explorer.exe "{path}"')
+    else:
+        subprocess.run(["xdg-open", str(path.parent if select else path)], check=True)
 
 
 def normalize_char_name(name: str) -> str:
@@ -2718,23 +2737,17 @@ class Api(VoiceEditMixin):
         return str(icon_path) if icon_path else None
 
     def reveal_icon(self, unit_key):
-        """Opens Windows Explorer with this mod's first icon file selected, so
+        """Opens the file manager with this mod's first icon file selected, so
         the user can look at it themselves - the app never displays it.
-        Requires WSL's Windows-interop feature to be working."""
+        (Under WSL this needs its Windows-interop feature to be working.)"""
         icon_path = self._find_icon_file(unit_key)
         if icon_path is None:
             return {"success": False, "error": "No icon file found for this mod."}
         try:
-            # explorer.exe's /select switch needs quotes around just the path,
-            # not the whole "/select,path" argument (which is what Python's
-            # normal list-based quoting produces) - so build the command line
-            # ourselves and pass it as a single string.
-            # It's also well known to return a non-zero exit code even on
-            # success, so we only treat "couldn't launch it at all" as failure.
-            subprocess.run(f'explorer.exe /select,"{icon_path}"')
+            show_in_file_manager(icon_path, select=True)
             return {"success": True}
-        except OSError as e:
-            return {"success": False, "error": f"Couldn't launch Windows Explorer. Details: {e}"}
+        except (OSError, subprocess.SubprocessError) as e:
+            return {"success": False, "error": f"Couldn't open the file manager. Details: {e}"}
 
     def _find_course_pict_file(self, unit_key):
         """Returns the Path to this course unit's own select-screen thumbnail
@@ -2867,7 +2880,7 @@ class Api(VoiceEditMixin):
         return {"success": True}
 
     def reveal_path(self, path_str):
-        """Opens Windows Explorer at an arbitrary already-known folder path
+        """Opens the file manager at an arbitrary already-known folder path
         (e.g. a GameBanana download that needs manual structure fixes) -
         unlike reveal_icon, this takes a full path directly rather than
         looking one up from a unit key."""
@@ -2875,13 +2888,13 @@ class Api(VoiceEditMixin):
         if not path.is_dir():
             return {"success": False, "error": "That folder no longer exists."}
         try:
-            subprocess.run(f'explorer.exe "{path}"')
+            show_in_file_manager(path)
             return {"success": True}
-        except OSError as e:
-            return {"success": False, "error": f"Couldn't launch Windows Explorer. Details: {e}"}
+        except (OSError, subprocess.SubprocessError) as e:
+            return {"success": False, "error": f"Couldn't open the file manager. Details: {e}"}
 
     def reveal_mod_folder(self, unit_key):
-        """Opens Windows Explorer at a "Mods to merge" entry's actual mod
+        """Opens the file manager at a "Mods to merge" entry's actual mod
         folder - previously the only way to look at a downloaded mod's files
         from the app was the icon-reveal badge, which only appears when the
         mod happens to have a loose image file GameBanana's own file listing
@@ -4638,7 +4651,7 @@ class Api(VoiceEditMixin):
 
     def open_staging_folder(self):
         """Opens the sd-card-staging folder Api.merge() writes into (next to
-        the master directory) in Windows Explorer, so the user never has to
+        the master directory) in the file manager, so the user never has to
         hunt for it."""
         return self.reveal_path(str(self.mod_root.parent / "sd-card-staging"))
 

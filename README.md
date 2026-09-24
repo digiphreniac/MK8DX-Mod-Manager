@@ -160,7 +160,7 @@ optional folder was never set (true of most installs). Requiring the copy up fro
 `_voice_game_file()` now always resolve to the app's own copy, so every roster character
 (all 50 have a `DRIVER_SLOTS` code, plus Gold Mario's own separate voice archive - 51 in total, verified byte-for-byte
 against a real dump; see the comment above `DRIVER_SLOTS`) has a base voice to start from with no voice mod
-ticked at all, and UI icons/text work with nothing ticked either. (The card's Voice row is still greyed out until the
+ticked at all, and UI icons/text work with nothing ticked either. (The card's Voice row still shows only "Comes after you pick a mod" until the
 character has a ticked mod - see "Voice editing" below - but that is a UI choice, not a missing base file.) `get_flow_status()`'s `setup.done` requires the copy
 to exist (`game_files.status(mod_root).done`), so an install that's missing it is sent back to Setup rather than
 silently degrading somewhere else in the app.
@@ -899,8 +899,8 @@ unchanged and is what's shown.
 
 ## Voice editing: mute a line, or use your own sound
 
-A character's card has a **Voice** row (**Edit voice lines**). Like **Name** and **Icons**, it is greyed out ("Comes after
-you pick a mod") until the character has a ticked mod - `attachVoiceRow()`'s `setEnabled()`, fed by the card's `refresh()`.
+A character's card has a **Voice** row (**Edit voice lines**). Like **Name** and **Icons**, it is dimmed ("Comes after
+you pick a mod", no Edit button) until the character has a ticked mod - `attachVoiceRow()`'s `setEnabled()`, fed by the card's `refresh()`.
 The character's own *Custom voice* mod doesn't count toward that, so it can't keep the row open after the real mod is unticked
 (existing edits aren't touched - the row just can't be opened until a mod is ticked again). The window lists the character's voice lines - the four
 *important moments* first (character select, finish first, finish mid-pack, finish last), then every other line by category -

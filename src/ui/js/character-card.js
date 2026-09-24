@@ -902,7 +902,7 @@ function openCharacterModal(name) {
       const openFolderBtn = document.createElement("button");
       openFolderBtn.className = "ghost small";
       openFolderBtn.textContent = "Open folder";
-      openFolderBtn.title = "Open this mod's folder in Explorer";
+      openFolderBtn.title = "Open this mod's folder";
       openFolderBtn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const result = await pywebview.api.reveal_mod_folder(key);
@@ -955,7 +955,7 @@ function openCharacterModal(name) {
         const badge = document.createElement("button");
         badge.className = "icon-badge";
         badge.textContent = "icon";
-        badge.title = "Click to reveal this mod's UI icon file in Explorer";
+        badge.title = "Click to reveal this mod's UI icon file";
         badge.addEventListener("click", async (e) => {
           e.stopPropagation();
           const result = await pywebview.api.reveal_icon(key);
