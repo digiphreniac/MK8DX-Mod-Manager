@@ -2,12 +2,15 @@
   <div id="gb-browse-modal">
     <div id="gb-browse-modal-header">
       <h2 id="gb-browse-modal-title">Browse GameBanana</h2>
-      <select id="gb-browse-modal-sort" class="gb-sort-select">
-        <option value="most_liked">Sort: Most Liked</option>
-        <option value="most_downloaded">Sort: Most Downloaded</option>
-        <option value="most_viewed">Sort: Most Viewed</option>
-        <option value="newest">Sort: Newest</option>
-      </select>
+      <select id="gb-browse-modal-sort" class="gb-sort-select" aria-label="Sort"></select>
+      <div id="gb-browse-modal-view" class="gb-view-toggle" role="group" aria-label="Layout">
+        <button type="button" data-view="grid" title="Grid: big pictures" aria-pressed="true">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="1.8" y="1.8" width="5" height="5" rx="1"/><rect x="9.2" y="1.8" width="5" height="5" rx="1"/><rect x="1.8" y="9.2" width="5" height="5" rx="1"/><rect x="9.2" y="9.2" width="5" height="5" rx="1"/></svg>
+        </button>
+        <button type="button" data-view="list" title="List: small pictures, more to read" aria-pressed="false">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5.5 3.5h9M5.5 8h9M5.5 12.5h9"/><circle cx="2" cy="3.5" r=".6"/><circle cx="2" cy="8" r=".6"/><circle cx="2" cy="12.5" r=".6"/></svg>
+        </button>
+      </div>
       <button class="ghost" id="btn-gb-browse-modal-close">Close</button>
     </div>
     <div id="gb-browse-modal-body">

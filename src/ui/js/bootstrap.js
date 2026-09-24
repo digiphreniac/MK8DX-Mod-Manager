@@ -20,8 +20,10 @@
   const SCRIPTS = [
     "js/state-and-helpers.js",
     "js/tiles-and-review.js",
+    "js/rich-text.js",
     "js/character-select-layout.js",
     "js/gamebanana.js",
+    "js/gb-browse.js",
     "js/voice.js",
     "js/unit-pictures.js",
     "js/character-card.js",

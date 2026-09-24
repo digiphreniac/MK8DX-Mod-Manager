@@ -154,6 +154,10 @@ DEFAULT_SETTINGS = {
     # Character Select: show the "1/4" (ticked / downloaded) badge on every character tile. Off by
     # default - the header, the card and the tile's tooltip already carry the numbers.
     "show_tile_counts": False,
+    # Browse GameBanana: how the mods are listed ("grid" or "list") and how they are sorted - the last ones chosen, so the
+    # window opens the way the user left it. "" = not chosen yet (each kind of mod then has its own starting sort).
+    "gb_browse_view": "grid",
+    "gb_browse_sort": "",
     # Character Select: play a character's select sound (the voice the game plays when it is picked, from its ticked
     # mods) when its mod is finished and each time its tile is clicked afterwards - see Api.get_select_voice().
     "play_select_voice": True,
@@ -1444,7 +1448,7 @@ class Api(VoiceEditMixin):
         # get_AllowExternalDrop(), get_CanGoBack(), get_ZoomFactor(), ...) -
         # exactly the exception signature from the earlier freeze debugging.
         self._window = None  # set by main() right after webview.create_window()
-        self._vehicle_desc_cache = {}  # mod id -> description, for gb_browse_vehicle()
+        self._gb_desc_cache = {}  # mod id -> description, for the browse lists that read the text (vehicles, items, courses)
         self._configure_root(mod_root)
 
     def _configure_root(self, mod_root: Path | None):
@@ -3601,14 +3605,27 @@ class Api(VoiceEditMixin):
     def gb_browse_course(self, course_name, page=1):
         """Courses have no per-item GameBanana subcategory the way characters
         do, so this searches by the base course name instead (stripped of any
-        platform prefix) and filters to the course-editing subcategories."""
+        platform prefix) and filters to the course-editing subcategories.
+        Each call reads a few search pages at once (see search_course_mods) and
+        gives the one to ask for next as `next_page`; every mod comes with a
+        snippet of its description (around the course's name where it has it)
+        and whether the course is named in its title or description."""
         query = strip_course_prefix(course_name)
         try:
-            result = gamebanana_api.search_mods_with_descriptions(query, page=page)
+            result = gamebanana_api.search_course_mods(query, first_page=page)
         except gamebanana_api.GameBananaError as e:
-            return {"error": str(e), "records": [], "total": 0, "is_complete": True, "page": page, "query": query}
+            return {"error": str(e), "records": [], "total": 0, "done": True, "page": page, "query": query}
+        records = result["records"]
         if not self._load_settings().get("show_nsfw", False):
-            result["records"] = [r for r in result["records"] if not r.get("has_content_ratings")]
+            records = [r for r in records if not r.get("has_content_ratings")]
+        descriptions = self._descriptions(records, workers=4)
+        needle = query.lower()
+        for rec in records:
+            desc = descriptions[rec["mod_id"]]
+            rec["described"] = desc is not None
+            rec["description_snippet"] = gamebanana_api.snippet_around(desc or "", query)
+            rec["mentions_course"] = bool(needle) and needle in f"{rec['name']} {desc or ''}".lower()
+        result["records"] = records
         result["error"] = None
         result["query"] = query
         return result
@@ -3852,8 +3869,11 @@ class Api(VoiceEditMixin):
     def _annotate_vehicle_targets(self, section, records):
         self._annotate_targets(section, self._load_vehicle_roster()[section], records)
 
-    def _annotate_targets(self, section, items, records):
-        cache = self._vehicle_desc_cache
+    def _descriptions(self, records, workers=3):
+        """{mod id: description text, or None if it couldn't be fetched} for a list of browse records. A browse list has no
+        descriptions, so each costs one GameBanana request - only the ones not seen before are fetched, a few at a time
+        (GameBanana rate-limits bursts with HTTP 429)."""
+        cache = self._gb_desc_cache
         todo = [r for r in records if r["mod_id"] not in cache]
 
         def fetch(rec):
@@ -3863,16 +3883,21 @@ class Api(VoiceEditMixin):
                 return rec["mod_id"], None
 
         if todo:
-            with ThreadPoolExecutor(max_workers=3) as pool:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
                 for mod_id, desc in pool.map(fetch, todo):
                     if desc is not None:
                         cache[mod_id] = desc
+        return {r["mod_id"]: cache.get(r["mod_id"]) for r in records}
+
+    def _annotate_targets(self, section, items, records):
+        descriptions = self._descriptions(records)
         for rec in records:
-            desc = cache.get(rec["mod_id"])
+            desc = descriptions[rec["mod_id"]]
             matches = match_vehicle_targets(section, items, rec["name"], desc or "")
             rec["targets"] = [name for name, _score in matches]
             rec["target_strength"] = matches[0][1] if matches else 0
             rec["described"] = desc is not None
+            rec["description_snippet"] = gamebanana_api.snippet_around(desc or "", "")
 
     def gb_fetch_mod(self, character_name, mod_id_or_url):
         """Fetches (or re-fetches) a mod's metadata from GameBanana and stores
@@ -3921,6 +3946,7 @@ class Api(VoiceEditMixin):
             "record_type": record_type,
             "name": detail["name"],
             "description": detail["description"],
+            "description_runs": detail.get("description_runs", []),
             "profile_url": detail["profile_url"],
             "thumbnail_url": detail["thumbnail_url"],
             "thumbnail_url_large": detail.get("thumbnail_url_large"),
@@ -3973,6 +3999,18 @@ class Api(VoiceEditMixin):
         clicking a mod name doesn't navigate this app's own window away."""
         if not re.match(r"^https?://(www\.)?gamebanana\.com/", url):
             return {"success": False, "error": "Refusing to open a non-GameBanana URL."}
+        try:
+            webbrowser.open(url)
+            return {"success": True}
+        except OSError as e:
+            return {"success": False, "error": f"Couldn't open a browser. Details: {e}"}
+
+    def open_external_url(self, url):
+        """Opens a link from a mod's description (a video, a Discord invite, the author's page...) in the user's default
+        browser. Any http(s) address - the user clicked it, and it is shown to them (as the link's tooltip) first - but
+        nothing else (no file:, no javascript:)."""
+        if not isinstance(url, str) or len(url) > 2000 or not re.match(r"^https?://[^\s]+$", url, re.IGNORECASE):
+            return {"success": False, "error": "Refusing to open that link."}
         try:
             webbrowser.open(url)
             return {"success": True}

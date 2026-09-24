@@ -128,11 +128,46 @@ before `main.js` has registered its listener now that the scripts load one by on
 script is in.
 
 Which file holds what, roughly: `tiles-and-review.js` (character/course tiles, the "have you checked the look" review),
-`character-select-layout.js` (the docked card, hover name bar), `gamebanana.js` (browse / detail / the GameBanana card),
+`character-select-layout.js` (the docked card, hover name bar), `gamebanana.js` (the mod detail window and the GameBanana card),
+`gb-browse.js` (the Browse GameBanana window), `rich-text.js` (descriptions with links),
 `voice.js` (playback, the voice editor, the "Use my own sound" tool, the card's Voice row), `character-card.js` (the card
 itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, More, Course Select, tab switching), `vehicle-screen.js` (the Vehicles screen), `vehicle-card.js` (the vehicle card's "Right part" step), `item-screen.js` (the Items screen, its docked card and fit), `item-card.js` (the item card), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
 `settings-panels.js` (master directory, UI setup card), `menu-icons-text.js` / `menu-look.js` (the base-file copy and the
 Menu Look cards), `flow.js` (step bar, Commit, Copy to Switch), `setup-wizard.js`, `tooltips.js`.
+
+## Browsing GameBanana: one window for every kind of mod
+
+"Browse GameBanana" (`js/gb-browse.js`, markup in `html/gb-browse-modal.html`, styles in `css/gb-browse.css`) is the same window
+whatever card opens it - a character, a course, a vehicle part, an item, or one of the plain categories. Only where the list
+comes from differs (`fetchPage()`): `gb_browse` (a character's subcategory), `gb_browse_simple`, `gb_browse_vehicle`,
+`gb_browse_item` - all sortable categories - or `gb_browse_course`, a search.
+
+- **The list loads as you scroll** (no pages). `checkFill()` asks for the next batch whenever the end of the list is within
+  `GB_LOOKAHEAD` (500 px) of the window's bottom edge - after each batch, on scroll, on resize, and when the layout changes - so a
+  tall window fills itself and a short one loads on demand, and a row is never left half-empty until the very end. Every backend
+  browse call returns `{records, total, done, next_page}`; the window asks for `next_page` (a course search advances by three
+  search pages per call), drops mods it already has (GameBanana repeats a few across pages in its Most Liked order), and ignores a
+  reply that arrives after the sort changed or the window closed (`S.gen`).
+- **Grid or list**: one set of tiles, with `.as-list` on the container switching to small pictures beside the text (plus the
+  author and date). Under the "looks like it replaces X" filter, batches that add nothing stop the automatic loading after
+  `GB_EMPTY_RUN_LIMIT` (2), because each batch costs a GameBanana request per mod.
+- **Remembered**: the layout and the sort are settings (`gb_browse_view`, `gb_browse_sort` in `settings.json`, saved when the user
+  changes them). Before any choice, vehicle parts and items start on Most Viewed, the rest on Most Liked. A course has no sort:
+  GameBanana's search endpoint ignores every sort parameter (tried several spellings), so its results are always best match first
+  and the sort box says so.
+- **Courses** have no category per course, so they search by the base course name (`search_course_mods()`: three search pages at
+  once, kept to the Course Edits / Course Retextures / Custom Race Courses subcategories - most results are something else).
+  Each mod comes with a snippet of its description around the course's name and `mentions_course` (named in its title or
+  description), shown as a badge like the "Replaces X" ones on vehicles and items; an "only mods that name this course" filter
+  is there too, off by default. Descriptions are fetched through `_descriptions()` and cached (`_gb_desc_cache`), shared with the
+  vehicle and item lists, which now show a snippet too.
+- **Tags**: a mod's own page gives tags as `{"_sTitle", "_sValue"}` objects (the list gives strings) - `tag_names()` turns both
+  into "Title: Value" strings.
+- **Links in descriptions**: `gamebanana_api.html_to_runs()` turns a description's HTML into runs (`{text}` / `{text, href}`;
+  http(s) and GameBanana-relative links only, everything else is plain text) and the record keeps them as `description_runs`
+  beside the plain `description` that the guessing uses. `renderRichText()` builds the text nodes and `<a class="gb-link">` itself
+  (never markup from the mod); a click calls `open_external_url()`, which opens http(s) addresses only, and the tooltip shows where
+  it goes. A mod saved before runs existed, or text with no link markup, still gets bare `https://...` addresses linked.
 
 ## Course Select: the game's Prix, sized to fit
 
@@ -1160,9 +1195,9 @@ character modal / GameBanana card / conflict machinery unchanged.
   Vehicles (10530): bodies by type - Kart 10571, Bikes (Outward = standard)
   10572, Bikes (Inward = sport) 10573, ATVs 10574 - Tires 10577, Gliders 10578
   (`Api._vehicle_gb_category_id()`). Browsing a part lists every mod of its
-  *kind* (`gb_browse_vehicle()`), sorted Most Viewed by default because
+  *kind* (`gb_browse_vehicle()`), starting on Most Viewed (until the user picks another sort, which is then remembered) because
   GameBanana's "Most Liked" paging repeats/skips mods in these large
-  categories. Roughly 4% of body mods are misfiled under the wrong subcategory,
+  categories - the window drops the repeats. Roughly 4% of body mods are misfiled under the wrong subcategory,
   and some tire/glider mods sit directly in Vehicles with no subcategory.
 - **Which part a mod replaces is read from its text**, not its category
   (`match_vehicle_targets()`): an internal id (`BodyK_Cat`, `Wing_Pap`,
@@ -1170,11 +1205,12 @@ character modal / GameBanana card / conflict machinery unchanged.
   mention; single common words (Standard, Metal, Comet, ...) never count as a
   plain mention. Measured against real archives, "goes over" phrases agree with
   the files ~98% of the time when present; titles alone are unreliable. The
-  listing has no descriptions, so each browsed page fetches its mods' profiles
+  listing has no descriptions, so each browsed batch fetches its mods' profiles
   (3 at a time, cached - GameBanana rate-limits bursts with HTTP 429) and tiles
   get a "Replaces X" / "Mentions X" badge plus an "only likely matches"
-  filter, on by default (for items too, except the "Other items" tile). A page with no likely match says so and offers
-  "show every mod on this page". It's a guess, never a filter you can't turn off.
+  filter, on by default (for items too, except the "Other items" tile). The list keeps loading until enough likely ones
+  fill the window; after two batches in a row with none it pauses and offers "Keep searching" / "Show every mod". It's a
+  guess, never a filter you can't turn off.
 - **The downloaded files are the real check**: the model files a mod ships
   (`Kart/Body/BodyK_*.szs`, `Kart/Tire/TireK_*.szs`, `Kart/Wing/Wing_*.szs`)
   name the exact part they replace, so a download whose files don't include the
