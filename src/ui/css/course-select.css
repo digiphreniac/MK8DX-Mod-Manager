@@ -1,0 +1,75 @@
+  /* Currently-selected cup (the one whose 4 courses show below) - corner-only
+     bracket highlight rather than a full ring, echoing the in-game cup
+     carousel's own pulsing yellow-corner selection cursor (see
+     SCREENSHOTS/5_course_selection.jpg). Drawn as a pseudo-element so it
+     layers cleanly over the tile's own background/border instead of
+     replacing them. */
+  .cup-tile.active::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 10px;
+    pointer-events: none;
+    --corner-color: #ffe600;
+    --corner-len: 20px;
+    --corner-thick: 3px;
+    background:
+      linear-gradient(var(--corner-color), var(--corner-color)) top left / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top left / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top right / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top right / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom left / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom left / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom right / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom right / var(--corner-thick) var(--corner-len) no-repeat;
+    animation: cup-corner-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes cup-corner-pulse {
+    0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px rgba(255, 230, 0, 0.75)); }
+    50% { opacity: 0.35; filter: drop-shadow(0 0 7px rgba(255, 230, 0, 0.9)); }
+  }
+  /* 4x .cup-name's 13px font-size, standing in for real cup-icon artwork -
+     see CUP_EMOJI in the script. */
+  .cup-emoji {
+    font-size: 52px;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .cup-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .cup-count { font-size: 11px; color: var(--text-dim); }
+  .cup-tile.has-selected .cup-count { color: var(--accent); font-weight: 600; }
+
+  /* Below the strip now (not above it), and centered - see #course-strip's
+     margin-top: auto for how the strip itself floats toward the bottom of
+     the view, with this title tagging along right after it. */
+  #course-strip-title {
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    margin-top: 10px;
+  }
+  #view-courses {
+    display: flex;
+    flex-direction: column;
+  }
+  #course-strip {
+    /* Soaks up any extra vertical space in the view, so the strip (plus
+       its title right after it) sits near the bottom of the screen with
+       the leftover room landing between the Grand Prix grid and here,
+       rather than the strip just trailing the grid at the top. Has no
+       effect (falls back to the grid's own margin-bottom) when the view is
+       already full/scrolling - flex free space can't go negative. */
+    margin-top: auto;
+    display: grid;
+    /* Columns share available width equally like 1fr tracks, but stop
+       growing past 400px each - once all 4 hit that cap on a wide screen,
+       justify-content: center distributes the remaining space as equal
+       margins on both sides instead of stretching the tiles further. */
+    grid-template-columns: repeat(4, minmax(0, 400px));
+    justify-content: center;
+    gap: 10px;
+  }
+  @media (max-width: 760px) {
+    #course-strip { grid-template-columns: repeat(2, minmax(0, 400px)); }
+  }
+

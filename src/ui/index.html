@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mario Kart 8 Mod Manager</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/course-select.css">
+<link rel="stylesheet" href="css/character-select-layout.css">
+<link rel="stylesheet" href="css/character-card.css">
+<link rel="stylesheet" href="css/tiles-and-grids.css">
+<link rel="stylesheet" href="css/full-list.css">
+<link rel="stylesheet" href="css/modal-help.css">
+<link rel="stylesheet" href="css/flow.css">
+<link rel="stylesheet" href="css/icon-generator.css">
+<link rel="stylesheet" href="css/gamebanana-modals.css">
+<link rel="stylesheet" href="css/setup-overlay.css">
+<link rel="stylesheet" href="css/gamebanana-card.css">
+<link rel="stylesheet" href="css/settings.css">
+<link rel="stylesheet" href="css/add-mod.css">
+<link rel="stylesheet" href="css/conflicts.css">
+<link rel="stylesheet" href="css/tooltip.css">
+<link rel="stylesheet" href="css/app-width.css">
+</head>
+<body>
+
+<header>
+  <h1>Mario Kart 8 Mod Manager</h1>
+  <nav id="stepbar" aria-label="Steps"></nav>
+  <div class="header-actions">
+    <button id="btn-refresh" class="icon-btn" title="Refresh" aria-label="Refresh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    </button>
+    <button id="btn-settings" class="icon-btn" title="Settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+</header>
+<div id="step-hint" hidden></div>
+<div id="tabs">
+  <button id="tab-characters" class="active">Characters</button>
+  <button id="tab-courses">Courses</button>
+  <button id="tab-vehicles">Vehicles</button>
+  <button id="tab-more">More</button>
+  <button id="tab-list">Full List</button>
+</div>
+
+<div id="main">
+  <div id="view-characters">
+    <div id="char-layout">
+      <div id="char-grid-col"><div id="char-grid"></div></div>
+      <!-- The character's mods / menu look / GameBanana card, docked beside the grid on a wide
+           window (on a small one it opens as the pop-up instead - see wantsDock()). -->
+      <aside id="char-detail" aria-label="Character details">
+        <div id="char-detail-header">
+          <h2 id="char-detail-title"></h2>
+        </div>
+        <div id="char-detail-body"></div>
+      </aside>
+    </div>
+    <!-- Wide window only: the viewed character's name as the menus will show it (Menu look), centred
+         under the grid and card, on a black plate that fades out at both ends. The Next button sits
+         at the right end of this same row. -->
+    <div id="char-namebar"><div id="char-name-plate"></div></div>
+  </div>
+  <div id="view-courses" hidden>
+    <div id="cup-grid"></div>
+    <div id="course-strip"></div>
+    <div id="course-strip-title"></div>
+  </div>
+  <div id="view-vehicles" hidden>
+    <div id="vehicle-sections"></div>
+  </div>
+  <div id="view-more" hidden>
+    <div class="settings-hint" id="more-intro">
+      Broader mod categories that aren't tied to a specific character or course - each still supports browsing GameBanana and adding links the same way.
+    </div>
+    <div id="more-list"></div>
+  </div>
+  <div id="view-list" hidden>
+    <div id="checklist"><div id="empty-msg">Loading mods...</div></div>
+    <button id="btn-add-mod-fab" title="Add a mod">+</button>
+  </div>
+  <div id="view-commit" class="page" hidden><div class="page-inner flow-body" id="commit-body"></div></div>
+  <div id="view-switch" class="page" hidden><div class="page-inner flow-body" id="switch-body"></div></div>
+</div>
+
+<footer id="stats-footer">
+  <span id="stat-courses" class="stat-item">Courses modded: &mdash;</span>
+  <span id="stat-characters" class="stat-item">Characters modded: &mdash;</span>
+  <span id="stat-size" class="stat-item">Downloaded: &mdash;</span>
+  <a id="help-link" href="javascript:void(0)">Help</a>
+</footer>
+
+<div id="next-dock"><button id="btn-next" class="primary" hidden></button></div>
+
+<script src="js/bootstrap.js"></script>
+</body>
+</html>

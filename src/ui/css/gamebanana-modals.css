@@ -1,0 +1,126 @@
+  /* Big fullscreen-ish modal for browsing GameBanana - layered above the
+     character modal so "Browse GameBanana" can open it without losing the
+     character modal underneath. */
+  #gb-browse-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 22, 28, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    animation: fadeIn 0.14s ease-out;
+  }
+  #gb-browse-modal {
+    background: var(--panel);
+    border-radius: 14px;
+    width: calc(100vw - 48px);
+    height: calc(100vh - 48px);
+    max-width: 1400px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    animation: popIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  #gb-browse-modal-header {
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #gb-browse-modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
+  #gb-browse-modal-body { flex: 1; overflow-y: auto; padding: 18px 22px 22px 22px; }
+
+  /* Mod preview/detail modal - opens above the browse modal when a tile is
+     clicked, so browsing a mod's info doesn't require leaving the app. */
+  #gb-detail-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 22, 28, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+    animation: fadeIn 0.14s ease-out;
+  }
+  #gb-detail-modal {
+    background: var(--panel);
+    border-radius: 14px;
+    width: 720px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 60px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    animation: popIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  #gb-detail-modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+  }
+  #gb-detail-modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
+  #gb-detail-modal-body { flex: 1; overflow-y: auto; padding: 18px 20px; }
+  #gb-detail-modal-actions {
+    padding: 14px 20px;
+    border-top: 1px solid var(--panel-border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .gb-detail-layout { display: flex; flex-wrap: wrap; gap: 18px; }
+  .gb-detail-main { flex: 1 1 360px; min-width: 280px; }
+  .gb-detail-thumb {
+    width: 100%;
+    border-radius: 10px;
+    display: block;
+    margin-bottom: 14px;
+    background: var(--thumb-bg);
+    object-fit: cover;
+  }
+  .gb-detail-desc { font-size: 13px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
+  .gb-detail-side { flex: 0 0 150px; display: flex; flex-direction: column; gap: 10px; }
+  .gb-detail-stat {
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+  }
+  .gb-detail-stat-num { font-size: 19px; font-weight: 700; color: var(--text); word-break: break-word; }
+  .gb-detail-stat-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .gb-detail-tags-box { text-align: left; }
+  .gb-detail-tags-box .gb-detail-stat-label { margin-top: 0; margin-bottom: 7px; }
+  .gb-tag-list { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .gb-tag-chip {
+    display: inline-block;
+    max-width: 100%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.35;
+    padding: 3px 7px;
+    border-radius: 5px;
+    word-break: break-word;
+  }
+  .gb-tag-more { font-size: 10.5px; color: var(--text-dim); margin-top: 1px; }
+
+  .settings-path-display {
+    font-family: var(--mono);
+    font-size: 12px;
+    word-break: break-all;
+    background: var(--bg-soft);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+  }
+

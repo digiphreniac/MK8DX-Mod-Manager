@@ -1,0 +1,83 @@
+<div id="add-mod-modal-backdrop" hidden>
+  <div id="add-mod-modal">
+    <div id="add-mod-modal-header">
+      <h2>Add a Mod</h2>
+      <button class="ghost" id="btn-add-mod-modal-close">Close</button>
+    </div>
+    <div id="add-mod-modal-body">
+      <div class="settings-hint" id="add-mod-intro">
+        Paste a GameBanana mod link (or just its id) below - we'll try to figure out which character or course it's for, or you can track it as a general mod that isn't tied to either.
+      </div>
+      <div class="gb-fetch-row">
+        <input type="text" id="add-mod-link-input" placeholder="https://gamebanana.com/mods/12345">
+        <button id="btn-add-mod-identify" class="primary small">Identify</button>
+      </div>
+      <div class="gb-fetch-error" id="add-mod-identify-error" hidden></div>
+
+      <div id="add-mod-result" hidden>
+        <div id="add-mod-summary">
+          <img id="add-mod-thumb" alt="">
+          <div id="add-mod-summary-text">
+            <div id="add-mod-name"></div>
+            <div id="add-mod-author"></div>
+          </div>
+        </div>
+
+        <div id="add-mod-game-warning" class="gb-fetch-error" hidden></div>
+        <div id="add-mod-guess-note" class="settings-hint" hidden></div>
+
+        <div class="add-mod-choice-row">
+          <label class="add-mod-choice-label">
+            <input type="radio" name="add-mod-target-type" value="character" id="add-mod-radio-character">
+            Character
+          </label>
+          <select id="add-mod-character-select"></select>
+        </div>
+        <div class="add-mod-choice-row">
+          <label class="add-mod-choice-label">
+            <input type="radio" name="add-mod-target-type" value="course" id="add-mod-radio-course">
+            Course
+          </label>
+          <select id="add-mod-course-select"></select>
+        </div>
+        <div class="add-mod-choice-row">
+          <label class="add-mod-choice-label">
+            <input type="radio" name="add-mod-target-type" value="vehicle" id="add-mod-radio-vehicle">
+            Vehicle part
+          </label>
+          <select id="add-mod-vehicle-select"></select>
+        </div>
+        <div class="add-mod-choice-row">
+          <label class="add-mod-choice-label">
+            <input type="radio" name="add-mod-target-type" value="other" id="add-mod-radio-other">
+            Other
+          </label>
+          <div class="add-mod-other-controls">
+            <select id="add-mod-other-select">
+              <option value="mechanics">Mechanics</option>
+              <option value="ui">UI</option>
+              <option value="items">Items</option>
+              <option value="custom">Custom label&hellip;</option>
+            </select>
+            <input type="text" id="add-mod-other-label" placeholder="Label for this mod" hidden>
+          </div>
+        </div>
+
+        <div id="add-mod-files-panel" hidden>
+          <label class="add-mod-perfile-toggle">
+            <input type="checkbox" id="add-mod-perfile-toggle" checked>
+            File each file under its own part
+          </label>
+          <div class="settings-hint" id="add-mod-files-hint">
+            This mod has several files. Each is prefilled with the part its name or caption points to (or the mod's own target) - change it, or untick a file to skip it. Ticked files are downloaded straight away and checked against their part.
+          </div>
+          <div id="add-mod-files-list"></div>
+        </div>
+
+        <div id="add-mod-confirm-error" class="gb-fetch-error" hidden></div>
+        <button id="btn-add-mod-confirm" class="primary">Add this mod</button>
+        <div id="add-mod-summary-panel" hidden></div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,117 @@
+<div id="help-modal-backdrop" hidden>
+  <div id="help-modal">
+    <div id="help-modal-header">
+      <h2>Help</h2>
+      <button class="ghost" id="btn-help-modal-close">Close</button>
+    </div>
+    <div id="help-modal-body">
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">How this app works</span></div>
+        <div class="settings-body">
+          <div class="settings-hint">
+            For each character/course: search or paste a GameBanana link, download the file(s) you want, then check them under "Mods to merge." Once everything you want is checked, press the <strong>Next</strong> button (bottom right) or open the <strong>Commit</strong> step in the bar at the top - it combines every checked mod's files into one romfs tree (plus any checked code patches, under <code>atmosphere/exefs_patches/</code>) at <code>sd-card-staging/</code>, next to your master directory, ready to copy onto your SD card's existing <code>atmosphere/</code> folder.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">The five steps</span></div>
+        <div class="settings-body">
+          <div class="settings-hint">
+            The bar at the top always shows where you are: <strong>1 Setup</strong> (your game version, options and language - reopen it any time), <strong>2 Choose mods</strong> (the Character, Course, Vehicles, More and Full List tabs), <strong>3 Commit</strong> (puts every ticked mod's files together and lets you settle any clashes), <strong>4 UI icons &amp; text</strong> (builds the combined menu pictures and names), and <strong>5 Copy to Switch</strong> (a short checklist). A green tick means that step is done; an amber number means something changed and it needs another look. The <strong>Next</strong> button in the bottom-right corner always says what to do next.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Menu look: icons and names</span></div>
+        <div class="settings-body">
+          <div class="settings-hint">
+            Every character and course popup has a <strong>Menu look</strong> card showing what the menus will display for it - the character-select, map and results icons, and its name - and where each comes from (a mod, you, or unchanged). If a mod doesn't ship an icon or a new name, you can add your own: pick one of the mod's screenshots or a picture from your computer, drag the square over the part you want, and it becomes all three icons; or type a name. These are combined into the menu files in step 4, exactly like a mod's own changes.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Voice: mute a line or use your own sound</span></div>
+        <div class="settings-body">
+          <div class="settings-hint">
+            Every character's card has a <strong>Voice</strong> row with <strong>Edit voice lines</strong>. It lists what the character says - character select, finishing first / mid-pack / last, overtaking, getting hit, items, boosts, the horn - each with a short description (some marked <em>guess</em>: play it to check). For any line you can <strong>Mute</strong> it, or <strong>Use my own</strong> sound: choose an audio file (mp3, wav, ogg, m4a...), pick the part you want, and the app converts it to the game's format (up to 8 seconds). Each line is really several sounds in the game's file (variations and tails); they are always changed together.
+            <br><br>
+            The row is greyed out until the character has a ticked mod, like Name and Icons. The result is saved as a mod called <strong>Custom voice</strong> under that character - tick, untick or remove it like any other, and Commit merges it. Changing one line means writing out the character's whole voice file, so the app starts from the voice you'd otherwise get: a voice mod you've ticked for that character, or else the game's own file (choose your game's files folder in Settings). If you tick a different voice mod later, your changes move onto it.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Known issues</span></div>
+        <div class="settings-body">
+          <div class="help-status-term">A modded course feels like it's playing in slow motion</div>
+          <div class="help-status-def">
+            This is a real, named phenomenon in Mario Kart track modding - the "Slow Motion Bug." The game's physics tick is tied to frame rate, so when a track's geometry/collision/effects exceed what the CPU/GPU can process per frame, the whole race visibly slows down instead of just stuttering. It's especially common in tracks ported from a different game's engine (e.g. an Arcade GP DX or Mario Kart Tour port) since the source assets were never built under MK8DX's performance budget. There's no fix on this app's side - it's a property of the mod's own geometry/collision data, not a merge conflict or a missing file. See <a class="help-ext-link" data-url="https://mkwiiki.org/wiki/Slow_Motion_Bug">the Custom Mario Kart wiki's Slow Motion Bug page</a> for the full technical breakdown.
+          </div>
+          <div class="help-status-term">A modded course's select-screen icon or results-screen background is missing</div>
+          <div class="help-status-def">
+            Most course mods bundle their own <code>UI/cmn/menu/ym_CoursePict_&lt;internal id&gt;.bntx</code> thumbnail and <code>UI/cmn/ending/ym_AwardBG_&lt;internal id&gt;.bntx</code> results background, uniquely named per course - these are now merged in normally like any other file (fixed - older merges from before this fix won't have them; commit again to pick them up). If a mod genuinely doesn't bundle one, open that mod's card and use "Icon from screenshot" to generate one from its own GameBanana screenshots instead - see the Course Select strip, which previews any icon (bundled or generated) inline so you can see at a glance which courses still have none. (The black border around every icon, including generated ones, is intentional - it matches the real game's own template, which reserves that space for the course name text drawn over it - see the README for exactly how that was measured.)
+          </div>
+          <div class="help-status-term">A modded character's icon or a modded course's name still looks vanilla</div>
+          <div class="help-status-def">
+            Icons and names live in three shared game files (<code>common.sarc</code>, <code>menu.sarc</code>, <code>message.sarc</code>) that every mod ships its own copy of, so a commit can't combine them. Open the <strong>UI icons &amp; text</strong> step (step 4 in the bar at the top, or the Next button after committing) - it works out what each mod changes, builds the combined files for you, and checks them.
+          </div>
+          <div class="help-status-term">A modded course's name still shows the original vanilla name</div>
+          <div class="help-status-def">
+            The display name comes from a locale-wide <code>message.sarc</code> file that packs every menu string - including every course's name - into one shared table. A mod's own copy of it is never merged in (same reasoning as <code>common.sarc</code>/<code>menu.sarc</code> for character icons - it would silently wipe out every other string not present in that mod's own rebuild), so a stock course name is expected even after its geometry, textures and icon are fully modded. Changing it requires hand-injecting the new string into a combined <code>message.sarc</code> with a tool like Switch Toolbox - this app can't safely automate that.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">File status glossary</span></div>
+        <div class="settings-body">
+          <div class="help-status-term">Downloaded</div>
+          <div class="help-status-def">Extracted successfully and found at least one usable romfs mod - ready to check under "Mods to merge."</div>
+          <div class="help-status-term">UI art only</div>
+          <div class="help-status-def">UI art (PNG/texture icon sets) or a packed common.sarc/menu.sarc, with no romfs folder - not a mergeable romfs mod. See "UI Icon Worklist" in Settings for what to do with these.</div>
+          <div class="help-status-term">Code patch (badge on a mod)</div>
+          <div class="help-status-def">An exefs patch (.ips files named after a game build id) that patches the game's executable instead of adding romfs files - most Mechanics mods are this. Commit copies it to <code>atmosphere/exefs_patches/</code> in the staging folder (never selected by "Select All" - tick each one yourself). It only works on the exact game version it was built for and does nothing, silently, on any other; set your game's build ID in Settings to be warned about mismatches. Two patches that overwrite the same bytes conflict and can't both be checked.</div>
+          <div class="help-status-term">Packed archive only (badge on a mod)</div>
+          <div class="help-status-def">The mod has a romfs, but everything in it is a packed .sarc (common/menu/message) - a commit never copies those in, since they'd overwrite every other icon or text entry. On its own, ticking it does nothing - it takes effect through the UI icons &amp; text step.</div>
+          <div class="help-status-term">Missing romfs wrapper</div>
+          <div class="help-status-def">Extracted, but the mod folders (Driver/Kart/Audio/...) sit at the top level instead of under a "romfs" folder - create a "romfs" folder there and move them into it.</div>
+          <div class="help-status-term">Needs manual fix</div>
+          <div class="help-status-def">The archive extracted, but nothing about its layout was recognized - open its folder and check what's actually inside.</div>
+          <div class="help-status-term">Slot / music mismatch warning</div>
+          <div class="help-status-def">A course mod's bundled content (or race music) matches a *different* course's known internal id than the one you downloaded it for - it may belong under a different course's row instead.</div>
+        </div>
+      </div>
+
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Conflicts &amp; left-out files</span></div>
+        <div class="settings-body">
+          <div class="settings-hint">
+            A conflict (a "clash") means two ticked mods write genuinely different content to the same file - byte-identical coincidences don't count. You settle each clash on the Commit step (or from a mod's popup) with one click: keep one mod's version, use the game's own files, or untick a mod. Either way only the clashing files are affected - the rest of each mod still works. Behind the scenes that just means those files are "left out" of one mod; every mod's popup has a <strong>Files</strong> button to see everything it ships and leave out any single file yourself, and Settings lists every leave-out with an "Include again" button. Choices are remembered, even across re-downloads. Two code patches that overlap can't be split like this - one of them has to be unticked.</div>
+        </div>
+      </div>
+
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Where your files live</span></div>
+        <div class="settings-body">
+          <div class="settings-hint">
+            <code>mods/downloads/&lt;category&gt;/&lt;item&gt;/</code> holds the raw downloaded archives, one folder per character/course. <code>mods/extracted/&lt;category&gt;/&lt;item&gt;/&lt;mod name&gt;/romfs/...</code> is what those unpack to - this is what actually gets scanned for "Mods to merge." <code>ui-icons/romfs/...</code> is your own hand-merged combined character-select icon set, always included and never part of the checklist. <code>Audio/Static/BGM.bars</code> is never taken from any mod - it's a shared, game-wide file, not a per-course one, and is the single biggest source of unnecessary cross-course conflicts.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Useful links</span></div>
+        <div class="settings-body">
+          <ul class="help-link-list">
+            <li><a class="help-ext-link" data-url="https://gamebanana.com/games/6507">MK8D Mods hub on GameBanana</a></li>
+            <li><a class="help-ext-link" data-url="https://mkwiiki.org/wiki/Slow_Motion_Bug">Slow Motion Bug - Custom Mario Kart wiki</a></li>
+            <li><a class="help-ext-link" data-url="https://docs.google.com/spreadsheets/d/1B0XM1LqJxmp5L5pD3xgSSc3nBNcBAgVHL6q9RcIO_8E">MK8DX Information Dump spreadsheet (course internal ids/music ids)</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

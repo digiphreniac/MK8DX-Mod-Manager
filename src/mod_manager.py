@@ -170,7 +170,7 @@ DEFAULT_SETTINGS = {
 # strictly user data (downloads, checked/desired-mod state, caches) - it does
 # NOT include roster.json, which is a static app resource (the fixed
 # roster/cup/vehicle-part definitions) shipped next to the script and
-# always read from there, the same as webui.html - a "start fresh" master
+# always read from there, the same as the UI's files in ui/ - a "start fresh" master
 # directory must never leave the app without a roster to render. Same reason
 # KNOWN_SHARED_FILES_FILENAME isn't here either.
 MASTER_DIR_ITEMS = [
@@ -474,7 +474,7 @@ def mod_label(key: str, full: bool = False) -> str:
 # A name a mod could give its character, cleaned out of the mod's (or its folder's) name:
 # "Sandy Cheeks in Mario Kart 8 Deluxe" -> "Sandy Cheeks", "Freddy Fazbear over King Boo" ->
 # "Freddy Fazbear", "Wreck-it-Ralph Mod For DK" -> "Wreck-it-Ralph". Mirrors suggestNameFromMod()
-# in webui.html (which offers the same as a button).
+# in ui/js/menu-look.js (which offers the same as a button).
 _NAME_SPLIT_RE = re.compile(r"\s+(?:over|in|for|with|from|w/)\s+|\s+[|:]\s+|\s+-\s+", re.IGNORECASE)
 _NAME_NOISE_RE = re.compile(r"\b(mod|mk8d?x?|deluxe|port|edit|updated|improved|version|v\d[\d.]*)\b", re.IGNORECASE)
 # folder names that say nothing about who the character is
@@ -1418,7 +1418,7 @@ class Api(VoiceEditMixin):
 
         The roster file is the exception - it's a static app resource (not
         user data), always read from next to the script regardless of the
-        configured master directory, same as webui.html."""
+        configured master directory, same as the UI files in ui/."""
         self.roster_path = SCRIPT_DIR / ROSTER_FILENAME
         self.known_shared_files_path = SCRIPT_DIR / KNOWN_SHARED_FILES_FILENAME
 
@@ -2540,7 +2540,7 @@ class Api(VoiceEditMixin):
         changed, or a model-swap mod needs a glance even though nothing in the menu icons themselves
         did). {"name_applicable", "name_done", "icons_applicable", "icons_done"} - confirming one
         never marks the other; a character with ticked mods but neither applicable has nothing to
-        check at all. A UI combines them however it likes (webui.html's reviewFinished())."""
+        check at all. A UI combines them however it likes (reviewFinished() in ui/js/tiles-and-review.js)."""
         model = any(unit_has_driver_model(self._unit_dir(k)) and not self._slot_mismatch(k) for k in keys)
         data = self._review_data()
         sig = self._review_sig(keys)
@@ -3062,7 +3062,7 @@ class Api(VoiceEditMixin):
         than a roster of many, since there's nothing further to group units
         by - every mod downloaded into one of these categories always nests
         under that same fixed item name (see gb_download_files() callers in
-        webui.html), so unlike get_character_view()'s folder-name parsing
+        ui/js/add-mod.js and gamebanana.js), so unlike get_character_view()'s folder-name parsing
         this can just take every discovered unit under the category as-is."""
         categories = discover_mods(self.mod_root)
         gb_attempted = self._gb_attempted_names()
@@ -3210,7 +3210,7 @@ class Api(VoiceEditMixin):
     def gb_identify_mod(self, mod_id_or_url):
         """Fetches a mod's metadata and makes a best-effort guess at what to
         track it as - the first step of the "Add a mod" flow (see
-        webui.html's #add-mod-modal), reachable from the Full List tab for
+        #add-mod-modal in ui/html/add-mod-modal.html and ui/js/add-mod.js), reachable from the Full List tab for
         mods that don't obviously belong to a specific character/course grid
         tile. Unlike gb_fetch_mod(), this doesn't persist anything; it's a
         read-only lookup the frontend uses to propose a target before the
@@ -5644,7 +5644,7 @@ if __name__ == "__main__":
     window_w, window_h = default_window_size()
     window = webview.create_window(
         "Mario Kart 8 Mod Manager",
-        str(SCRIPT_DIR / "webui.html"),
+        str(SCRIPT_DIR / "ui" / "index.html"),
         js_api=api,
         width=window_w,
         height=window_h,

@@ -28,7 +28,7 @@ Given a character or a course, it can:
 
 - `src/mod_manager.py` - backend (a pywebview JS-API bridge; almost all of the
   actual logic lives here)
-- `src/webui.html` - the frontend
+- `src/ui/` - the frontend (plain HTML, CSS and JS; no build step) - see "Frontend file layout" below
 - `src/voice_audio.py` / `voice_edit.py` / `voice_dsp.py` / `voice_api.py` - character voices. `voice_audio.py` reads a voice archive
   (`.bars`) and decodes its sounds so the app can play them; `voice_edit.py` rewrites an archive with some sounds swapped
   (and knows what each voice line is called); `voice_dsp.py` turns audio into the game's sound format; `voice_api.py` is the
@@ -96,7 +96,37 @@ Given a character or a course, it can:
 For the day-to-day usage guide, see the app's own **Help** panel (top
 right) - it covers the five-step flow, Menu Look, voice editing, conflicts,
 the file-status glossary and known issues, and stays current with the UI
-since it lives in `webui.html` itself rather than a separate doc.
+since it lives in the UI itself (`src/ui/html/help-modal.html`) rather than a separate doc.
+
+## Frontend file layout
+
+The UI is plain HTML, CSS and JavaScript under `src/ui/` - no build step, no bundler, no modules. pywebview serves that folder
+over its built-in local HTTP server (which is why relative links and `fetch()` work), so everything the page loads must live
+under `src/ui/`.
+
+- `index.html` - the page frame only: the header, tabs, the main views, the footer, and one `<link>` per stylesheet.
+- `html/*.html` - one file per modal / overlay (`help-modal`, `settings-modal`, `add-mod-modal`, `gb-browse-modal`,
+  `gb-detail-modal`, `icon-gen-modal`, `guessed-names-modal`, `character-modal`, `setup-overlay`). `js/bootstrap.js` fetches
+  them and adds them after the frame, in the order it lists them (the order is their stacking order).
+- `css/*.css` - the styles, split along the old file's section comments. **Order matters**: later rules override earlier ones,
+  so the `<link>` order in `index.html` is the cascade. Add a stylesheet after whatever it needs to override.
+- `js/*.js` - the app. These are ordinary (non-module) scripts that share **one global scope**, run one after another in the
+  order `SCRIPTS` lists in `js/bootstrap.js`: state and helpers first, then tiles, the character card, the views, add-a-mod,
+  settings, the guided flow, and `main.js` (the `pywebviewready` handler that starts the app) near the end. Top-level code in a
+  file may use anything an *earlier* file declared, but not a later one (a function declaration is only hoisted within its own
+  file), so a new file goes where its dependencies are already loaded.
+
+`bootstrap.js` also covers one timing trap: pywebview fires `pywebviewready` once, as soon as the page has loaded, which can be
+before `main.js` has registered its listener now that the scripts load one by one. It notes the event and replays it once every
+script is in.
+
+Which file holds what, roughly: `tiles-and-review.js` (character/course tiles, the "have you checked the look" review),
+`character-select-layout.js` (the docked card, hover name bar), `gamebanana.js` (browse / detail / the GameBanana card),
+`voice.js` (playback, the voice editor, the "Use my own sound" tool, the card's Voice row), `character-card.js` (the card
+itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, Vehicles, More, cups and
+courses, tab switching), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
+`settings-panels.js` (master directory, UI setup card), `menu-icons-text.js` / `menu-look.js` (the base-file copy and the
+Menu Look cards), `flow.js` (step bar, Commit, Copy to Switch), `setup-wizard.js`, `tooltips.js`.
 
 ## Base game files: a required local copy
 
@@ -263,7 +293,7 @@ dedicated section competing for space on Commit every single time; the warning's
 button (`"action": "settings"`) is there for the rare time someone does want to change it.
 
 Everything about menu icons & text that isn't "just commit" lives in Settings' **"UI icons & text"**
-card (`renderUiSetupSettingsCard()` in `webui.html`) instead:
+card (`renderUiSetupSettingsCard()` in `src/ui/js/settings-panels.js`) instead:
 - **Language** (`ui_setup_locale`; `message.sarc` is per language, icons are not) and an optional
   "also build the other English" box (`ui_setup_extra_english`) - both persisted settings, read by
   `merge()` at commit time.
@@ -476,7 +506,7 @@ courses 1400-1599 - the short and cup-line variants), from an English message
 archive of the plan. Building needs the game's own menu files (see above) or, failing that, a ticked
 mod that ships them to use as the base copy - but choosing does not.
 
-**Character Select layout.** On a window at least 1100 px wide (`DOCK_MIN_WIDTH` in `webui.html`) the
+**Character Select layout.** On a window at least 1100 px wide (`DOCK_MIN_WIDTH` in `src/ui/js/character-select-layout.js`) the
 screen is: the character grid on the left (55% of the width) and the card of the selected character - mods
 to merge, menu look, GameBanana mods - on the right (45%), two equal-height columns, and under them a
 bottom row with the character's **name plate** in the middle and the Next button at the right end. The
@@ -515,7 +545,7 @@ own: the game's character name is on the name plate, after the modded name, smal
 **Names we guessed.** The Commit page shows a "names were guessed" warning card whenever a guessed
 name (see "Ticking a character mod tries to name the character") hasn't been confirmed yet; its
 **Review names** button opens a small dedicated modal (`openGuessedNamesModal()` /
-`drawGuessedNamesModal()` in `webui.html` - reusing the same row-building logic the old standalone
+`drawGuessedNamesModal()` in `src/ui/js/menu-icons-text.js` - reusing the same row-building logic the old standalone
 page used) - one row per character: the name in an editable box, **Confirm** (which becomes **Save
 name** once the box is edited) and **Use the game's name**, plus **Confirm all as shown**. A wrong
 guess would otherwise be built into the game's menus. A guess counts as confirmed once the Name task
@@ -559,7 +589,7 @@ changed it), a sentence saying where things stand ("2 mods in use - appearance n
   changes the icons, or only swaps the 3D model with neither) leaves the *other* row reading "Nothing to
   check", and a character only counts as finished once *every task that applies to it* is confirmed -
   `mod_manager.py`'s `_review_state()` returns `name_applicable`/`name_done` and `icons_applicable`/`icons_done`
-  as two separate pairs; `reviewFinished()` in `webui.html` is the one place that combines them (both true,
+  as two separate pairs; `reviewFinished()` in `src/ui/js/tiles-and-review.js` is the one place that combines them (both true,
   or not applicable, for each). Each row is a short walkthrough the first time, and a **read-only summary**
   (status "Completed", with **Edit** right beside the title) afterwards:
   - **Name** - "What should Birdo be called in the game?": the preview (the icon and the name plate as the
@@ -920,7 +950,7 @@ a description - nobody's traced what triggers them (checked against real Switch 
   voice volume" (on by default) instead: a soft compressor brings the crest factor down near the game's, then a gain is searched
   for (the limiter that follows would eat into a single-shot guess) to bring the *result* to that -14.7 dBFS target, then a smooth
   (tanh) limiter catches any remaining peaks by bending them toward the ceiling rather than flattening them (`matchGameLoudness()`
-  in `webui.html`; checked afterward: well under 1% of samples in the processed test audio come near the ceiling, and the
+  in `src/ui/js/voice.js`; checked afterward: well under 1% of samples in the processed test audio come near the ceiling, and the
   encoder's accuracy is unaffected). Unticked, the audio is used as decoded, unprocessed.
 * **The starting archive.** Changing one line means writing the whole archive again, so the app needs the archive as the game
   would otherwise use it: the copy in a *ticked* voice mod for that slot (that is what the game would play; one left out of the
@@ -1146,7 +1176,7 @@ certainly reserved for the course name/mode text the game's own UI draws
 over this texture at render time. `generate_course_icon()`
 (`_COURSE_PICT_CONTENT_*` in `mod_manager.py`) composites into that exact
 same window rather than filling the full canvas, and the crop tool's
-aspect ratio (`ICON_GEN_ASPECT` in `webui.html`) targets that 16:9 content
+aspect ratio (`ICON_GEN_COURSE_ASPECT` in `src/ui/js/help-and-icon-generator.js`) targets that 16:9 content
 window directly - a typical 16:9 screenshot needs no letterboxing at all
 before the app adds the matching border around it.
 

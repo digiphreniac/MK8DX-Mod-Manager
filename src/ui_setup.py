@@ -1,5 +1,5 @@
 """Engine for menu icons & text - built automatically as part of a commit (see mod_manager.Api.merge()),
-with the review/language-pick UI on the Commit page in webui.html.
+with the review/language-pick UI on the Commit page (src/ui/js/flow.js).
 
 Mods that change a character's select-screen icon or a course's name ship their
 own complete copy of a shared archive (common.sarc / menu.sarc / message.sarc);
