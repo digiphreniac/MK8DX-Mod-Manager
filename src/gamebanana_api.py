@@ -423,7 +423,7 @@ def find_7zip():
     ):
         if Path(candidate).is_file():
             return candidate
-    found = shutil.which("7z") or shutil.which("7z.exe")
+    found = shutil.which("7z") or shutil.which("7zz") or shutil.which("7z.exe")
     return found
 
 

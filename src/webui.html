@@ -2559,7 +2559,7 @@
           <div class="settings-hint">
             Every character's card has a <strong>Voice</strong> row with <strong>Edit voice lines</strong>. It lists what the character says - character select, finishing first / mid-pack / last, overtaking, getting hit, items, boosts, the horn - each with a short description (some marked <em>guess</em>: play it to check). For any line you can <strong>Mute</strong> it, or <strong>Use my own</strong> sound: choose an audio file (mp3, wav, ogg, m4a...), pick the part you want, and the app converts it to the game's format (up to 8 seconds). Each line is really several sounds in the game's file (variations and tails); they are always changed together.
             <br><br>
-            The result is saved as a mod called <strong>Custom voice</strong> under that character - tick, untick or remove it like any other, and Commit merges it. Changing one line means writing out the character's whole voice file, so the app starts from the voice you'd otherwise get: a voice mod you've ticked for that character, or else the game's own file (choose your game's files folder in Settings). If you tick a different voice mod later, your changes move onto it.
+            The row is greyed out until the character has a ticked mod, like Name and Icons. The result is saved as a mod called <strong>Custom voice</strong> under that character - tick, untick or remove it like any other, and Commit merges it. Changing one line means writing out the character's whole voice file, so the app starts from the voice you'd otherwise get: a voice mod you've ticked for that character, or else the game's own file (choose your game's files folder in Settings). If you tick a different voice mod later, your changes move onto it.
           </div>
         </div>
       </div>
@@ -3405,13 +3405,7 @@ function applyCharacterLook(ref, looks) {
       }
       el.addEventListener("click", (e) => { e.stopPropagation(); selectCharacter(v.name); });
       slots.push(el);
-      if (f) {
-        const bits = [f.icon ? (f.icon_modded ? `icon from ${f.icon_from.join(", ") || "your pictures"}` : "the game's own icon") : null,
-                      f.name ? `name ${f.name}${f.guessed ? " (guessed from the mod)" : ""}` : null].filter(Boolean);
-        notes.push(`${v.label}: ${bits.join("; ")}`);
-      } else {
-        notes.push(`${v.label}: the game's own`);
-      }
+      if (f && f.name) notes.push(`${v.label}: name ${f.name}${f.guessed ? " (guessed from the mod)" : ""}`);
     });
     tile.prepend(...slots);   // (in order: the second variant is drawn over the first where they overlap)
     tile.classList.add("has-icon", "has-pair");
@@ -3422,10 +3416,6 @@ function applyCharacterLook(ref, looks) {
     img.alt = "";
     tile.insertBefore(img, tile.firstChild);
     tile.classList.add("has-icon");
-    const KIND = { Chara: "select-screen", edChara: "results", MapChara: "map" };
-    notes.push(withIcon.icon_modded
-      ? `Icon: the ${KIND[withIcon.icon_kind] || ""} icon from ${withIcon.icon_from.join(", ") || "your pictures"}`
-      : `Icon: the game's own ${KIND[withIcon.icon_kind] || ""} icon`);
   }
   const named = found.filter(f => f.name);
   if (named.length) {
@@ -5610,7 +5600,9 @@ function openCustomAudio(character, line, onDone) {
 }
 
 // The Voice row at the bottom of a character's card: how many lines are changed, and the button that opens the editor.
+// Greyed out until the character has a ticked mod (like Name and Icons); the card calls setEnabled() from its refresh().
 function attachVoiceRow(body, name) {
+  let enabled = false;
   const root = cgEl("div", "cc-step cc-step-inline");
   root.hidden = true;
   const row = cgEl("div", "cc-step-row");
@@ -5620,6 +5612,8 @@ function attachVoiceRow(body, name) {
   const sum = cgEl("span", null, "");
   text.appendChild(sum);
   const edit = button("Edit voice lines", "small", () => openVoiceEditor(name, afterChange));
+  edit.hidden = true;
+  root.classList.add("is-pending");
   row.append(dot, text, edit);
   root.appendChild(row);
   body.appendChild(root);
@@ -5628,11 +5622,12 @@ function attachVoiceRow(body, name) {
     try { r = (await pywebview.api.get_voice_summary([name]))[name]; } catch (e) { return; }
     if (!root.isConnected || !r || !r.known) return;
     root.hidden = false;
-    const n = r.muted + r.custom;
+    const n = enabled ? r.muted + r.custom : 0;   // (greyed out like Name and Icons: no ticks, no summary)
     dot.className = "cc-dot " + (n ? "done" : "pending");
     dot.textContent = n ? "\u2713" : "";
-    sum.textContent = n ? [r.muted ? `${VE_LINE_WORD(r.muted)} muted` : "", r.custom ? `${VE_LINE_WORD(r.custom)} replaced` : ""].filter(Boolean).join(" \u00b7 ")
-                        : "Mute a line, or use your own sound";
+    sum.textContent = !enabled ? "Comes after you pick a mod"
+                    : n ? [r.muted ? `${VE_LINE_WORD(r.muted)} muted` : "", r.custom ? `${VE_LINE_WORD(r.custom)} replaced` : ""].filter(Boolean).join(" \u00b7 ")
+                    : "Mute a line, or use your own sound";
   }
   // a change writes the Custom voice mod: the mod list, the tiles and the commit step all need to hear about it
   async function afterChange() {
@@ -5645,6 +5640,15 @@ function attachVoiceRow(body, name) {
     refresh();
   }
   refresh();
+  return {
+    setEnabled(on) {
+      if (on === enabled) return;
+      enabled = on;
+      edit.hidden = !on;
+      root.classList.toggle("is-pending", !on);
+      refresh();
+    },
+  };
 }
 
 // ---- The menu pictures a mod brings (Select screen, Mini map, Results): the tag on a character mod row and its window.
@@ -6362,7 +6366,7 @@ function assembleCharacterCard(ctx) {
   iconsStep.content.appendChild(lookTasks.iconsRoot);
   body.appendChild(nameStep.root);
   body.appendChild(iconsStep.root);
-  attachVoiceRow(body, name);
+  const voiceRow = attachVoiceRow(body, name);
 
   function setDot(step, kind) {
     step.dot.className = "cc-dot " + kind;
@@ -6372,6 +6376,8 @@ function assembleCharacterCard(ctx) {
 
   function refresh() {
     const ticked = entry.units.filter(k => state.checked[k]);
+    // (the Custom voice mod is made by the Voice row itself, so it can't be what unlocks that row)
+    voiceRow.setEnabled(ticked.some(k => !k.endsWith("/Custom voice")));
     const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
     // --- the mods panel

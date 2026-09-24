@@ -129,8 +129,9 @@ still be connected, and *muting or replacing a character's default voice needed 
 optional folder was never set (true of most installs). Requiring the copy up front removes both: `_game_files()` and
 `_voice_game_file()` now always resolve to the app's own copy, so every roster character
 (all 50 have a `DRIVER_SLOTS` code, plus Gold Mario's own separate voice archive - 51 in total, verified byte-for-byte
-against a real dump; see the comment above `DRIVER_SLOTS`) can be muted or have a line replaced with no voice mod
-ticked at all, and UI icons/text work with nothing ticked either. `get_flow_status()`'s `setup.done` requires the copy
+against a real dump; see the comment above `DRIVER_SLOTS`) has a base voice to start from with no voice mod
+ticked at all, and UI icons/text work with nothing ticked either. (The card's Voice row is still greyed out until the
+character has a ticked mod - see "Voice editing" below - but that is a UI choice, not a missing base file.) `get_flow_status()`'s `setup.done` requires the copy
 to exist (`game_files.status(mod_root).done`), so an install that's missing it is sent back to Setup rather than
 silently degrading somewhere else in the app.
 
@@ -716,9 +717,9 @@ so a mod that only touches, say, the map icon still wins the tile - with the mod
 instead of the game's. A tile with nothing ticked stays faded (`.no-mods`, unchanged) so it's still
 obvious at a glance which characters you haven't touched; before base files are set up, or for a
 character with nothing to compute a picture from at all, the tile falls back to its plain badge and
-name as before. Hover a tile to see where the icon and name came from - including "the game's own"
-for an unmodded one, and "No mods yet" for one with nothing downloaded (no gray text on the tile
-itself for that anymore; it only lives in the tooltip).
+name as before. Hover a tile to see where the name came from (the tooltip no longer mentions the icon - the
+tile's picture shows that, and clicking the tile shows the rest), and "No mods yet" for one with
+nothing downloaded (no gray text on the tile itself for that anymore; it only lives in the tooltip).
 
 **The character's select sound.** Clicking a character's tile plays the character-select voice its ticked mods bring (the
 "Character select" sound in a `MenuDriver_*.bars`: `Api.get_select_voice()`) - whether or not its appearance is finished -
@@ -868,7 +869,10 @@ unchanged and is what's shown.
 
 ## Voice editing: mute a line, or use your own sound
 
-A character's card has a **Voice** row (**Edit voice lines**). The window lists the character's voice lines - the four
+A character's card has a **Voice** row (**Edit voice lines**). Like **Name** and **Icons**, it is greyed out ("Comes after
+you pick a mod") until the character has a ticked mod - `attachVoiceRow()`'s `setEnabled()`, fed by the card's `refresh()`.
+The character's own *Custom voice* mod doesn't count toward that, so it can't keep the row open after the real mod is unticked
+(existing edits aren't touched - the row just can't be opened until a mod is ticked again). The window lists the character's voice lines - the four
 *important moments* first (character select, finish first, finish mid-pack, finish last), then every other line by category -
 each with a short description, a play button, and **Mute** / **Use my own...**. A handful of lines say "Unknown" instead of
 a description - nobody's traced what triggers them (checked against real Switch hardware, and two modder references - see
