@@ -25,6 +25,7 @@
     "js/voice.js",
     "js/unit-pictures.js",
     "js/character-card.js",
+    "js/course-card.js",
     "js/help-and-icon-generator.js",
     "js/views.js",
     "js/add-mod.js",

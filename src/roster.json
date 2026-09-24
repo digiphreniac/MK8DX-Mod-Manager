@@ -466,18 +466,12 @@
       "cup": "Crossing Cup",
       "courses": [
         {
-          "name": "Animal Crossing",
+          "name": "GCN Baby Park",
           "internal": [
-            "Du_Animal_Spring",
-            "Du_Animal_Summer",
-            "Du_Animal_Autumn",
-            "Du_Animal_Winter"
+            "Dgc_BabyPark"
           ],
           "music": [
-            "WU_ANIMALSPRING",
-            "WU_ANIMALSUMMER",
-            "WU_ANIMALAUTUMN",
-            "WU_ANIMALWINTER"
+            "GC_BABYPARK"
           ]
         },
         {
@@ -499,12 +493,18 @@
           ]
         },
         {
-          "name": "GCN Baby Park",
+          "name": "Animal Crossing",
           "internal": [
-            "Dgc_BabyPark"
+            "Du_Animal_Spring",
+            "Du_Animal_Summer",
+            "Du_Animal_Autumn",
+            "Du_Animal_Winter"
           ],
           "music": [
-            "GC_BABYPARK"
+            "WU_ANIMALSPRING",
+            "WU_ANIMALSUMMER",
+            "WU_ANIMALAUTUMN",
+            "WU_ANIMALWINTER"
           ]
         }
       ]

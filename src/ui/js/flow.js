@@ -100,7 +100,7 @@ function renderNextButton() {
     btn.textContent = target.label + "  →";
     btn.onclick = () => goStep(target.to);
     const left = flow.step === "mods" ? unfinishedCount() : 0;
-    btn.title = left ? `${left} character${left === 1 ? " still needs its" : "s still need their"} name and icons confirmed` : "";
+    btn.title = left ? `${left} character${left === 1 ? "" : "s"} or course${left === 1 ? "" : "s"} ${left === 1 ? "still needs its" : "still need their"} name and icons confirmed` : "";
   }
 }
 

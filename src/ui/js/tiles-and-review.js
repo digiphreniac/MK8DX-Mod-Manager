@@ -119,6 +119,7 @@ function buildTile(displayName, units, onClick, gbAttempted, opts) {
 // after a tick doesn't flash back to blank while the fresh answer loads.
 let characterLooks = {};
 let characterReview = {};   // name -> {applicable, reviewed} for characters with ticked mods
+let courseReview = {};      // name -> {applicable, finished} for courses with ticked mods (Api.get_course_tile_view)
 let characterVoice = {};    // name -> {race, menu, from} for characters with a ticked mod that ships voice files
 let characterLooksToken = 0;
 let characterLooksTimer = null;
@@ -244,54 +245,73 @@ function applyReviewMarker(ref, review) {
   tile.appendChild(mark);
 }
 
-// Characters whose walkthrough isn't finished: ticked mods that change how they look, Name and/or
+// Characters and courses whose walkthrough isn't finished: ticked mods that change how they look, Name and/or
 // Icons not yet confirmed.
 function unfinishedNames(review) {
   return Object.entries(review || {}).filter(([, r]) => reviewApplicable(r) && !reviewFinished(r)).map(([n]) => n);
 }
-function unfinishedCount() { return unfinishedNames(characterReview).length; }
+// (a course's review is {applicable, finished} - already combined by the backend - rather than the two tasks)
+function unfinishedCourseNames() {
+  return Object.entries(courseReview || {}).filter(([, r]) => r && r.applicable && !r.finished).map(([n]) => n);
+}
+function unfinishedCount() { return unfinishedNames(characterReview).length + unfinishedCourseNames().length; }
+// Everything unfinished, asked afresh: [{kind: "character" | "course", name, shown}], characters first.
 async function freshUnfinished() {
   try {
     const view = await pywebview.api.get_character_tile_view((state.roster || []).map(r => r.name));
     if (view) { characterLooks = view.looks; characterReview = view.review; characterVoice = view.voice || {}; }
   } catch (e) { /* fall back on what the grid last knew */ }
-  return unfinishedNames(characterReview).map(n => ({ name: n, shown: (characterLooks[n] && characterLooks[n].name) || n }));
+  try { await refreshCourseReview(true); } catch (e) { /* likewise */ }
+  return [
+    ...unfinishedNames(characterReview).map(n => ({ kind: "character", name: n, shown: (characterLooks[n] && characterLooks[n].name) || n })),
+    ...unfinishedCourseNames().map(n => ({ kind: "course", name: n, shown: (courseReview[n] && courseReview[n].shown) || n })),
+  ];
+}
+const itemKey = (kind, name) => kind + "|" + name;
+// "3 characters", "1 course", "2 characters and 1 course"
+function unfinishedPhrase(list) {
+  const nc = list.filter(x => x.kind === "character").length, nk = list.filter(x => x.kind === "course").length;
+  return [nc && `${nc} character${nc === 1 ? "" : "s"}`, nk && `${nk} course${nk === 1 ? "" : "s"}`].filter(Boolean).join(" and ");
 }
 
 // A name typed in the walkthrough's first step but not confirmed yet is kept as a draft while the user looks at
 // something else, so leaving the card never throws it away. character -> {value, base (the saved name it was typed over)}
 const nameDrafts = {};
 
-// Leaving the "Choose mods" stage with characters still unfinished: ask once, at the point it starts to matter.
+// Leaving the "Choose mods" stage with characters or courses still unfinished: ask once, at the point it starts to matter.
 // Resolves true to carry on, false to stay.
-// "Review them": a guided pass through the unfinished characters, one after another. A bar on top of each card says
+// "Review them": a guided pass through the unfinished characters and courses, one after another. A bar on top of each card says
 // where the user is ("2 of 3") and offers Skip and Stop; finishing a character moves on to the next, and at the end the
 // bar offers the next stage.
-const reviewQueue = { active: false, names: [], skipped: new Set(), current: null, finished: false, el: null, timer: null };
+const reviewQueue = { active: false, items: [], skipped: new Set(), current: null, finished: false, el: null, timer: null };
 
 function startReviewQueue(list) {
   reviewQueue.active = true;
-  reviewQueue.names = list.map(x => x.name);
+  reviewQueue.items = list.map(x => ({ kind: x.kind, name: x.name }));
   reviewQueue.skipped = new Set();
   reviewQueue.current = null;
   reviewQueue.finished = false;
   return advanceReviewQueue();
 }
+function openReviewItem(item) {
+  if (item.kind === "course") return openCourseCard(item.name);
+  switchView("characters");
+  return openCharacterModal(item.name);
+}
 async function advanceReviewQueue() {
   if (!reviewQueue.active) return;
   const list = await freshUnfinished();
-  const left = reviewQueue.names.filter(n => list.some(x => x.name === n) && !reviewQueue.skipped.has(n));
+  const left = reviewQueue.items.filter(i => list.some(x => x.kind === i.kind && x.name === i.name) && !reviewQueue.skipped.has(itemKey(i.kind, i.name)));
   reviewQueue.remaining = left.length;
   if (!left.length) {
     reviewQueue.finished = true;
     reviewQueue.current = null;
     renderReviewBar();
-    if (!reviewQueue.el || !reviewQueue.el.isConnected) { switchView("characters"); openCharacterModal(reviewQueue.names[reviewQueue.names.length - 1]); }
+    if (!reviewQueue.el || !reviewQueue.el.isConnected) openReviewItem(reviewQueue.items[reviewQueue.items.length - 1]);
     return;
   }
   reviewQueue.current = left[0];
-  switchView("characters");
-  openCharacterModal(left[0]);
+  await openReviewItem(left[0]);
   renderReviewBar();
 }
 function stopReviewQueue() {
@@ -300,9 +320,9 @@ function stopReviewQueue() {
   if (reviewQueue.el) reviewQueue.el.remove();
   reviewQueue.el = null;
 }
-// a character was just finished ("Looks right"): on to the next one after a moment (long enough to see "Completed")
-function onCharacterFinished(name) {
-  if (!reviewQueue.active || !reviewQueue.names.includes(name)) return;
+// a character or course was just finished: on to the next one after a moment (long enough to see "Completed")
+function onItemFinished(kind, name) {
+  if (!reviewQueue.active || !reviewQueue.items.some(i => i.kind === kind && i.name === name)) return;
   clearTimeout(reviewQueue.timer);
   reviewQueue.timer = setTimeout(advanceReviewQueue, 700);
 }
@@ -318,17 +338,20 @@ function renderReviewBar() {
   el.replaceChildren();
   el.classList.toggle("is-done", reviewQueue.finished);
   if (reviewQueue.finished) {
-    const skipped = [...reviewQueue.skipped].filter(n => unfinishedNames(characterReview).includes(n)).length;
-    el.appendChild(cgEl("span", "review-text", skipped ? `Done - ${skipped} skipped, still unfinished.` : "All done - every character is finished."));
+    const stillOpen = new Set([...unfinishedNames(characterReview).map(n => itemKey("character", n)), ...unfinishedCourseNames().map(n => itemKey("course", n))]);
+    const skipped = [...reviewQueue.skipped].filter(k => stillOpen.has(k)).length;
+    el.appendChild(cgEl("span", "review-text", skipped ? `Done - ${skipped} skipped, still unfinished.` : "All done - everything is finished."));
     const t = flow.status ? flowNextTarget("mods", flow.status) : null;
     if (t) el.appendChild(button(t.label + "  \u2192", "primary small", () => { stopReviewQueue(); goStep(t.to, { skipGate: true }); }));
     el.appendChild(button("Close", "ghost small", stopReviewQueue));
     return;
   }
-  const total = reviewQueue.names.length;
+  const total = reviewQueue.items.length;
   const pos = total - (reviewQueue.remaining || 0) + 1;
-  el.appendChild(cgEl("span", "review-text", `Reviewing unfinished characters \u00b7 ${Math.min(pos, total)} of ${total}`));
-  el.appendChild(button("Skip", "ghost small", () => { if (reviewQueue.current) reviewQueue.skipped.add(reviewQueue.current); advanceReviewQueue(); }));
+  const kinds = new Set(reviewQueue.items.map(i => i.kind));
+  const noun = kinds.size > 1 ? "characters and courses" : kinds.has("course") ? "courses" : "characters";
+  el.appendChild(cgEl("span", "review-text", `Reviewing unfinished ${noun} \u00b7 ${Math.min(pos, total)} of ${total}`));
+  el.appendChild(button("Skip", "ghost small", () => { if (reviewQueue.current) reviewQueue.skipped.add(itemKey(reviewQueue.current.kind, reviewQueue.current.name)); advanceReviewQueue(); }));
   el.appendChild(button("Stop", "ghost small", stopReviewQueue));
 }
 
@@ -348,12 +371,12 @@ function showUnfinishedGate(list, resolve) {
   card.setAttribute("role", "dialog");
   card.setAttribute("aria-modal", "true");
   const n = list.length;
-  card.appendChild(cgEl("h3", null, n === 1 ? "1 character isn't finished" : `${n} characters aren't finished`));
+  card.appendChild(cgEl("h3", null, `${unfinishedPhrase(list)} ${n === 1 ? "isn't" : "aren't"} finished`));
   const chips = cgEl("div", "gate-chips");
   for (const it of list.slice(0, 8)) chips.appendChild(cgEl("span", "gate-chip", it.shown !== it.name ? `${it.shown} (${it.name})` : it.name));
   if (n > 8) chips.appendChild(cgEl("span", "gate-chip more", `and ${n - 8} more`));
   card.appendChild(chips);
-  card.appendChild(cgEl("p", null, `${n === 1 ? "Its name or icons haven't" : "Their names or icons haven't"} been confirmed yet. If you continue, they're used as they are now - and a name that was only a guess is built into the game's menus without being confirmed.`));
+  card.appendChild(cgEl("p", null, `${n === 1 ? "Its name or icon hasn't" : "Their names or icons haven't"} been confirmed yet. If you continue, they're used as they are now - and a name that was only a guess is built into the game's menus without being confirmed.`));
   const acts = cgEl("div", "gate-actions");
   let finished = false;
   const done = (value, after) => {

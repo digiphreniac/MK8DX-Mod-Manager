@@ -6,6 +6,8 @@ Only a known, bounded set of files is copied - not the whole RomFS:
   UI/cmn/common.sarc, UI/cmn/menu.sarc                          - menu icons (every character)
   UI/<locale>/message.sarc                                      - menu text, one per language found
   Audio/Driver/Driver_<slot>.bars, Audio/DriverMenu/MenuDriver_<slot>.bars   - each character's own voice
+  UI/cmn/menu/ym_CoursePict_<id>_00^u.bntx                      - each course's own course-select picture (about 105, 9 MB;
+                                                                  optional - an older copy without them still counts as done)
 
 Two copies live under <master_root>/game-files/:
   original/  - written once (or replaced whole by "update from a new dump"), never touched again otherwise. The
@@ -26,6 +28,8 @@ DIRNAME = "game-files"
 MANIFEST_FILENAME = "manifest.json"
 ICON_RELPATHS = {"common": "UI/cmn/common.sarc", "menu": "UI/cmn/menu.sarc"}
 REQUIRED_ICON_IDS = ("common", "menu")
+COURSE_PICT_DIR = "UI/cmn/menu"
+COURSE_PICT_PREFIX = "ym_CoursePict_"
 
 
 def _mm():
@@ -82,7 +86,29 @@ def discover(source_folder) -> dict:
                         entry["race"] = race
                     if menu is not None and menu.is_file():
                         entry["menu"] = menu
-    return {"icons": icons, "voice": voice}
+    return {"icons": icons, "voice": voice, "course_picts": _discover_course_picts(folder)}
+
+
+def _discover_course_picts(source_folder) -> dict:
+    """{file name: Path} of the course-select pictures under `source_folder` (or its romfs/ folder): every
+    UI/cmn/menu/ym_CoursePict_*.bntx. {} when there are none (some dumps and older extractions leave them out)."""
+    if not source_folder:
+        return {}
+    mm = _mm()
+    folder = Path(source_folder)
+    for root in (folder, mm._ci_child(folder, "romfs")):
+        if root is None or not root.is_dir():
+            continue
+        menu = root
+        for part in COURSE_PICT_DIR.split("/"):
+            menu = mm._ci_child(menu, part) if menu is not None else None
+        if menu is None or not menu.is_dir():
+            continue
+        found = {f.name: f for f in menu.iterdir()
+                 if f.is_file() and f.name.startswith(COURSE_PICT_PREFIX) and f.suffix.lower() == ".bntx"}
+        if found:
+            return found
+    return {}
 
 
 def _copy_one(dest_root: Path, relpath: str, src: Path, magic: bytes, problems: list) -> bool:
@@ -118,7 +144,11 @@ def _copy_into(found: dict, dest_root: Path) -> dict:
                 got[kind] = True
         if got:
             voice_ok.append({"stem": stem, **{k: True for k in got}})
-    return {"icons": icons_ok, "voice": voice_ok, "problems": problems}
+    picts_ok = 0
+    for fname, src in sorted(found.get("course_picts", {}).items()):
+        if _copy_one(dest_root, f"{COURSE_PICT_DIR}/{fname}", src, b"BNTX", problems):
+            picts_ok += 1
+    return {"icons": icons_ok, "voice": voice_ok, "course_pictures": picts_ok, "problems": problems}
 
 
 def copy_both(source_folder, master_root: Path) -> dict:
@@ -142,7 +172,7 @@ def copy_both(source_folder, master_root: Path) -> dict:
     manifest = {
         "source": str(source_folder), "copied_at": mm.datetime.now().isoformat(timespec="seconds"),
         "icons": sorted(result_current["icons"]), "voice": result_current["voice"],
-        "voice_total": len(mm.DRIVER_SLOTS), "problems": result_original["problems"] + result_current["problems"],
+        "course_pictures": result_current["course_pictures"], "voice_total": len(mm.DRIVER_SLOTS), "problems": result_original["problems"] + result_current["problems"],
     }
     (root / MANIFEST_FILENAME).write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     return {"success": True, "manifest": manifest}
@@ -167,6 +197,7 @@ def status(master_root: Path) -> dict:
     done = all(a in icons for a in REQUIRED_ICON_IDS) and bool(locales)
     return {"done": done, "source": manifest.get("source"), "copied_at": manifest.get("copied_at"),
             "icons": icons, "locales": locales, "voice_found": len(manifest.get("voice") or []),
+            "course_pictures": manifest.get("course_pictures") or 0,
             "voice_total": manifest.get("voice_total") or len(_mm().DRIVER_SLOTS), "problems": manifest.get("problems") or []}
 
 
@@ -192,6 +223,40 @@ def find_current(master_root: Path) -> dict:
                 if p.is_file():
                     found[f"message:{loc_dir.name}"] = p
     return found
+
+
+def find_current_course_pict(master_root: Path, pict_id: str):
+    """The app's own copy of one course's select-screen picture (`pict_id` is the part of the file name after
+    "ym_CoursePict_", e.g. "Gu_FirstCircuit" or "DLC07"), or None."""
+    p = master_root / DIRNAME / "current" / COURSE_PICT_DIR / f"{COURSE_PICT_PREFIX}{pict_id}_00^u.bntx"
+    return p if p.is_file() else None
+
+
+def top_up_course_pictures(master_root: Path) -> int:
+    """For a copy made before course pictures were part of it: fetches them from the folder the copy was made from, if that
+    still exists, into BOTH copies (adding files only - nothing already there is touched) and records the count in the
+    manifest so this is tried once. Returns how many pictures the copy has afterwards (0 when the source is gone or has none)."""
+    manifest = _load_manifest(master_root)
+    if not manifest or "course_pictures" in manifest:
+        return (manifest or {}).get("course_pictures") or 0
+    root = master_root / DIRNAME
+    if not (root / "current").is_dir():
+        return 0
+    found = _discover_course_picts(manifest.get("source"))
+    if not found:
+        return 0   # (the source folder is gone: the next "Update from a new dump" brings them; not recorded, so a later try can succeed)
+    count = 0
+    for name in ("original", "current"):
+        problems = []
+        ok = 0
+        for fname, src in sorted(found.items()):
+            if _copy_one(root / name, f"{COURSE_PICT_DIR}/{fname}", src, b"BNTX", problems):
+                ok += 1
+        count = max(count, ok)
+        manifest["problems"] = (manifest.get("problems") or []) + problems
+    manifest["course_pictures"] = count
+    (root / MANIFEST_FILENAME).write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    return count
 
 
 def find_current_voice(master_root: Path, kind: str, stem: str):

@@ -2,6 +2,7 @@ let state = { categories: {}, checked: {}, roster: [], cups: [], settings: {}, s
 let viewMode = "characters";
 let openCharacter = null;
 let selectedCup = "Mushroom Cup";
+let selectedCourse = null;   // the course picked in the selected cup (Course Select), if any
 const DLC_CUP_START = "Golden Dash Cup"; // first Booster Course Pass cup
 
 // "Simple" mod categories - mirrors mod_manager.py's SIMPLE_MOD_CATEGORIES

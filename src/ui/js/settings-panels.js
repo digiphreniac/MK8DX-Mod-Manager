@@ -437,10 +437,7 @@ async function jumpToModKey(key) {
     for (const cup of state.cups) {
       const course = cup.courses.find(c => c.units.includes(key));
       if (course) {
-        switchView("courses");
-        selectedCup = cup.cup;
-        await renderCupOrCourseGrid();
-        openCharacterModal(course.name);
+        await openCourseCard(course.name);
         return;
       }
     }

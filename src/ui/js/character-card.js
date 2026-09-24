@@ -504,6 +504,32 @@ function buildCharacterLook(name, onLook) {
   };
 }
 
+// One row of a guided card (Name, Icons): a status dot, the title with a one-line summary, an action button, and the
+// body the walkthrough draws into. Shared by the character and the course card.
+function makeCardStep(title) {
+  const root = cgEl("div", "cc-step");
+  const row = cgEl("div", "cc-step-row");
+  const dot = cgEl("span", "cc-dot pending");
+  const text = cgEl("div", "cc-step-text");
+  const t = cgEl("b", null, title);
+  const sum = cgEl("span", null, "");
+  text.appendChild(t);
+  text.appendChild(sum);
+  const act = button("Change", "small", () => {});
+  row.appendChild(dot);
+  row.appendChild(text);
+  row.appendChild(act);
+  const content = cgEl("div", "cc-step-body");
+  root.appendChild(row);
+  root.appendChild(content);
+  return { root, dot, sum, act, content };
+}
+function setCardStepDot(step, kind) {
+  step.dot.className = "cc-dot " + kind;
+  step.dot.textContent = kind === "done" ? "\u2713" : "";
+  step.root.classList.toggle("is-pending", kind === "pending");
+}
+
 function assembleCharacterCard(ctx) {
   const { name, entry, body, mainCol, conflictBox, modCheckboxes, secondaryCard, refreshCount, refreshToggle, refreshConflicts } = ctx;
   const hasMods = entry.units.length > 0;
@@ -549,24 +575,7 @@ function assembleCharacterCard(ctx) {
   modPanel.appendChild(secondaryCard);
   body.appendChild(modPanel);
 
-  function makeStep(title) {
-    const root = cgEl("div", "cc-step");
-    const row = cgEl("div", "cc-step-row");
-    const dot = cgEl("span", "cc-dot pending");
-    const text = cgEl("div", "cc-step-text");
-    const t = cgEl("b", null, title);
-    const sum = cgEl("span", null, "");
-    text.appendChild(t);
-    text.appendChild(sum);
-    const act = button("Change", "small", () => {});
-    row.appendChild(dot);
-    row.appendChild(text);
-    row.appendChild(act);
-    const content = cgEl("div", "cc-step-body");
-    root.appendChild(row);
-    root.appendChild(content);
-    return { root, dot, sum, act, content };
-  }
+  const makeStep = makeCardStep;
   const nameStep = makeStep("Name");
   nameStep.root.classList.add("cc-step-inline");   // ("Edit" sits right beside the title and status, not at the far edge)
   const iconsStep = makeStep("Icons");
@@ -578,11 +587,7 @@ function assembleCharacterCard(ctx) {
   body.appendChild(iconsStep.root);
   const voiceRow = attachVoiceRow(body, name);
 
-  function setDot(step, kind) {
-    step.dot.className = "cc-dot " + kind;
-    step.dot.textContent = kind === "done" ? "\u2713" : "";
-    step.root.classList.toggle("is-pending", kind === "pending");
-  }
+  const setDot = setCardStepDot;
 
   function refresh() {
     const ticked = entry.units.filter(k => state.checked[k]);
@@ -636,7 +641,7 @@ function assembleCharacterCard(ctx) {
     // card that is already finished doesn't count - only a change from not finished to finished.
     if (look && !look.error) {
       const finished = ns.state === "done" && is_.state === "done";
-      if (wasFinished === false && finished) { playSelectVoice(name); onCharacterFinished(name); }
+      if (wasFinished === false && finished) { playSelectVoice(name); onItemFinished("character", name); }
       wasFinished = finished;
     }
 
@@ -732,6 +737,8 @@ function openCharacterModal(name) {
   const body = t.body;
   body.innerHTML = "";
   const isCharCard = resolveItemCategory(name) === "characters";
+  const isCourseCard = resolveItemCategory(name) === "courses";
+  const guided = isCharCard || isCourseCard;   // the guided cards: a status head, the mods in use, Name / Icons steps
 
   const mainCol = document.createElement("div");
   mainCol.className = "modal-main-col";
@@ -747,7 +754,7 @@ function openCharacterModal(name) {
   modsHeader.className = "modal-card-header";
   const modsTitle = document.createElement("span");
   modsTitle.className = "modal-card-title";
-  modsTitle.textContent = isCharCard ? "Mods" : "Mods to merge";
+  modsTitle.textContent = guided ? "Mods" : "Mods to merge";
   const modsCount = document.createElement("span");
   modsCount.className = "modal-card-count";
   modsHeader.appendChild(modsTitle);
@@ -884,7 +891,7 @@ function openCharacterModal(name) {
       cb.checked = !!state.checked[key];
       if (cb.checked) row.classList.add("checked");
       const label = document.createElement("label");
-      label.textContent = isCharCard ? charModLabel(key) : key.split("/").slice(1).join("/");
+      label.textContent = isCharCard ? charModLabel(key) : key.split("/").slice(isCourseCard ? 2 : 1).join("/");
       if (isCharCard) label.title = modLabel(key, true);
       cb.addEventListener("change", () => {
         state.checked[key] = cb.checked;
@@ -929,7 +936,7 @@ function openCharacterModal(name) {
         openCharacterModal(name);
         refreshBehindModal();
       });
-      if (isCharCard) {
+      if (guided) {
         // folder / files / remove sit behind the row's "..." as a small menu (the buttons themselves are never shown;
         // the menu runs them, and its files entry carries the left-out count). The mod's voice lines and menu pictures
         // are not in here: each has its own icon on the row.
@@ -950,7 +957,7 @@ function openCharacterModal(name) {
       modsCard.appendChild(row);
       modCheckboxes.push({ key, cb, row, filesBtn });
 
-      if (!isCharCard) pywebview.api.has_mod_icon(key).then(iconPath => {
+      if (!guided) pywebview.api.has_mod_icon(key).then(iconPath => {
         if (!iconPath) return;
         const badge = document.createElement("button");
         badge.className = "icon-badge";
@@ -1097,10 +1104,6 @@ function openCharacterModal(name) {
   refreshModsToggleBtn();
   refreshLeftOutBadges();
   mainCol.appendChild(modsCard);
-  {
-    const cat = resolveItemCategory(name);
-    if (cat === "courses") mainCol.appendChild(buildMenuLookCard(name, cat));
-  }
 
   // Mods filed under something else (a character, a course, another part)
   // that also ship this part's model file. A separate card on purpose: they
@@ -1162,16 +1165,22 @@ function openCharacterModal(name) {
   // always spans the modal's full width, even while the conflict sidebar is
   // narrowing the "Mods to merge" column next to it.
   const category = resolveItemCategory(name);
-  if (isCharCard) {
+  if (guided) {
     // Nothing downloaded yet: finding a mod IS the task, so its section is open. Once there are mods it is folded
     // away (once - if the user opens it, it stays open) under the title "Add another mod".
     if (!entry.units.length) gbSectionCollapsed.delete(name);
     else if (!gbDefaulted.has(name)) { gbSectionCollapsed.add(name); gbDefaulted.add(name); }
   }
-  const secondaryCard = buildGameBananaCard(name, category, isCharCard ? { title: entry.units.length ? "Add another mod" : "Find a mod", slim: entry.units.length > 0 } : undefined);
+  const secondaryCard = buildGameBananaCard(name, category, guided ? { title: entry.units.length ? "Add another mod" : "Find a mod", slim: entry.units.length > 0 } : undefined);
 
   if (isCharCard) {
     assembleCharacterCard({ name, entry, body, mainCol, conflictBox, modCheckboxes, secondaryCard,
+      refreshCount: refreshModsCount, refreshToggle: refreshModsToggleBtn, refreshConflicts: updateModalConflicts });
+    endDetail(docked);
+    return;
+  }
+  if (isCourseCard) {
+    assembleCourseCard({ name, entry, body, mainCol, conflictBox, modCheckboxes, secondaryCard,
       refreshCount: refreshModsCount, refreshToggle: refreshModsToggleBtn, refreshConflicts: updateModalConflicts });
     endDetail(docked);
     return;

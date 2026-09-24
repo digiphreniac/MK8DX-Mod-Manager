@@ -1,0 +1,67 @@
+  /* Course Select: the Prix medallions on a board, the selected Prix' four courses under it, and a name plate along the
+     bottom - like Character Select's wide layout. Nothing scrolls: fitCourseScreen() (views.js) works out --cols (cups
+     per row), --cup (a cup tile) and --course-w (a course tile) from the room there is, and everything below is drawn
+     from those. Comes last in the cascade so it settles anything the shared tile / strip rules above left open. */
+  #view-courses:not([hidden]) { display: flex; flex-direction: column; overflow-y: auto; padding-top: 12px; padding-bottom: 0; }
+  #course-layout {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    --cols: 12; --cup: 70px; --course-w: 260px;
+  }
+  #cup-stage { flex: none; display: flex; align-items: center; justify-content: center; gap: 12px; }
+  #cup-board { flex: none; }   /* (its look is shared with #char-grid-col in tiles-and-grids.css) */
+  /* The cups are on two pages (the game's, the Booster Course Pass's): an arrow beside the board turns between them. */
+  .cup-page-btn {
+    display: flex; align-items: center; justify-content: center; flex: none; box-sizing: border-box;
+    width: 44px; height: 64px; padding: 0; border-radius: 22px; cursor: pointer;
+    background: rgba(0, 0, 0, 0.55); color: #fff; border: 1px solid rgba(255, 255, 255, 0.35);
+  }
+  .cup-page-btn:hover { background: rgba(0, 0, 0, 0.75); border-color: #fff; }
+  .cup-page-btn { position: relative; }
+  .cup-page-btn svg { width: 24px; height: 24px; }
+  .cup-page-btn.has-mods::after { content: ""; position: absolute; top: 4px; right: 4px; width: 11px; height: 11px; border-radius: 50%; background: var(--accent); border: 2px solid #111; }
+  #cup-page-label { display: block; margin-top: -8px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-dim); }
+  #cup-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), var(--cup));
+    grid-auto-rows: var(--cup);
+    gap: calc(var(--cup) * 0.12);
+    width: max-content;
+  }
+
+  /* A medallion is the whole tile: no ring, fill or shadow of its own (the artwork has them). */
+  .cup-tile {
+    position: relative; box-sizing: border-box; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; border: none; border-radius: 50%; background: none; box-shadow: none;
+    cursor: pointer; transition: opacity 0.12s;
+  }
+  .cup-icon { width: 100%; height: 100%; display: block; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+  /* Like an untouched character: a Prix with no modded course is faded, so what is left to do stands out. */
+  .cup-tile.no-mods:not(.active):not(:hover) { opacity: 0.6; }
+  /* Before the game's files are set up there is no artwork: the old gold-rimmed tile with an emoji stands in. */
+  .cup-tile.no-art { border: calc(var(--cup) * 0.09) solid #B8860B; background: var(--panel); box-shadow: var(--shadow); }
+  .cup-emoji { font-size: calc(var(--cup) * 0.42); line-height: 1; }
+  .cup-tile .tile-count-bubble {
+    top: 1%; right: 1%;
+    min-width: clamp(18px, calc(var(--cup) * 0.27), 28px); height: clamp(18px, calc(var(--cup) * 0.27), 28px);
+    padding: 0 5px; font-size: clamp(10px, calc(var(--cup) * 0.15), 14px);
+  }
+  .cup-tile .char-conflict-badge { top: 1%; left: 1%; }
+
+  /* The four courses: 16:9 pictures at --course-w, in one strip as wide as its tiles. */
+  #course-strip {
+    display: grid; flex: none; box-sizing: border-box; width: max-content; max-width: 100%; margin: 0;
+    grid-template-columns: repeat(4, var(--course-w)); gap: 10px; justify-content: center;
+  }
+  #course-strip .char-tile {
+    box-sizing: border-box; padding: 6px; overflow: hidden;
+    height: calc((var(--course-w) - 12px) * 0.5625 + 12px);
+  }
+  #course-strip .course-pict-wrap { height: 100%; margin: 0; }
+  #course-strip .course-pict-preview { height: 100%; max-height: none; aspect-ratio: auto; }
+  /* a course with no picture of its own: its name, sized with the tile */
+  #course-strip .char-tile .char-badge { width: calc(var(--course-w) * 0.13); height: calc(var(--course-w) * 0.13); font-size: calc(var(--course-w) * 0.05); margin-bottom: calc(var(--course-w) * 0.02); }
+  #course-strip .char-tile .char-name { font-size: clamp(10px, calc(var(--course-w) * 0.055), 16px); }
+
+  #course-namebar { flex: 0 0 auto; height: 76px; display: flex; align-items: center; justify-content: center; }

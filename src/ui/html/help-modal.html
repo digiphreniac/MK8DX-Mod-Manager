@@ -9,7 +9,7 @@
         <div class="modal-card-header"><span class="modal-card-title">How this app works</span></div>
         <div class="settings-body">
           <div class="settings-hint">
-            For each character/course: search or paste a GameBanana link, download the file(s) you want, then check them under "Mods to merge." Once everything you want is checked, press the <strong>Next</strong> button (bottom right) or open the <strong>Commit</strong> step in the bar at the top - it combines every checked mod's files into one romfs tree (plus any checked code patches, under <code>atmosphere/exefs_patches/</code>) at <code>sd-card-staging/</code>, next to your master directory, ready to copy onto your SD card's existing <code>atmosphere/</code> folder.
+            For each character/course: search or paste a GameBanana link, download the file(s) you want, then tick them in the card's Mods list. Once everything you want is checked, press the <strong>Next</strong> button (bottom right) or open the <strong>Commit</strong> step in the bar at the top - it combines every checked mod's files into one romfs tree (plus any checked code patches, under <code>atmosphere/exefs_patches/</code>) at <code>sd-card-staging/</code>, next to your master directory, ready to copy onto your SD card's existing <code>atmosphere/</code> folder.
           </div>
         </div>
       </div>
@@ -24,10 +24,16 @@
       </div>
 
       <div class="modal-card">
-        <div class="modal-card-header"><span class="modal-card-title">Menu look: icons and names</span></div>
+        <div class="modal-card-header"><span class="modal-card-title">Name and Icons: how a character or course looks in the menus</span></div>
         <div class="settings-body">
           <div class="settings-hint">
-            Every character and course popup has a <strong>Menu look</strong> card showing what the menus will display for it - the character-select, map and results icons, and its name - and where each comes from (a mod, you, or unchanged). If a mod doesn't ship an icon or a new name, you can add your own: pick one of the mod's screenshots or a picture from your computer, drag the square over the part you want, and it becomes all three icons; or type a name. These are combined into the menu files in step 4, exactly like a mod's own changes.
+            Once a mod is ticked, a character's or course's card walks you through two short steps, <strong>Name</strong> and <strong>Icons</strong>, and shows a check mark on each when it is settled (its tile gets a small dot - amber while something needs a look, green when done).
+            <br><br>
+            <strong>Characters:</strong> Name is what the menus call the character (the mod's own, a guess from the mod's name that you can change, or the game's); Icons is the character-select, map and results pictures and where each comes from (a mod, you, or unchanged). If a mod doesn't ship an icon, pick one of its screenshots or a picture from your computer, drag the square over the part you want, and it becomes all three icons.
+            <br><br>
+            <strong>Courses:</strong> Name is what the menus call the course - the app suggests one from the mod's name; use it, type your own, or keep the game's. Icons is the picture on the course-select screen: a mod that brings its own needs no check; otherwise the game's own picture shows, or you can make one from one of the mod's screenshots.
+            <br><br>
+            Your choices are combined into the menu files in the Commit step, exactly like a mod's own changes.
           </div>
         </div>
       </div>

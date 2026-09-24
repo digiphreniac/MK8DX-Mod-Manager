@@ -41,6 +41,8 @@ Given a character or a course, it can:
   required Setup step; `original/` is never touched again after it's written, `current/` is what every other part of
   the app reads.
 - `src/gamebanana_api.py` - the GameBanana API client
+- `src/cup_icons.py` - reads the game's own Grand Prix medallions out of the app's copy of `menu.sarc` for Course Select -
+  see "Course Select" below.
 - `src/bntx_decode.py` - decodes a course mod's own `ym_CoursePict_*.bntx`
   select-screen thumbnail (a Switch BC7 or RGBA8 texture) to PNG, for the
   inline preview in Course Select - see its own docstring for exactly what
@@ -123,10 +125,70 @@ script is in.
 Which file holds what, roughly: `tiles-and-review.js` (character/course tiles, the "have you checked the look" review),
 `character-select-layout.js` (the docked card, hover name bar), `gamebanana.js` (browse / detail / the GameBanana card),
 `voice.js` (playback, the voice editor, the "Use my own sound" tool, the card's Voice row), `character-card.js` (the card
-itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, Vehicles, More, cups and
-courses, tab switching), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
+itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, Vehicles, More, Course Select, tab switching), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
 `settings-panels.js` (master directory, UI setup card), `menu-icons-text.js` / `menu-look.js` (the base-file copy and the
 Menu Look cards), `flow.js` (step bar, Commit, Copy to Switch), `setup-wizard.js`, `tooltips.js`.
+
+## Course Select: the game's Prix, sized to fit
+
+The Courses tab shows the 24 Grand Prix as the game's own medallions on a board (like Character Select's), the selected
+Prix's four courses under it, and a name plate along the bottom.
+
+- **The medallions** come from the base game files (no mod needed): `menu.sarc` -> `mn_L_CupSlctBtn_00.szs` -> one 200x200
+  `ym_CupIcon<Name>^h` texture per cup. They are 16-bit blue-green-red 5-6-5 with no alpha - a round medallion on a square
+  backdrop - so `cup_icons.py` unpacks them, swaps red and blue, and cuts the circle. `Api.get_cup_icons()` returns
+  `{cup name: PNG data URI}` (decoded once, about a second, and remembered until `menu.sarc` changes). The base game's
+  cups are named after their emblem (Mushroom ... Thunder) or, for the four DLC-wave cups, `DLC02`..`DLC05`; the Booster
+  Course Pass cups are `Charger00`..`Charger11`, in the pass's order - `cup_icons.CUP_TEXTURES` is that mapping, checked
+  against the decoded pictures. Before Setup has copied the game's files there is no artwork, and the tiles keep the old
+  gold-rimmed emoji look until there is.
+- **The name plate** is Character Select's (same look): the selected Prix, or - after you click a course - that course
+  with its Prix small and dim beside it; while the mouse is over a tile it shows that tile's cup or course instead, and
+  goes back when the mouse leaves. Choosing another Prix (or clicking the selected one again) drops the course selection.
+  Course tiles keep their yellow brackets while selected; the white hover frame works as on the character grid.
+- **Two pages, nothing scrolls.** The 24 cups are on two pages - the game's 12 and the Booster Course Pass's 12 - with an
+  arrow beside the board to turn between them and a small caption ("Mario Kart 8 Deluxe - 1 of 2"). A dot on the arrow says
+  the page it leads to has modded courses. Selecting a cup on the other page (or jumping to a course from a conflict) turns
+  to its page. `fitCourseScreen()` (`views.js`) sizes everything from the room there is: cups per row (`--cols`; it tries
+  6, 4, 12 and 3), a cup (`--cup`) and a course tile (`--course-w`, 16:9 pictures), keeping the layout where the smaller of
+  "cup size" and "course tile size", each against a comfortable reference, is biggest. It re-runs when the window resizes
+  and whenever the tab is shown. A cup with no modded course is faded (like an untouched character); a bubble shows how many
+  of its courses are modded. All of it is in `css/course-screen.css`, which comes last so it overrides the shared tile
+  rules. (An earlier version showed all 24 at once, four rows of six, when the window was big enough; two pages at every
+  size won out: bigger cups and course tiles, and one layout to reason about.)
+- **The game's own course pictures.** A course tile with no picture from a mod shows the game's own course-select picture (from
+  the base game copy - `Api.get_course_default_pictures()`, decoded like a mod's and cropped to the same visible window, under
+  the same white name banner), faded like any untouched tile; a ticked mod that ships its own picture replaces it. Base-game
+  courses are found by their internal id (`Gu_FirstCircuit`; Animal Crossing's four seasons share `Du_Animal`); the Booster
+  Course Pass's 48 are `DLC01`..`DLC48` in the pass's order (their internal ids, `Cnsw_NN`, are in a different order - the
+  mapping was checked against the pictures). The course card's Icons step shows the same picture when the mod brings none.
+
+### The course card
+
+Clicking a course opens the same kind of guided card as a character (`course-card.js`; the mods list, "Find a mod" /
+"Add another mod" and conflicts are built by `openCharacterModal()` for both): a head with the course's (modded) name, its
+Prix and a status chip, the mods in use with **Manage**, then two steps.
+
+- **Name** - asked when something wants the course called other than the game's own name: the mod's own text, a name you
+  typed, or a guess from the mod's name or folder (`get_course_look()` -> `name.suggestion`; you use it, change it, or keep
+  the game's). Nothing to check otherwise.
+- **Icons** - the course-select picture. A ticked mod that bundles its own `ym_CoursePict_*.bntx` needs no check; otherwise the
+  game's own shows, or a picture you make from one of the mod's saved screenshots (the existing crop tool,
+  `generate_course_icon()`), and you settle it once ("Keep the game's picture" / "Use this picture").
+
+Each is confirmed for the SET of ticked mods and remembered in `look-reviews.json` (`course_names`, `course_icons`, next to the
+characters' two records - `_ticked_by_course()`, `_mark_course()`, `confirm_course_name()`,
+`mark_course_icon_reviewed()`); typing or clearing a name confirms the Name step. `get_course_tile_view()` gives the course
+tiles their marker (amber = something needs a look, green = done - `refreshCourseReview()` / `applyCourseMarkers()` in
+`views.js`, cached in `courseReview`).
+
+**Unfinished courses count like unfinished characters.** A course with ticked mods is unfinished until its Name and Icons steps
+are *explicitly* confirmed (where they apply - see above). They feed the same three things: the step bar's "N to finish", the
+Next button's hint, and the prompt when leaving Choose mods ("2 characters and 1 course aren't finished" - `freshUnfinished()`,
+`showUnfinishedGate()` in `tiles-and-review.js`). "Review them" is one guided pass over both kinds (`reviewQueue.items` are
+`{kind, name}`): characters first, then courses; a course opens with its Prix and the course selected (`openCourseCard()`), the
+bar on top says "Reviewing unfinished courses (or characters, or characters and courses) - 2 of 3", and finishing a card moves
+on after a moment (`onItemFinished()`).
 
 ## Base game files: a required local copy
 
@@ -135,7 +197,15 @@ character's own default voice archives. It can't ship them itself (they're Ninte
 (`game_files.py`) asks for the folder the user extracted from their own game and copies what it needs from it - not
 the whole extraction, just `UI/cmn/common.sarc`, `UI/cmn/menu.sarc`, `UI/<locale>/message.sarc` for every locale
 found, and `Audio/Driver/Driver_<slot>.bars` + `Audio/DriverMenu/MenuDriver_<slot>.bars` for every character in
-`DRIVER_SLOTS` (real sizes measured: the whole copy runs well under 300 MB, nowhere near a full RomFS dump).
+`DRIVER_SLOTS`, plus every course's own select-screen picture (`UI/cmn/menu/ym_CoursePict_<id>_00^u.bntx`, about 105 files,
+9 MB - optional: a dump without them, or a copy made before they were added, still counts as done). Real sizes measured: the
+whole copy runs well under 300 MB, nowhere near a full RomFS dump.
+
+**Adding the course pictures to an older copy.** A copy made before pictures were part of it has no `course_pictures` in its
+manifest. The first time Course Select asks for a picture, `top_up_course_pictures()` fetches them from the folder the copy
+was made from - if that still exists - into BOTH `original/` and `current/` (adding files only; nothing already there is
+touched) and records the count, so it is tried once. If the source folder is gone, the pictures come with the next "Update
+from a new dump" (Settings), and Course Select simply shows its plain tiles meanwhile.
 
 **Two copies**, both under `<master root>/game-files/`:
 - `original/` - written once (`copy_both()`), never touched again except by "Update from a new dump" (which replaces

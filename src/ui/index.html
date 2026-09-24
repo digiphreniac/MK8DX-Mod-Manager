@@ -21,6 +21,8 @@
 <link rel="stylesheet" href="css/conflicts.css">
 <link rel="stylesheet" href="css/tooltip.css">
 <link rel="stylesheet" href="css/app-width.css">
+<link rel="stylesheet" href="css/course-screen.css">
+<link rel="stylesheet" href="css/course-card.css">
 </head>
 <body>
 
@@ -64,9 +66,24 @@
     <div id="char-namebar"><div id="char-name-plate"></div></div>
   </div>
   <div id="view-courses" hidden>
-    <div id="cup-grid"></div>
-    <div id="course-strip"></div>
-    <div id="course-strip-title"></div>
+    <!-- The Prix medallions on a board, the selected Prix' four courses under it; sized to fit the window
+         (fitCourseScreen), so nothing scrolls. When all 24 cups don't fit at a good size they are on two pages
+         (the game's, the Booster Course Pass's) and the arrows beside the board turn between them. -->
+    <div id="course-layout">
+      <div id="cup-stage">
+        <button id="cup-prev" class="cup-page-btn" type="button" aria-label="Show the Mario Kart 8 Deluxe cups" title="Mario Kart 8 Deluxe cups">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 5 8 12 15 19"/></svg>
+        </button>
+        <div id="cup-board"><div id="cup-grid"></div></div>
+        <button id="cup-next" class="cup-page-btn" type="button" aria-label="Show the Booster Course Pass cups" title="Booster Course Pass cups">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 5 16 12 9 19"/></svg>
+        </button>
+      </div>
+      <div id="cup-page-label"></div>
+      <div id="course-strip"></div>
+    </div>
+    <!-- The selected Prix (or course), or the one under the mouse: same plate as Character Select. -->
+    <div id="course-namebar"><div id="course-name-plate"></div></div>
   </div>
   <div id="view-vehicles" hidden>
     <div id="vehicle-sections"></div>

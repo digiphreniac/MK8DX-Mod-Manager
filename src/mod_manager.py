@@ -29,6 +29,7 @@ import webview
 
 import bntx_decode
 import bntx_encode
+import cup_icons
 import gamebanana_api
 import ui_setup
 import voice_audio
@@ -40,6 +41,7 @@ TITLE_ID = "0100152000022000"  # Mario Kart 8 Deluxe
 STATE_FILENAME = "mod-manager-state.json"
 ROSTER_FILENAME = "roster.json"
 GB_CATEGORIES_CACHE_FILENAME = "gamebanana-categories-cache.json"
+DLC_FIRST_CUP = "Golden Dash Cup"   # the first Booster Course Pass cup (its courses' pictures are DLC01..DLC48)
 GB_MODS_FILENAME = "gamebanana-mods.json"
 CONFLICT_RESOLUTIONS_FILENAME = "conflict-resolutions.json"
 # Files a mod must NOT contribute to the merge ("leave this file out of this
@@ -492,8 +494,8 @@ def mod_label(key: str, full: bool = False) -> str:
 
 # A name a mod could give its character, cleaned out of the mod's (or its folder's) name:
 # "Sandy Cheeks in Mario Kart 8 Deluxe" -> "Sandy Cheeks", "Freddy Fazbear over King Boo" ->
-# "Freddy Fazbear", "Wreck-it-Ralph Mod For DK" -> "Wreck-it-Ralph". Mirrors suggestNameFromMod()
-# in ui/js/menu-look.js (which offers the same as a button).
+# "Freddy Fazbear", "Wreck-it-Ralph Mod For DK" -> "Wreck-it-Ralph". Used by sync_auto_names() for
+# characters and by get_course_look() for the name suggested on a course card.
 _NAME_SPLIT_RE = re.compile(r"\s+(?:over|in|for|with|from|w/)\s+|\s+[|:]\s+|\s+-\s+", re.IGNORECASE)
 _NAME_NOISE_RE = re.compile(r"\b(mod|mk8d?x?|deluxe|port|edit|updated|improved|version|v\d[\d.]*)\b", re.IGNORECASE)
 # folder names that say nothing about who the character is
@@ -2544,11 +2546,12 @@ class Api(VoiceEditMixin):
 
     def _review_data(self):
         """{"characters": {name: [signatures whose look was checked]}, "names": {name: [signatures whose
-        guessed NAME was confirmed]}} - "Looks right" confirms both; the guessed-names review only confirms the name."""
+        guessed NAME was confirmed]}} - "Looks right" confirms both; the guessed-names review only confirms the name.
+        "course_names" / "course_icons" are the same two records for courses (see get_course_look())."""
         data = self._load_json(self.mod_root / LOOK_REVIEWS_FILENAME, {})
         if not isinstance(data, dict):
             data = {}
-        for bucket in ("characters", "names"):
+        for bucket in ("characters", "names", "course_names", "course_icons"):
             if not isinstance(data.get(bucket), dict):
                 data[bucket] = {}
         return data
@@ -2573,7 +2576,11 @@ class Api(VoiceEditMixin):
         look-reviews.json bucket - "names" for the Name task, "characters" for the Icons one. Each
         is its own independent record; this never touches the other bucket."""
         canon = self._canon_char(item_name)
-        keys = self._ticked_by_char().get(canon)
+        return self._store_signature(bucket, canon, self._ticked_by_char().get(canon), undo)
+
+    def _store_signature(self, bucket, canon, keys, undo=False):
+        """The write behind _mark_signature() / _mark_course(): the signature of `keys` (the ticked mods)
+        goes into, or (undo) comes out of, look-reviews.json's `bucket` for `canon`."""
         if not keys:
             return False
         data = self._review_data()
@@ -2586,6 +2593,104 @@ class Api(VoiceEditMixin):
         del sigs[:-30]
         (self.mod_root / LOOK_REVIEWS_FILENAME).write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
         return True
+
+    # --- the same two review tasks for a course --------------------------------------------------
+    # A course with ticked mods has a Name task (something wants it called other than the game's own
+    # name - the mod's own text, a name you typed, or a guess from the mod's name that you haven't
+    # confirmed yet) and an Icons task (the picture on the course-select screen: a mod that ships its
+    # own needs no check; otherwise the game's own shows, or one made from a screenshot - either way
+    # the user says so once). Like a character's, each is confirmed for the SET of ticked mods.
+
+    def _ticked_by_course(self, state=None):
+        state = state if state is not None else self._load_state()
+        out = {}
+        for k, v in state.items():
+            if v and k.startswith("courses/") and k.count("/") >= 2:
+                out.setdefault(k.split("/")[1], []).append(k)
+        return {c: sorted(v) for c, v in out.items()}
+
+    def _mark_course(self, bucket, course, undo=False):
+        return self._store_signature(bucket, course, self._ticked_by_course().get(course), undo)
+
+    def _course_picture(self, course, keys):
+        """{"state": "mod" | "you" | "vanilla", "mod", "preview", "default"} - where the course-select picture comes from:
+        a ticked mod's own CoursePict, else one made from a screenshot (course-icons/), else the game's own ("default" is
+        the game's own picture, for showing what the course has without the mod)."""
+        default = self.get_course_default_pictures([course]).get(course)
+        bundled = next((k for k in keys if self._find_course_pict_file(k)), None)
+        if bundled:
+            return {"state": "mod", "mod": bundled.split("/")[2], "preview": self.get_course_icon_preview(bundled), "default": default}
+        made = self._generated_course_pict_path(course)
+        if made is not None and made.is_file():
+            return {"state": "you", "mod": None, "preview": self.get_course_icon_preview(keys[0]), "default": default}
+        return {"state": "vanilla", "mod": None, "preview": None, "default": default}
+
+    def get_course_look(self, course, _ctx=None):
+        """What a course card needs: {"course", "ticked": [unit keys], "name": {...get_menu_look()'s name..., "suggestion"},
+        "picture": _course_picture(), "review": {"name_applicable", "name_done", "icons_applicable", "icons_done"}}
+        - "review" is None when nothing is ticked for the course, and {"error"} comes back when the menu files can't be read."""
+        keys = self._ticked_by_course().get(course, [])
+        if not keys:
+            return {"course": course, "ticked": [], "name": None, "picture": None, "review": None}
+        base = self.get_menu_look(course, "courses", _ctx)
+        if base.get("error"):
+            return {"error": base["error"]}
+        nm = dict(base.get("name") or {})
+        suggestion = None
+        if nm.get("state") == "vanilla":
+            gb_names = self._gb_mod_names()
+            for key in keys:
+                parts = key.split("/")
+                for text, source in ((gb_names.get("/".join(parts[:3]).lower()), "the mod's name"), (parts[2], "the mod's folder name")):
+                    guess = suggest_name_from_mod(text, nm.get("vanilla") or course, max_len=32) if text else None
+                    if guess:
+                        suggestion = {"text": guess, "source": source, "mod": parts[2]}
+                        break
+                if suggestion:
+                    break
+        nm["suggestion"] = suggestion
+        picture = self._course_picture(course, keys)
+        data = self._review_data()
+        sig = self._review_sig(keys)
+        review = {
+            "name_applicable": nm.get("state", "vanilla") != "vanilla" or suggestion is not None,
+            "name_done": sig in data["course_names"].get(course, []),
+            "icons_applicable": picture["state"] != "mod",
+            "icons_done": sig in data["course_icons"].get(course, []),
+        }
+        return {"course": course, "ticked": keys, "name": nm, "picture": picture, "review": review}
+
+    def get_course_tile_view(self, course_names):
+        """{name: {"applicable", "finished"}} for the courses (of those asked about) that have ticked mods - what
+        the tile's small "have you checked it?" marker needs. One menu-look context is shared by all of them."""
+        ticked = self._ticked_by_course()
+        wanted = [c for c in course_names if c in ticked]
+        if not wanted:
+            return {}
+        ctx = self._menu_look_ctx()
+        out = {}
+        for c in wanted:
+            look = self.get_course_look(c, ctx)
+            r = look.get("review")
+            if not r:
+                continue
+            applicable = r["name_applicable"] or r["icons_applicable"]
+            nm = look.get("name") or {}
+            out[c] = {"applicable": applicable,
+                      "finished": (not r["name_applicable"] or r["name_done"]) and (not r["icons_applicable"] or r["icons_done"]),
+                      "shown": nm.get("text") if nm.get("state") in ("mod", "you") else None}
+        return out
+
+    def confirm_course_name(self, course):
+        """The course's Name task: the name as it is now (typed, the mod's, or the game's) is right."""
+        return {"success": self._mark_course("course_names", course)}
+
+    def mark_course_icon_reviewed(self, course):
+        """The course's Icons task: the course-select picture is settled (the game's own, or the one made)."""
+        return {"success": self._mark_course("course_icons", course)}
+
+    def unmark_course_icon_reviewed(self, course):
+        return {"success": self._mark_course("course_icons", course, undo=True)}
 
     def _guessed_names(self):
         """The names the app guessed (see sync_auto_names) that the user hasn't confirmed yet - the Commit
@@ -5193,6 +5298,84 @@ class Api(VoiceEditMixin):
     def _game_files(self):
         return game_files.find_current(self.mod_root)
 
+    def get_cup_icons(self):
+        """{cup name: PNG data URI} - the game's own Grand Prix medallions for the Courses screen, decoded from the app's
+        copy of menu.sarc (see cup_icons.py). {} when that copy isn't there (before Setup) or can't be read; the screen
+        then keeps its plain tiles. Decoded once per copy: the answer is remembered until menu.sarc changes."""
+        if self.mod_root is None:
+            return {}
+        menu = self._game_files().get("menu")
+        if menu is None:
+            return {}
+        try:
+            stamp = (str(menu), menu.stat().st_mtime_ns, menu.stat().st_size)
+        except OSError:
+            return {}
+        cached = getattr(self, "_cup_icon_cache", None)
+        if cached is None or cached[0] != stamp:
+            icons = {cup: "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+                     for cup, png in cup_icons.load(menu).items()}
+            self._cup_icon_cache = cached = (stamp, icons)
+        return cached[1]
+
+    # --- the game's own course-select pictures ---------------------------------------------------
+    # The base game copy holds each course's own picture (UI/cmn/menu/ym_CoursePict_<id>_00^u.bntx - see game_files.py).
+    # Base-game courses are named by their internal id (Gu_FirstCircuit; Animal Crossing's four seasons share Du_Animal);
+    # the Booster Course Pass's 48 are DLC01..DLC48 in the pass's order (checked against the pictures), while their internal
+    # ids are Cnsw_NN.
+
+    def _course_pict_ids(self, course_name):
+        """Candidate picture ids for a course, best first."""
+        ids = []
+        for i in sorted(self._course_internal_names(course_name) or []):
+            ids.append(i)
+            plain = re.sub(r"_(Spring|Summer|Autumn|Winter)$", "", i)
+            if plain != i:
+                ids.append(plain)
+        n, started = 0, False
+        for cup in self._load_course_roster():
+            started = started or cup["cup"] == DLC_FIRST_CUP
+            for c in cup["courses"]:
+                if started:
+                    n += 1
+                    if c["name"] == course_name:
+                        ids.append(f"DLC{n:02d}")
+        return ids
+
+    def _default_course_pict(self, course_name):
+        """PNG data URI of the game's own picture for a course (cropped to its visible window, like a mod's), or None."""
+        if self.mod_root is None:
+            return None
+        for pid in self._course_pict_ids(course_name):
+            path = game_files.find_current_course_pict(self.mod_root, pid)
+            if path is None:
+                continue
+            cache = self.__dict__.setdefault("_default_pict_cache", {})
+            stamp = (str(path), path.stat().st_mtime_ns)
+            if cache.get(pid, (None,))[0] != stamp:
+                try:
+                    png = bntx_decode.decode_to_png(path, crop_box=_COURSE_PICT_CROP_BOX)
+                    cache[pid] = (stamp, "data:image/png;base64," + base64.b64encode(png).decode("ascii"))
+                except (bntx_decode.UnsupportedBNTXError, OSError):
+                    cache[pid] = (stamp, None)
+            if cache[pid][1]:
+                return cache[pid][1]
+        return None
+
+    def get_course_default_pictures(self, course_names):
+        """{course name: PNG data URI} - the game's own course-select picture for each course asked about that has one.
+        A base-game copy made before pictures were part of it gets them added from the folder it was made from, if that is
+        still there (once per run - see game_files.top_up_course_pictures())."""
+        if self.mod_root is None:
+            return {}
+        if not self.__dict__.get("_course_pict_topup_done"):
+            self._course_pict_topup_done = True
+            try:
+                game_files.top_up_course_pictures(self.mod_root)
+            except OSError:
+                pass
+        return {n: uri for n in course_names for uri in [self._default_course_pict(n)] if uri}
+
     def get_base_files_status(self):
         """{"done", "source" (shown for reference only - it doesn't need to still exist), "copied_at", "icons",
         "locales", "voice_found", "voice_total", "problems"} - the app's own local copy of the base game's files
@@ -5616,6 +5799,8 @@ class Api(VoiceEditMixin):
         ui_setup.save_overrides(self.mod_root, ov)
         if kind == "characters" and mark_reviewed:
             self._mark_signature("names", item_name)   # typing a name confirms the Name task (not Icons)
+        elif kind == "courses" and mark_reviewed:
+            self._mark_course("course_names", item_name)
         return {"success": True}
 
     def clear_item_name(self, item_name, kind, mark_reviewed=True):
@@ -5627,6 +5812,8 @@ class Api(VoiceEditMixin):
         ui_setup.save_overrides(self.mod_root, ov)
         if kind == "characters" and mark_reviewed:
             self._mark_signature("names", item_name)   # choosing "back to normal" confirms the Name task
+        elif kind == "courses" and mark_reviewed:
+            self._mark_course("course_names", item_name)
         return {"success": True}
 
     def open_ui_setup_folder(self):

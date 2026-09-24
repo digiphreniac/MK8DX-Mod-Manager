@@ -1,6 +1,6 @@
   /* The board the character grid sits on (both layouts): a light translucent panel with slightly
      rounded corners and a ridge border. The padding leaves room for the corner brackets. */
-  #char-grid-col {
+  #char-grid-col, #cup-board {
     position: relative; box-sizing: border-box; padding: 10px;
     background: rgba(219, 219, 219, 0.25);
     background-clip: padding-box;   /* so the border isn't drawn over the panel's own fill (that would double its opacity) */
@@ -36,8 +36,8 @@
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     gap: 10px;
-    /* Same cap/centering as #cup-grid above - tiles stop growing past this
-       width instead of ballooning on a wide window. */
+    /* Tiles stop growing past this width instead of ballooning on a wide
+       window. */
     max-width: 1230px;
     margin: 0 auto;
   }
