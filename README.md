@@ -43,6 +43,8 @@ Given a character or a course, it can:
 - `src/gamebanana_api.py` - the GameBanana API client
 - `src/cup_icons.py` - reads the game's own Grand Prix medallions out of the app's copy of `menu.sarc` for Course Select -
   see "Course Select" below.
+- `src/vehicle_icons.py` - the same for the game's own pictures of every vehicle part, for the Vehicles screen - see "Vehicle
+  parts" below.
 - `src/bntx_decode.py` - decodes a course mod's own `ym_CoursePict_*.bntx`
   select-screen thumbnail (a Switch BC7 or RGBA8 texture) to PNG, for the
   inline preview in Course Select - see its own docstring for exactly what
@@ -90,6 +92,8 @@ Given a character or a course, it can:
   a character/course popup's "Menu look" card - see "Menu look" below
 - `look-reviews.json` - which characters' looks you have confirmed with "Looks right" (see "Checking a
   character's look" below)
+- `part-icons/` - the user's own pictures for vehicle parts that are loose files (see "Vehicle parts: names and pictures in
+  the menus"); the same idea, always merged in.
 - `course-icons/` - app-generated course-select icons (see "Course-select
   icon preview & generation" below) - always merged in, same idea as
   `ui-icons/` but kept separate so generated files never mix with your own
@@ -125,7 +129,7 @@ script is in.
 Which file holds what, roughly: `tiles-and-review.js` (character/course tiles, the "have you checked the look" review),
 `character-select-layout.js` (the docked card, hover name bar), `gamebanana.js` (browse / detail / the GameBanana card),
 `voice.js` (playback, the voice editor, the "Use my own sound" tool, the card's Voice row), `character-card.js` (the card
-itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, Vehicles, More, Course Select, tab switching), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
+itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, More, Course Select, tab switching), `vehicle-screen.js` (the Vehicles screen), `vehicle-card.js` (the vehicle card's "Right part" step), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
 `settings-panels.js` (master directory, UI setup card), `menu-icons-text.js` / `menu-look.js` (the base-file copy and the
 Menu Look cards), `flow.js` (step bar, Commit, Copy to Switch), `setup-wizard.js`, `tooltips.js`.
 
@@ -198,14 +202,16 @@ character's own default voice archives. It can't ship them itself (they're Ninte
 the whole extraction, just `UI/cmn/common.sarc`, `UI/cmn/menu.sarc`, `UI/<locale>/message.sarc` for every locale
 found, and `Audio/Driver/Driver_<slot>.bars` + `Audio/DriverMenu/MenuDriver_<slot>.bars` for every character in
 `DRIVER_SLOTS`, plus every course's own select-screen picture (`UI/cmn/menu/ym_CoursePict_<id>_00^u.bntx`, about 105 files,
-9 MB - optional: a dump without them, or a copy made before they were added, still counts as done). Real sizes measured: the
+9 MB) and the 351 loose vehicle-part pictures that aren't inside `menu.sarc` (`UI/cmn/menu/tc_KP_*`, 38 MB - see "Vehicle parts"); both
+kinds are optional: a dump without them, or a copy made before they were added, still counts as done. Real sizes measured: the
 whole copy runs well under 300 MB, nowhere near a full RomFS dump.
 
-**Adding the course pictures to an older copy.** A copy made before pictures were part of it has no `course_pictures` in its
-manifest. The first time Course Select asks for a picture, `top_up_course_pictures()` fetches them from the folder the copy
-was made from - if that still exists - into BOTH `original/` and `current/` (adding files only; nothing already there is
-touched) and records the count, so it is tried once. If the source folder is gone, the pictures come with the next "Update
-from a new dump" (Settings), and Course Select simply shows its plain tiles meanwhile.
+**Adding the pictures to an older copy.** A copy made before the course pictures (or the vehicle pictures) were part of it has
+no `course_pictures` (`vehicle_pictures_all`) in its manifest (a copy from when only 16 of the vehicle pictures were kept has `vehicle_pictures` but not `vehicle_pictures_all`, and gets the rest). The first time Course Select or the Vehicles screen asks for a
+picture, `top_up_pictures()` fetches what is missing from the folder the copy was made from - if that still exists - into
+BOTH `original/` and `current/` (adding files only; nothing already there is touched) and records the count, so each is
+tried once. If the source folder is gone, the pictures come with the next "Update from a new dump" (Settings), and the
+screens simply show their plain tiles meanwhile.
 
 **Two copies**, both under `<master root>/game-files/`:
 - `original/` - written once (`copy_both()`), never touched again except by "Update from a new dump" (which replaces
@@ -1108,6 +1114,43 @@ The **Vehicles** tab has three sections - Vehicles (41 bodies, split into
 karts / bikes / ATVs), Wheels (22 tires) and Gliders (15) - each a fixed roster
 from `src/roster.json` (name, internal id, aliases; researched against the
 wiki, mk8dxbuilder.com and real mod archives, unchanged through game 4.0.0).
+
+**The screen** works like Character Select and Course Select: the three sections are boards, every part is the game's own
+picture of it (no name on the tile), and it is sized to fit the window without scrolling. The part being viewed - the one
+whose card is (or was last) open - has the yellow corner brackets and its name on the plate along the bottom, with its kind
+small beside it ("Mach 8 (Kart)"); while the mouse is over a tile, the plate shows that one instead and a white frame follows
+the mouse. Tick counts, the red conflict "!" and the "N linked" pill are as before; a hovered tile gets only the white frame (no accent border).
+
+Fitting (`fitVehicleScreen()` in `js/vehicle-screen.js`): one tile size for all 78 parts (a 200:128 picture), found by
+trying every size from big to small and every way of laying the boards out - `a` [bodies | wheels over gliders], `b` [bodies
+over (wheels | gliders)], `c` [bodies | wheels | gliders] - with every count of tiles per row for each board; the first size
+at which one fits wins, and of the fits at that size the one that takes the least room. The sizes it counts with (a board's
+padding, heading and sub-headings) are the CSS's own, so the prediction is exact; a board is never narrower than its heading
+text, which is measured once. Only a window too small for even 36 px tiles scrolls. `css/vehicle-screen.css` comes last.
+
+**The pictures** (`vehicle_icons.py`, `Api.get_vehicle_icons()`): every one is a 200x128 RGBA texture named
+`tc_KP_<kind>_<part>^l` (K kart, B bike, V ATV, T tire, G glider; `<part>` is the roster's own internal id - `BodyK_Ufo` ->
+`K_Ufo`, `Wing_Wlo` -> `G_Wlo`, a tire's `Std` -> `T_Std`). Most (62 parts) are one texture inside `menu.sarc` ->
+`mn_L_KartParts_00.szs`. The 16 families that come in outfits - the Standard Kart, Standard Bike, Pipe Frame, Standard ATV
+and Super Glider once per character, the rest numbered - are **351 loose files** in `UI/cmn/menu/` (each 110,696 bytes, one
+texture, its internal name equal to its file name); the screen shows each family's default (Mario's red, or `_00`). Master
+Cycle's picture is `B_Zld` (its roster id spells it `Zlb`). Every mapping was checked by looking at the decoded pictures.
+Before Setup - or if a picture is missing - the tile shows the part's name.
+
+**The card** is guided like the character and course cards: a head with the part's picture, its name, its kind and where it
+stands ("Kart · 2 mods in use"), and a chip (No mod yet / Choose a mod / Needs a look / Done); then the mods in use (the
+rest behind "Manage"), with "Find a mod" / "Add another mod" under them and any mods filed elsewhere that also ship the part
+(see "Linked mods" below); then three steps:
+- **Right part** - a mod is filed under a part by where it was found, but what counts is the model file it ships: a ticked
+  mod whose file is for a *different* part changes nothing on this one, so the step says which part it is really for and
+  offers "Move it to <part>" (`gb_move_mod()`, which takes the tick with it) or "Untick it". Worked out from the files
+  (`Api.get_vehicle_fit()`, reusing `_vehicle_slot_mismatch()`), so nothing is confirmed or remembered, and it is not part
+  of "finished". (`gb_move_mod` callers reload the ticked state too - the move renames the mod's key, and a stale one would
+  have been written back.)
+- **Name** and **Icons** - the same two steps as a course, confirmed per set of ticked mods and remembered
+  (`look-reviews.json` buckets `part_names` / `part_icons`; `Api.get_part_look()`, `confirm_part_name()`,
+  `mark_part_icon_reviewed()`). Vehicle parts count in the "N aren't finished" prompt and the review queue.
+
 Each section is its own on-disk category (`vehicles/`, `wheels/`, `gliders/`),
 nested `<category>/<part>/<mod>` like everything else, and reuses the
 character modal / GameBanana card / conflict machinery unchanged.
@@ -1198,6 +1241,37 @@ character modal / GameBanana card / conflict machinery unchanged.
   on its card (`game_id` is stored with every fetched mod) - it very likely
   won't load on a Switch. Re-fetching a mod also keeps its recorded slot
   warnings and archive location now (it used to drop them).
+
+## Vehicle parts: names and pictures in the menus
+
+The user has the same control over a part's UI as over a character's: its **name** and its **picture in the parts menu**, from
+a mod or from themselves.
+
+**Names.** All 78 part names are entries in `Common.msbt` (bodies 1101-1186, tires 1201-1222, gliders 1251-1265; one label
+each, none shared), so they go through the same pipeline as characters and courses: `name-labels.json` has `vehicles`,
+`wheels` and `gliders` sections, `ui_setup.NAME_LABEL_RANGES` the three kinds, `set_item_name(part, kind, text)` stores the
+wish by name, and the text is written into every language's `message.sarc` at commit. A mod's own text is read the same way
+(`get_menu_look()`), and a name can be guessed from the mod's name, which is only a suggestion until confirmed.
+
+**Pictures.** The picture source is one of, in this order: what the user chose, what a ticked mod brings, the game's own.
+- A part whose picture is a texture in `menu.sarc` (62 parts): a chosen picture is a texture override
+  (`mn_L_KartParts_00.szs|tc_KP_K_Ufo^l` in `ui-overrides.json`) and goes through the same build as a character's icon
+  (`apply_overrides()` -> `menu.sarc`, checked by `verify_archive()`). A mod's own is found by the same diff of packed archives
+  (`describe_texture()` names a part texture after its part, so it is attributed to the right one).
+- A part whose picture is loose files (16 families, 351 files): a chosen picture is stored once (`loose|K_Std`), and
+  `ui_setup.build_part_pictures()` writes **every variant file** of the family into `part-icons/romfs/UI/cmn/menu/` (always
+  merged in, like `course-icons/`) - each the game's own file from the base copy with the picture swapped in place (the file
+  keeps its name, size and layout; re-encoding the game's own picture reproduces it byte for byte). `Api.sync_part_pictures()`
+  runs when a picture is set or cleared and at the start of every commit, and deletes files no longer wanted. A mod's own
+  loose files count as its picture when the mod is filed under that part.
+- **Precedence:** a picture you chose replaces the files of a mod filed under the same part, but a ticked mod filed
+  *elsewhere* that ships the same file - a character mod's per-outfit `tc_KP_K_Std_MroM` - keeps it (`left_to_mods`; the
+  Icons step says how many).
+- Pictures are cropped in the icon dialog ("part" mode, 200:128) from a mod screenshot or **a file from the user's computer**,
+  stored at up to 400 px in their own shape, and a picture of another shape is fitted inside the part's (never stretched).
+
+Not verified in a running game: that the console shows the loose files and the new names (only the built files and text
+were decoded and compared) - try it in an emulator or on hardware.
 
 ## Course-select icon preview & generation
 

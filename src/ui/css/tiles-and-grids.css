@@ -44,47 +44,6 @@
   @media (max-width: 760px) {
     #char-grid { grid-template-columns: repeat(4, 1fr); }
   }
-  /* Vehicles tab - three sections (bodies / wheels / gliders) of plain tiles.
-     Reuses .char-tile's look but as rounded rectangles that follow their
-     content, since part names are long ("W 25 Silver Arrow") and there's no
-     fixed in-game grid to match. */
-  #vehicle-sections { max-width: 1230px; margin: 0 auto; }
-  .vehicle-section { margin-bottom: 28px; }
-  .vehicle-section-heading {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    font-weight: 700;
-    color: var(--text-dim);
-    margin: 0 0 10px 2px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--divider);
-  }
-  .vehicle-section-summary { font-size: 12px; font-weight: 500; text-transform: none; letter-spacing: normal; }
-  .vehicle-subheading {
-    grid-column: 1 / -1;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--text-dim);
-    font-weight: 700;
-    margin: 8px 0 0 2px;
-  }
-  .vehicle-subheading:first-child { margin-top: 0; }
-  .vehicle-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 10px;
-  }
-  .vehicle-grid .char-tile {
-    aspect-ratio: auto;
-    min-height: 86px;
-    border-radius: 14px;
-    padding: 12px 10px;
-  }
   .char-grid-other-heading {
     grid-column: 1 / -1;
     font-size: 11px;

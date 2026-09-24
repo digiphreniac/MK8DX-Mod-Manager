@@ -6,7 +6,7 @@
 // `lastBuild` is only for the Settings card's own manual "Rebuild now" (a normal commit doesn't
 // go through here - its result lines already say what got built).
 const uiSetup = { data: null, lastBuild: null, guessed: [] };
-const UI_KIND_LABEL = { Chara: "select-screen icon", edChara: "results-screen icon", MapChara: "map icon" };
+const UI_KIND_LABEL = { Chara: "select-screen icon", edChara: "results-screen icon", MapChara: "map icon", Part: "parts-menu picture" };
 
 function uisEl(tag, cls, text) {
   const e = document.createElement(tag);

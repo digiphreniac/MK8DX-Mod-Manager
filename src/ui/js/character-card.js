@@ -738,7 +738,8 @@ function openCharacterModal(name) {
   body.innerHTML = "";
   const isCharCard = resolveItemCategory(name) === "characters";
   const isCourseCard = resolveItemCategory(name) === "courses";
-  const guided = isCharCard || isCourseCard;   // the guided cards: a status head, the mods in use, Name / Icons steps
+  const isVehicleCard = VEHICLE_SECTION_KEYS.includes(resolveItemCategory(name));
+  const guided = isCharCard || isCourseCard || isVehicleCard;   // the guided cards: a status head, the mods in use, then their steps
 
   const mainCol = document.createElement("div");
   mainCol.className = "modal-main-col";
@@ -891,7 +892,7 @@ function openCharacterModal(name) {
       cb.checked = !!state.checked[key];
       if (cb.checked) row.classList.add("checked");
       const label = document.createElement("label");
-      label.textContent = isCharCard ? charModLabel(key) : key.split("/").slice(isCourseCard ? 2 : 1).join("/");
+      label.textContent = isCharCard ? charModLabel(key) : key.split("/").slice(isCourseCard || isVehicleCard ? 2 : 1).join("/");
       if (isCharCard) label.title = modLabel(key, true);
       cb.addEventListener("change", () => {
         state.checked[key] = cb.checked;
@@ -1181,6 +1182,13 @@ function openCharacterModal(name) {
   }
   if (isCourseCard) {
     assembleCourseCard({ name, entry, body, mainCol, conflictBox, modCheckboxes, secondaryCard,
+      refreshCount: refreshModsCount, refreshToggle: refreshModsToggleBtn, refreshConflicts: updateModalConflicts });
+    endDetail(docked);
+    return;
+  }
+
+  if (isVehicleCard) {
+    assembleVehicleCard({ name, entry, body, mainCol, conflictBox, modCheckboxes, secondaryCard,
       refreshCount: refreshModsCount, refreshToggle: refreshModsToggleBtn, refreshConflicts: updateModalConflicts });
     endDetail(docked);
     return;

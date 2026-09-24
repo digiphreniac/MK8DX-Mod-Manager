@@ -26,7 +26,7 @@
     border-radius: 14px; box-shadow: var(--shadow);
   }
   #view-characters.docked #char-namebar { display: flex; flex: 0 0 auto; height: 76px; align-items: center; justify-content: center; }
-  #char-name-plate, #course-name-plate {
+  #char-name-plate, #course-name-plate, #vehicle-name-plate {
     width: 48%; min-width: 300px; max-width: 640px; box-sizing: border-box;
     padding: 9px 56px; text-align: center; color: #fff; font-size: 22px; font-weight: 700; letter-spacing: 0.02em; line-height: 1.2;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -34,8 +34,8 @@
     background: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.62) 22%, rgba(0,0,0,0.62) 78%, rgba(0,0,0,0) 100%);
     opacity: 0; transition: opacity 0.12s;
   }
-  #char-name-plate.show, #course-name-plate.show { opacity: 1; }
-  #char-name-plate .np-base, #course-name-plate .np-base { font-size: 0.62em; font-weight: 500; letter-spacing: 0; margin-left: 0.55em; color: rgba(255, 255, 255, 0.62); }
+  #char-name-plate.show, #course-name-plate.show, #vehicle-name-plate.show { opacity: 1; }
+  #char-name-plate .np-base, #course-name-plate .np-base, #vehicle-name-plate .np-base { font-size: 0.62em; font-weight: 500; letter-spacing: 0; margin-left: 0.55em; color: rgba(255, 255, 255, 0.62); }
   #char-layout.docked #char-detail-header { display: none; }   /* the name lives on the plate below; the pop-up keeps its title */
   #char-detail-header { padding: 14px 16px; border-bottom: 1px solid var(--panel-border); display: flex; align-items: center; gap: 8px; }
   #char-detail-header h2 { margin: 0; font-size: 16px; flex: 1; }

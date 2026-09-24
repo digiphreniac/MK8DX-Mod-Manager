@@ -253,7 +253,7 @@ function showAddModSummary(result) {
               text.textContent = `⚠ Couldn't move it: ${moved.error}`;
               return;
             }
-            await refreshViewsState();
+            await loadMods();   // (not just refreshViewsState: the move renamed the mod's ticked-state key too)
             refreshBehindModal();
             line.className = "add-mod-summary-line ok";
             text.textContent = `✓ ${f.name} moved to ${fp.name}`;

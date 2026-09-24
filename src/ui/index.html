@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="css/app-width.css">
 <link rel="stylesheet" href="css/course-screen.css">
 <link rel="stylesheet" href="css/course-card.css">
+<link rel="stylesheet" href="css/vehicle-screen.css">
 </head>
 <body>
 
@@ -86,7 +87,13 @@
     <div id="course-namebar"><div id="course-name-plate"></div></div>
   </div>
   <div id="view-vehicles" hidden>
-    <div id="vehicle-sections"></div>
+    <!-- The three kinds of part (bodies, wheels, gliders) on boards, each part as the game's own picture of it; sized
+         to fit the window (fitVehicleScreen), so nothing scrolls. -->
+    <div id="vehicle-layout">
+      <div id="vehicle-sections"></div>
+    </div>
+    <!-- The part being viewed, or the one under the mouse: same plate as Character Select. -->
+    <div id="vehicle-namebar"><div id="vehicle-name-plate"></div></div>
   </div>
   <div id="view-more" hidden>
     <div class="settings-hint" id="more-intro">

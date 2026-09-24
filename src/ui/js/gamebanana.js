@@ -193,7 +193,7 @@ function buildGameBananaCard(itemName, category, opts) {
               warn.textContent = `⚠ Couldn't move it: ${result.error}`;
               return;
             }
-            await refreshViewsState();
+            await loadMods();   // (not just refreshViewsState: the move renamed the mod's ticked-state key too)
             switchView("vehicles");
             openCharacterModal(fp.name);
             refreshBehindModal();

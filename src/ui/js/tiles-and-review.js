@@ -120,6 +120,7 @@ function buildTile(displayName, units, onClick, gbAttempted, opts) {
 let characterLooks = {};
 let characterReview = {};   // name -> {applicable, reviewed} for characters with ticked mods
 let courseReview = {};      // name -> {applicable, finished} for courses with ticked mods (Api.get_course_tile_view)
+let partReview = {};        // name -> {applicable, finished, shown, icon} for vehicle parts with ticked mods (Api.get_part_tile_view)
 let characterVoice = {};    // name -> {race, menu, from} for characters with a ticked mod that ships voice files
 let characterLooksToken = 0;
 let characterLooksTimer = null;
@@ -245,7 +246,7 @@ function applyReviewMarker(ref, review) {
   tile.appendChild(mark);
 }
 
-// Characters and courses whose walkthrough isn't finished: ticked mods that change how they look, Name and/or
+// Characters, courses and vehicle parts whose walkthrough isn't finished: ticked mods that change how they look, Name and/or
 // Icons not yet confirmed.
 function unfinishedNames(review) {
   return Object.entries(review || {}).filter(([, r]) => reviewApplicable(r) && !reviewFinished(r)).map(([n]) => n);
@@ -254,24 +255,31 @@ function unfinishedNames(review) {
 function unfinishedCourseNames() {
   return Object.entries(courseReview || {}).filter(([, r]) => r && r.applicable && !r.finished).map(([n]) => n);
 }
-function unfinishedCount() { return unfinishedNames(characterReview).length + unfinishedCourseNames().length; }
-// Everything unfinished, asked afresh: [{kind: "character" | "course", name, shown}], characters first.
+function unfinishedPartNames() {
+  return Object.entries(partReview || {}).filter(([, r]) => r && r.applicable && !r.finished).map(([n]) => n);
+}
+function unfinishedCount() { return unfinishedNames(characterReview).length + unfinishedCourseNames().length + unfinishedPartNames().length; }
+// Everything unfinished, asked afresh: [{kind: "character" | "course" | "part", name, shown}], characters first.
 async function freshUnfinished() {
   try {
     const view = await pywebview.api.get_character_tile_view((state.roster || []).map(r => r.name));
     if (view) { characterLooks = view.looks; characterReview = view.review; characterVoice = view.voice || {}; }
   } catch (e) { /* fall back on what the grid last knew */ }
   try { await refreshCourseReview(true); } catch (e) { /* likewise */ }
+  try { await refreshPartReview(true); } catch (e) { /* likewise */ }
   return [
     ...unfinishedNames(characterReview).map(n => ({ kind: "character", name: n, shown: (characterLooks[n] && characterLooks[n].name) || n })),
     ...unfinishedCourseNames().map(n => ({ kind: "course", name: n, shown: (courseReview[n] && courseReview[n].shown) || n })),
+    ...unfinishedPartNames().map(n => ({ kind: "part", name: n, shown: (partReview[n] && partReview[n].shown) || n })),
   ];
 }
 const itemKey = (kind, name) => kind + "|" + name;
-// "3 characters", "1 course", "2 characters and 1 course"
+// "3 characters", "1 course", "2 characters and 1 course", "1 character, 2 courses and 3 vehicle parts"
 function unfinishedPhrase(list) {
   const nc = list.filter(x => x.kind === "character").length, nk = list.filter(x => x.kind === "course").length;
-  return [nc && `${nc} character${nc === 1 ? "" : "s"}`, nk && `${nk} course${nk === 1 ? "" : "s"}`].filter(Boolean).join(" and ");
+  const np = list.filter(x => x.kind === "part").length;
+  const bits = [nc && `${nc} character${nc === 1 ? "" : "s"}`, nk && `${nk} course${nk === 1 ? "" : "s"}`, np && `${np} vehicle part${np === 1 ? "" : "s"}`].filter(Boolean);
+  return bits.length > 1 ? bits.slice(0, -1).join(", ") + " and " + bits[bits.length - 1] : bits[0] || "";
 }
 
 // A name typed in the walkthrough's first step but not confirmed yet is kept as a draft while the user looks at
@@ -295,6 +303,7 @@ function startReviewQueue(list) {
 }
 function openReviewItem(item) {
   if (item.kind === "course") return openCourseCard(item.name);
+  if (item.kind === "part") return openPartCard(item.name);
   switchView("characters");
   return openCharacterModal(item.name);
 }
@@ -320,7 +329,7 @@ function stopReviewQueue() {
   if (reviewQueue.el) reviewQueue.el.remove();
   reviewQueue.el = null;
 }
-// a character or course was just finished: on to the next one after a moment (long enough to see "Completed")
+// a character, course or part was just finished: on to the next one after a moment (long enough to see "Completed")
 function onItemFinished(kind, name) {
   if (!reviewQueue.active || !reviewQueue.items.some(i => i.kind === kind && i.name === name)) return;
   clearTimeout(reviewQueue.timer);
@@ -338,7 +347,8 @@ function renderReviewBar() {
   el.replaceChildren();
   el.classList.toggle("is-done", reviewQueue.finished);
   if (reviewQueue.finished) {
-    const stillOpen = new Set([...unfinishedNames(characterReview).map(n => itemKey("character", n)), ...unfinishedCourseNames().map(n => itemKey("course", n))]);
+    const stillOpen = new Set([...unfinishedNames(characterReview).map(n => itemKey("character", n)), ...unfinishedCourseNames().map(n => itemKey("course", n)),
+                               ...unfinishedPartNames().map(n => itemKey("part", n))]);
     const skipped = [...reviewQueue.skipped].filter(k => stillOpen.has(k)).length;
     el.appendChild(cgEl("span", "review-text", skipped ? `Done - ${skipped} skipped, still unfinished.` : "All done - everything is finished."));
     const t = flow.status ? flowNextTarget("mods", flow.status) : null;
@@ -349,7 +359,7 @@ function renderReviewBar() {
   const total = reviewQueue.items.length;
   const pos = total - (reviewQueue.remaining || 0) + 1;
   const kinds = new Set(reviewQueue.items.map(i => i.kind));
-  const noun = kinds.size > 1 ? "characters and courses" : kinds.has("course") ? "courses" : "characters";
+  const noun = kinds.size > 1 ? "items" : kinds.has("course") ? "courses" : kinds.has("part") ? "vehicle parts" : "characters";
   el.appendChild(cgEl("span", "review-text", `Reviewing unfinished ${noun} \u00b7 ${Math.min(pos, total)} of ${total}`));
   el.appendChild(button("Skip", "ghost small", () => { if (reviewQueue.current) reviewQueue.skipped.add(itemKey(reviewQueue.current.kind, reviewQueue.current.name)); advanceReviewQueue(); }));
   el.appendChild(button("Stop", "ghost small", stopReviewQueue));

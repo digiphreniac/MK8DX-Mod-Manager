@@ -1,0 +1,72 @@
+  /* Vehicles: the three kinds of part (bodies, wheels, gliders) on boards, each part the game's own picture of it, and a
+     name plate along the bottom - like Character Select's wide layout. Nothing scrolls: fitVehicleScreen() (vehicle-screen.js)
+     works out --vt (a tile's width), --vh (its height), --vg (the gap) and each board's --vc (tiles per row) from the room
+     there is, and everything below is drawn from those. The fixed sizes here (board padding + border 22px, heading 28px,
+     sub-heading 20px, 10px between body groups, 14px between boards) are the ones VEHICLE_FIT in the script counts with. */
+  #view-vehicles:not([hidden]) { display: flex; flex-direction: column; overflow-y: auto; padding-top: 12px; padding-bottom: 0; position: relative; }
+  #vehicle-layout { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  #vehicle-sections { display: grid; gap: 14px; justify-content: center; align-content: center; --vt: 70px; --vh: 45px; --vg: 6px; }
+  /* how the boards sit: a = [bodies | wheels over gliders], b = [bodies over (wheels | gliders)], c = [bodies | wheels | gliders] */
+  #vehicle-sections.arr-a { grid-template-columns: max-content max-content; grid-template-areas: "bodies wheels" "bodies gliders"; }
+  #vehicle-sections.arr-b { grid-template-columns: max-content max-content; grid-template-areas: "bodies bodies" "wheels gliders"; }
+  #vehicle-sections.arr-c { grid-template-columns: repeat(3, max-content); grid-template-areas: "bodies wheels gliders"; }
+  .vehicle-section[data-section="vehicles"] { grid-area: bodies; }
+  .vehicle-section[data-section="wheels"] { grid-area: wheels; }
+  .vehicle-section[data-section="gliders"] { grid-area: gliders; }
+  .vehicle-section { position: relative; box-sizing: border-box; width: max-content; padding: 8px; align-self: start; justify-self: center;
+    background: rgba(219, 219, 219, 0.25); background-clip: padding-box; border: 3px ridge rgba(219, 219, 219, 0.25); border-radius: 10px; }
+  #vehicle-sections.arr-a .vehicle-section[data-section="vehicles"], #vehicle-sections.arr-c .vehicle-section { align-self: center; }
+  #vehicle-sections.arr-a .vehicle-section[data-section="wheels"] { align-self: end; }
+  #vehicle-sections.arr-a .vehicle-section[data-section="gliders"] { align-self: start; }
+  .vehicle-section-heading {
+    display: flex; align-items: baseline; gap: 10px; box-sizing: border-box; height: 22px; margin: 0 0 6px 0; padding: 0 2px 5px 2px;
+    font-size: 12px; line-height: 16px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; color: var(--text-dim);
+    border-bottom: 1px solid var(--divider); white-space: nowrap; overflow: hidden;
+    width: 0; min-width: 100%;   /* as wide as the board, never wider: the board's width comes from its tiles (or, at the least, the heading - the script sets min-width) */
+  }
+  .vehicle-section-heading.probe { position: absolute; visibility: hidden; width: max-content; min-width: 0; }
+  .vehicle-section-summary { font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: normal; }
+  .vehicle-group + .vehicle-group { margin-top: 10px; }
+  .vehicle-subheading {
+    box-sizing: border-box; height: 17px; margin: 0 0 3px 2px; font-size: 10px; line-height: 17px; text-transform: uppercase;
+    letter-spacing: 0.07em; font-weight: 700; color: var(--text-dim);
+  }
+  .vehicle-grid { display: grid; grid-template-columns: repeat(var(--vc, 6), var(--vt)); grid-auto-rows: var(--vh); gap: var(--vg); }
+
+  /* A part is a rounded rectangle holding the game's picture of it; the name is on the plate (the tile keeps its own name
+     only while there is no picture). */
+  .vehicle-grid .char-tile {
+    aspect-ratio: auto; box-sizing: border-box; width: 100%; height: 100%; padding: calc(var(--vt) * 0.03);
+    border-radius: calc(var(--vt) * 0.14); overflow: visible;
+  }
+  #view-vehicles .char-tile:hover { transform: none; }
+  /* the white frame that follows the mouse is the hover mark: no accent border on top of it (a ticked part or a clash keeps its own) */
+  .vehicle-grid .char-tile:not(.has-selected):not(.has-conflict):hover { border-color: var(--panel-border); }
+  .vehicle-grid .char-tile.no-mods:hover, .vehicle-grid .char-tile.no-mods.active { opacity: 1; }
+  .vehicle-icon { width: 100%; height: 100%; display: block; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+  .vehicle-grid .char-tile.has-art .char-name { display: none; }
+  .vehicle-grid .char-name { font-size: clamp(8px, calc(var(--vt) * 0.15), 13px); line-height: 1.15; overflow: hidden; overflow-wrap: anywhere; max-height: 100%; }
+  .vehicle-grid .tile-count-bubble {
+    top: calc(var(--vt) * -0.04); right: calc(var(--vt) * -0.04);
+    min-width: clamp(17px, calc(var(--vt) * 0.28), 27px); height: clamp(17px, calc(var(--vt) * 0.28), 27px);
+    padding: 0 5px; font-size: clamp(9.5px, calc(var(--vt) * 0.15), 14px);
+  }
+  .vehicle-grid .char-conflict-badge { top: 3px; left: 3px; width: clamp(13px, calc(var(--vt) * 0.22), 18px); height: clamp(13px, calc(var(--vt) * 0.22), 18px); font-size: clamp(9px, calc(var(--vt) * 0.15), 12px); }
+  .vehicle-grid .char-attention-dot { top: 5px; left: 5px; }
+  /* "mods filed elsewhere also ship this part's model file": a small pill along the bottom */
+  .vehicle-grid .char-linked-mark {
+    position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); margin: 0; padding: 0 6px; white-space: nowrap; pointer-events: auto;
+    font-size: clamp(8px, calc(var(--vt) * 0.13), 11px); line-height: 1.5; border-radius: 9px; background: var(--panel); border: 1px solid var(--accent);
+  }
+
+  /* the "have you checked it?" marker sits bottom right (the count is top right, a clash top left) */
+  .vehicle-grid .tile-review-mark { top: auto; bottom: 5%; right: 5%; width: clamp(11px, calc(var(--vt) * 0.19), 16px); height: clamp(11px, calc(var(--vt) * 0.19), 16px); }
+  #vehicle-namebar { flex: 0 0 auto; height: 76px; display: flex; align-items: center; justify-content: center; }
+
+  /* The vehicle card (vehicle-card.js): the game's picture of the part in the head, and the "Right part" step's rows. */
+  .cc-vehicle-pic { width: 88px; height: 56px; flex: none; object-fit: contain; }
+  .cc-fit-row { margin: 0 0 8px 0; }
+  /* the part's picture in its Icons step: as the parts menu draws it (200:128) on a plate, at a fixed size */
+  .cl-part-pict { width: 220px; max-width: 100%; aspect-ratio: 200 / 128; margin: 4px 0 8px 0; padding: 6px; box-sizing: border-box;
+    background: var(--thumb-bg); border: 1px solid var(--panel-border); border-radius: 12px; }
+  .cl-part-pict img { width: 100%; height: 100%; display: block; object-fit: contain; }

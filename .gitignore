@@ -6,3 +6,6 @@ app-config.json
 __pycache__/
 **__pycache__/
 *.pyc
+
+
+PROMPTS.md

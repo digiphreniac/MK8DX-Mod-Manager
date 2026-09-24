@@ -28,6 +28,8 @@
     "js/course-card.js",
     "js/help-and-icon-generator.js",
     "js/views.js",
+    "js/vehicle-screen.js",
+    "js/vehicle-card.js",
     "js/add-mod.js",
     "js/data-and-conflicts.js",
     "js/settings-panels.js",

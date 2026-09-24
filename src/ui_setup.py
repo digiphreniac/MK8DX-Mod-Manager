@@ -36,6 +36,7 @@ from pathlib import Path
 import bntx_decode
 import bntx_encode
 import ui_archives as ua
+import vehicle_icons
 
 # Texture name -> friendly name, e.g. tc_MapChara_Kinopico^l -> "Toadette".
 # Codes are the game's internal character ids; anything not listed is shown
@@ -80,6 +81,11 @@ def describe_texture(name: str) -> dict:
     None for anything that isn't one)."""
     m = _TEXTURE_NAME_RE.match(name)
     if not m:
+        key = name[len(vehicle_icons.PREFIX):-len(vehicle_icons.SUFFIX)] if (
+            name.startswith(vehicle_icons.PREFIX) and name.endswith(vehicle_icons.SUFFIX)) else None
+        part = vehicle_icons.key_names().get(key) if key else None
+        if part:   # a vehicle part's picture in the parts menu
+            return {"name": name, "character": part, "kind": "Part"}
         return {"name": name, "character": None, "kind": None}
     kind, code, variant = m.groups()
     character = CHARACTER_CODES.get(code)
@@ -864,11 +870,14 @@ CHARACTER_SLOTS = [
     ("MapChara", "common", "cm_L_CharaIcon_00.szs", "Map icon"),
     ("edChara", "common", "cm_L_CharaIcon_00.szs", "Results-screen icon"),
 ]
-ENTRY_ARCHIVE = {"cm_L_CharaIcon_00.szs": "common", "mn_L_CharaIcon_00.szs": "menu"}
+ENTRY_ARCHIVE = {"cm_L_CharaIcon_00.szs": "common", "mn_L_CharaIcon_00.szs": "menu", vehicle_icons.SARC_ENTRY: "menu"}
+LOOSE_ENTRY = "loose"   # the "entry" of a part picture that is a loose file rather than a texture in an archive: "loose|K_Std"
 # Numeric MSBT labels in Common.msbt: characters' names sit in 1000-1099, each
 # course's name twice - short and with the cup line: 1400-1499 / 1500-1599 for the
 # original courses, 11700-11799 / 11800-11899 for the retro and Booster Course Pass ones.
-NAME_LABEL_RANGES = {"characters": [(1000, 1100)], "courses": [(1400, 1600), (11700, 11900)]}
+NAME_LABEL_RANGES = {"characters": [(1000, 1100)], "courses": [(1400, 1600), (11700, 11900)],
+                     "vehicles": [(1100, 1300)], "wheels": [(1100, 1300)], "gliders": [(1100, 1300)]}   # (the parts: bodies 1101-1186, tires 1201-1222, gliders 1251-1265)
+PART_KINDS = ("vehicles", "wheels", "gliders")   # the name kinds (and categories) of vehicle parts
 _COURSE_PREFIXES = ("Wii ", "GBA ", "DS ", "N64 ", "GCN ", "SNES ", "3DS ", "Tour ")
 _ICON_SOURCE_SIZE = 256
 
@@ -904,6 +913,21 @@ def slot_items(kind: str, code: str) -> list:
 
 def slot_item(kind: str, code: str) -> str:
     return slot_items(kind, code)[0]
+
+
+def part_item(section: str, internal: str):
+    """The picture item of a vehicle part: "mn_L_KartParts_00.szs|tc_KP_K_Ufo^l" for a part whose picture is a texture in
+    menu.sarc, "loose|K_Std" for one that is a set of loose files (see vehicle_icons.py); None when the id isn't known."""
+    key = vehicle_icons.texture_key(section, internal)
+    if key is None:
+        return None
+    if key in vehicle_icons.LOOSE_DEFAULTS:
+        return f"{LOOSE_ENTRY}|{key}"
+    return f"{vehicle_icons.SARC_ENTRY}|{vehicle_icons.PREFIX}{key}{vehicle_icons.SUFFIX}"
+
+
+def is_loose_item(item: str) -> bool:
+    return item.startswith(LOOSE_ENTRY + "|")
 
 
 def classify_code(code: str):
@@ -949,7 +973,10 @@ def overrides_signature(master_root: Path) -> str:
     return "|".join(parts)
 
 
-def store_icon_picture(master_root: Path, png_bytes: bytes) -> str:
+_PART_PICTURE_SIDE = 400   # a part picture is 200x128 in the game; kept at twice that, in its own shape
+
+
+def store_icon_picture(master_root: Path, png_bytes: bytes, square: bool = True) -> str:
     """Saves a picture under ui-overrides/ and returns its path relative to
     the master folder. Anything larger than 256 px is scaled down to a 256x256
     square (a crop from a screenshot); a small picture - a mod's own 64x64 map
@@ -959,7 +986,11 @@ def store_icon_picture(master_root: Path, png_bytes: bytes) -> str:
     import hashlib
     import io
     img = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
-    if max(img.size) > _ICON_SOURCE_SIZE:
+    if not square:   # a part picture keeps its own shape, only shrunk if it is large
+        if max(img.size) > _PART_PICTURE_SIDE:
+            k = _PART_PICTURE_SIDE / max(img.size)
+            img = img.convert("RGBa").resize((max(1, round(img.width * k)), max(1, round(img.height * k))), Image.LANCZOS).convert("RGBA")
+    elif max(img.size) > _ICON_SOURCE_SIZE:
         img = img.convert("RGBa").resize((_ICON_SOURCE_SIZE, _ICON_SOURCE_SIZE), Image.LANCZOS).convert("RGBA")
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -970,7 +1001,20 @@ def store_icon_picture(master_root: Path, png_bytes: bytes) -> str:
     return rel
 
 
-def _render_icon(png_path: Path, tex: dict) -> bytes:
+def _fit_picture(img, w: int, h: int):
+    """`img` as a w x h picture: resized to fill it when it is (nearly) the right shape, else shrunk to fit inside it and
+    centred on a transparent background - a part's picture keeps its proportions rather than being squashed."""
+    from PIL import Image
+    if abs(img.width / img.height - w / h) <= 0.03 * (w / h):
+        return img.convert("RGBa").resize((w, h), Image.LANCZOS).convert("RGBA")
+    k = min(w / img.width, h / img.height)
+    inner = img.convert("RGBa").resize((max(1, round(img.width * k)), max(1, round(img.height * k))), Image.LANCZOS).convert("RGBA")
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    out.paste(inner, ((w - inner.width) // 2, (h - inner.height) // 2))
+    return out
+
+
+def _render_icon(png_path: Path, tex: dict, contain: bool = False) -> bytes:
     """The picture as the exact bytes of this texture: resized to its size,
     RGBA8, laid out the way the Switch's GPU reads it (verified to be the exact
     inverse of what the previews decode)."""
@@ -980,11 +1024,53 @@ def _render_icon(png_path: Path, tex: dict) -> bytes:
     w, h = tex["width"], tex["height"]
     img = Image.open(png_path).convert("RGBA")
     if img.size != (w, h):
-        img = img.convert("RGBa").resize((w, h), Image.LANCZOS).convert("RGBA")
+        img = _fit_picture(img, w, h) if contain else img.convert("RGBa").resize((w, h), Image.LANCZOS).convert("RGBA")
     data = bntx_encode._swizzle(w, h, 1, 4, tex["layout"] & 7, img.tobytes("raw", "RGBA"))
     if len(data) != len(tex["data"]):
         raise ua.PatchError("picture doesn't fit the game's icon size")
     return data
+
+
+def build_part_pictures(master_root: Path, originals: dict, out_dir: Path, skip=frozenset()) -> dict:
+    """Writes the user's own pictures for the vehicle parts whose pictures are loose files (see vehicle_icons.py): for each
+    such part, a copy of EVERY variant file the game has (the Standard Kart has one per character outfit), each the game's own
+    file with its picture swapped in place - the file keeps its name, size and layout, only the pixels change (verified:
+    re-encoding the game's own picture reproduces the file exactly). `originals` is {file name: Path} of the game's files
+    (game_files.current_vehicle_picts()); `skip` is file names (lower-case) a ticked mod supplies itself - those are left to
+    that mod. `out_dir` is only ever written by this: files in it that are no longer wanted are deleted.
+    {"written": [...], "left_to_mods": [...], "problems": [...]}"""
+    ov = load_overrides(master_root)
+    wanted = {i: o for i, o in ov["textures"].items() if is_loose_item(i)}
+    written, left, problems = set(), [], []
+    if wanted and not originals:
+        problems.append("the game's own picture files aren't in your base copy yet - open Settings > Base game files")
+    for item, o in sorted(wanted.items()):
+        key = item.split("|", 1)[1]
+        for fname, src in sorted(originals.items()):
+            if vehicle_icons.loose_family(fname) != key:
+                continue
+            if fname.lower() in skip:
+                left.append(fname)
+                continue
+            try:
+                blob = src.read_bytes()
+                tex = ua.parse_bntx_textures(blob)[0]
+                data = _render_icon(master_root / o["png"], tex, contain=True)
+                out = bytearray(blob)
+                out[tex["offset"]:tex["offset"] + len(data)] = data
+                out_dir.mkdir(parents=True, exist_ok=True)
+                (out_dir / fname).write_bytes(bytes(out))
+                written.add(fname)
+            except (OSError, ua.ArchiveError, ua.PatchError, ValueError, IndexError) as e:
+                problems.append(f"{fname}: {e}")
+    if out_dir.is_dir():
+        for f in out_dir.iterdir():
+            if f.is_file() and f.name not in written:
+                try:
+                    f.unlink()
+                except OSError:
+                    pass
+    return {"written": sorted(written), "left_to_mods": left, "problems": problems}
 
 
 def _msbt_names(plan: dict, prefer=("USen", "EUen")):
@@ -1131,7 +1217,7 @@ def apply_overrides(master_root: Path, plan: dict, auto: dict = None):
                         tex = maps[entry].get(name)
                         if tex is None:
                             raise ua.PatchError("this icon isn't in your base file (it was built for an older game version)")
-                        data = _render_icon(master_root / o["png"], tex)  # an absolute path stays absolute
+                        data = _render_icon(master_root / o["png"], tex, contain=d["kind"] == "Part")  # an absolute path stays absolute
                         change.update(md5=ua.md5(data), width=tex["width"], height=tex["height"], format=tex["format"], mergeable=True)
                         inline[item] = {"format": tex["format"], "width": tex["width"], "height": tex["height"], "data": data}
                         png = ua.texture_png({**tex, "data": data})

@@ -2,6 +2,7 @@ let state = { categories: {}, checked: {}, roster: [], cups: [], settings: {}, s
 let viewMode = "characters";
 let openCharacter = null;
 let selectedCup = "Mushroom Cup";
+let selectedVehicle = null;  // the vehicle part last opened on the Vehicles screen (its card is, or was, open)
 let selectedCourse = null;   // the course picked in the selected cup (Course Select), if any
 const DLC_CUP_START = "Golden Dash Cup"; // first Booster Course Pass cup
 

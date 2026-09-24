@@ -30,6 +30,7 @@ import webview
 import bntx_decode
 import bntx_encode
 import cup_icons
+import vehicle_icons
 import gamebanana_api
 import ui_setup
 import voice_audio
@@ -67,6 +68,8 @@ EXTRACTED_DIRNAME = "extracted"
 # separate from it so app-generated files never mix with the user's own
 # hand-curated ui-icons/ content.
 COURSE_ICONS_DIRNAME = "course-icons"
+# The same for the user's own pictures for vehicle parts that are loose files (see ui_setup.build_part_pictures()).
+PART_ICONS_DIRNAME = "part-icons"
 # MK8DX's own CoursePict template convention, measured directly across four
 # different real mod-provided ym_CoursePict.bntx files (different courses,
 # different authors) - all landed within 1px of each other: the visible
@@ -179,7 +182,7 @@ DEFAULT_SETTINGS = {
 MASTER_DIR_ITEMS = [
     STATE_FILENAME,
     GB_CATEGORIES_CACHE_FILENAME, GB_MODS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME,
-    EXCLUDED_FILES_FILENAME, SETTINGS_FILENAME, MODS_DIRNAME, "ui-icons", COURSE_ICONS_DIRNAME,
+    EXCLUDED_FILES_FILENAME, SETTINGS_FILENAME, MODS_DIRNAME, "ui-icons", COURSE_ICONS_DIRNAME, PART_ICONS_DIRNAME,
     "ui-icons-backups", "ui-setup-cache.json",
     ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME,
 ]
@@ -2126,6 +2129,28 @@ class Api(VoiceEditMixin):
             ],
         }
 
+    def get_vehicle_fit(self, part_name, unit_keys):
+        """For the vehicle card's "Right part" step: of these downloaded mods (unit keys filed under `part_name`), the ones
+        whose model files are for a different part - {unit key: {"expected": [...], "found": [...], "found_parts": [{name,
+        section}], "mod_id", "record_type"}} (mod_id is None when the download isn't tracked, so it can't be moved). A mod
+        that ships this part's file, or none of that kind at all, isn't listed."""
+        if self.mod_root is None or self._vehicle_item(part_name)[1] is None:
+            return {}
+        tracked = self._load_gb_mods().get(part_name, [])
+        out = {}
+        for key in unit_keys or []:
+            unit = self._unit_dir(key)
+            if not unit.is_dir():
+                continue
+            mismatch = self._vehicle_slot_mismatch(part_name, unit)
+            if not mismatch:
+                continue
+            mod = next((m for m in tracked for f in m.get("files", [])
+                        if f.get("downloaded_to") and (Path(f["downloaded_to"]) == unit or Path(f["downloaded_to"]) in unit.parents)), None)
+            out[key] = {**mismatch, "mod_id": mod["mod_id"] if mod else None,
+                        "record_type": (mod or {}).get("record_type", "Mod")}
+        return out
+
     def gb_move_mod(self, from_item, mod_id, to_item, record_type="Mod"):
         """Re-files a tracked vehicle-part mod under a different part - what
         the "ships X's file, not this part's" warning offers - without a
@@ -2551,7 +2576,7 @@ class Api(VoiceEditMixin):
         data = self._load_json(self.mod_root / LOOK_REVIEWS_FILENAME, {})
         if not isinstance(data, dict):
             data = {}
-        for bucket in ("characters", "names", "course_names", "course_icons"):
+        for bucket in ("characters", "names", "course_names", "course_icons", "part_names", "part_icons"):
             if not isinstance(data.get(bucket), dict):
                 data[bucket] = {}
         return data
@@ -2691,6 +2716,245 @@ class Api(VoiceEditMixin):
 
     def unmark_course_icon_reviewed(self, course):
         return {"success": self._mark_course("course_icons", course, undo=True)}
+
+    # --- the same two review tasks for a vehicle part --------------------------------------------
+    # A part with ticked mods has a Name task (the game's text can name it differently: the mod's own text, a name you
+    # typed, or a guess from the mod's name) and an Icons task (its picture in the parts menu: a mod that ships its own
+    # needs no check; otherwise the game's own shows, or one you chose - either way you say so once). Each is confirmed for
+    # the SET of ticked mods, exactly like a course's. The picture is one texture in menu.sarc for most parts, or a set of
+    # loose files for the sixteen that come in outfits (ui_setup.part_item(), vehicle_icons.py).
+
+    def _part_folder_map(self):
+        """{(section, normalized folder name): part name} - which part a mods/extracted/<section>/<folder> belongs to."""
+        return {(section, normalize_char_name(sanitize_filename(i["name"]))): i["name"]
+                for section, items in self._load_vehicle_roster().items() for i in items}
+
+    def _ticked_by_part(self, state=None):
+        state = state if state is not None else self._load_state()
+        fmap = self._part_folder_map()
+        out = {}
+        for k, v in state.items():
+            parts = k.split("/")
+            if v and len(parts) >= 3 and parts[0] in ui_setup.PART_KINDS:
+                name = fmap.get((parts[0], normalize_char_name(parts[1])))
+                if name:
+                    out.setdefault(name, []).append(k)
+        return {n: sorted(v) for n, v in out.items()}
+
+    def _mark_part(self, bucket, part, undo=False):
+        return self._store_signature(bucket, part, self._ticked_by_part().get(part), undo)
+
+    def _unit_loose_part_files(self, key):
+        """The loose part-picture files (UI/cmn/menu/tc_KP_*.bntx) a mod unit ships in its romfs."""
+        unit = self._unit_dir(key)
+        menu = ui_setup._child(ui_setup._child(ui_setup._child(ui_setup._child(unit, "romfs"), "UI"), "cmn"), "menu")
+        if menu is None or not menu.is_dir():
+            return []
+        return [f for f in sorted(menu.iterdir()) if f.is_file() and vehicle_icons.loose_family(f.name)]
+
+    @staticmethod
+    def _packed_winner(plan, choices, archive_id, iid):
+        """(variant, change) when a ticked mod's own packed archive decides this texture, else None."""
+        analysis = (plan or {}).get(archive_id)
+        if not analysis:
+            return None
+        idx = ui_setup._winners(analysis, choices).get(iid)
+        if idx is None:
+            return None
+        v = analysis["variants"][idx]
+        if v.get("is_override"):
+            return None
+        return v, next(c for c in v["changes"] if ui_setup.item_id(c) == iid)
+
+    def _part_picture(self, part, section, item, keys, ctx):
+        """{"state": "you" | "mod" | "vanilla", "mod", "preview", "default", "editable"} - where the part's picture in the
+        parts menu comes from: one the user chose (ui-overrides), a ticked mod's own (a texture in its menu.sarc, or its
+        loose files), else the game's own ("default" is the game's own, to show what the part has without the mod)."""
+        default = self.get_vehicle_icons().get(part)
+        iid = ui_setup.part_item(section, item.get("internal"))
+        base = {"state": "vanilla", "mod": None, "preview": None, "default": default, "editable": iid is not None}
+        if iid is None:
+            return base
+        o = ctx["ov"]["textures"].get(iid)
+        if o:
+            left = 0
+            if ui_setup.is_loose_item(iid):   # outfit pictures a ticked mod filed elsewhere supplies stay that mod's
+                fam = iid.split("|", 1)[1]
+                left = sum(1 for n in self._part_pictures_left_to_mods() if vehicle_icons.loose_family(n) == fam)
+            return {**base, "state": "you", "preview": self._thumb_uri(self.mod_root / o["png"], 260), "left_to_mods": left}
+        if ui_setup.is_loose_item(iid):
+            fam = iid.split("|", 1)[1]
+            for k in keys:
+                mine = [f for f in self._unit_loose_part_files(k) if vehicle_icons.loose_family(f.name) == fam]
+                if mine:
+                    try:
+                        png = bntx_decode.decode_to_png(mine[0])
+                        preview = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+                    except (bntx_decode.UnsupportedBNTXError, OSError):
+                        preview = None
+                    return {**base, "state": "mod", "mod": k.split("/")[2], "preview": preview}
+        else:
+            won = self._packed_winner(ctx["plan"], ctx["choices"], "menu", iid)
+            if won:
+                return {**base, "state": "mod", "mod": (won[0]["labels"] or ["a mod"])[0], "preview": won[1].get("preview")}
+        return base
+
+    def get_part_look(self, part, _ctx=None):
+        """What a vehicle part's card needs - the same shape as get_course_look(): {"part", "ticked", "name", "picture",
+        "review"}; "review" is None when nothing is ticked for the part, and {"error"} comes back when the menu files can't be read."""
+        section, item = self._vehicle_item(part)
+        if item is None:
+            return {"error": f"{part} isn't a vehicle part."}
+        self._top_up_pictures_once()
+        keys = self._ticked_by_part().get(part, [])
+        if not keys:
+            return {"part": part, "ticked": [], "name": None, "picture": None, "review": None}
+        ctx = _ctx or self._menu_look_ctx()
+        base = self.get_menu_look(part, section, ctx)
+        if base.get("error"):
+            return {"error": base["error"]}
+        nm = dict(base.get("name") or {})
+        suggestion = None
+        if nm.get("state") == "vanilla":
+            gb_names = self._gb_mod_names()
+            for key in keys:
+                parts = key.split("/")
+                for text, source in ((gb_names.get("/".join(parts[:3]).lower()), "the mod's name"), (parts[2], "the mod's folder name")):
+                    guess = suggest_name_from_mod(text, nm.get("vanilla") or part, max_len=32) if text else None
+                    if guess:
+                        suggestion = {"text": guess, "source": source, "mod": parts[2]}
+                        break
+                if suggestion:
+                    break
+        nm["suggestion"] = suggestion
+        picture = self._part_picture(part, section, item, keys, ctx)
+        data = self._review_data()
+        sig = self._review_sig(keys)
+        review = {
+            "name_applicable": nm.get("state", "vanilla") != "vanilla" or suggestion is not None,
+            "name_done": sig in data["part_names"].get(part, []),
+            "icons_applicable": picture["state"] != "mod" and picture["editable"],
+            "icons_done": sig in data["part_icons"].get(part, []),
+        }
+        return {"part": part, "ticked": keys, "name": nm, "picture": picture, "review": review, "section": section}
+
+    def get_part_tile_view(self, part_names):
+        """{name: {"applicable", "finished", "shown", "icon"}} for the parts (of those asked about) that have ticked mods -
+        the tile's "have you checked it?" marker, the name the menus will show, and the picture that will show when it is not
+        the game's own. One menu-look context is shared by all of them."""
+        ticked = self._ticked_by_part()
+        wanted = [c for c in part_names if c in ticked]
+        if not wanted:
+            return {}
+        ctx = self._menu_look_ctx()
+        out = {}
+        for c in wanted:
+            look = self.get_part_look(c, ctx)
+            r = look.get("review")
+            if not r:
+                continue
+            nm = look.get("name") or {}
+            pic = look.get("picture") or {}
+            out[c] = {"applicable": r["name_applicable"] or r["icons_applicable"],
+                      "finished": (not r["name_applicable"] or r["name_done"]) and (not r["icons_applicable"] or r["icons_done"]),
+                      "shown": nm.get("text") if nm.get("state") in ("mod", "you") else None,
+                      "icon": pic.get("preview") if pic.get("state") != "vanilla" else None}
+        return out
+
+    def confirm_part_name(self, part):
+        """The part's Name task: the name as it is now (typed, the mod's, or the game's) is right."""
+        return {"success": self._mark_part("part_names", part)}
+
+    def mark_part_icon_reviewed(self, part):
+        """The part's Icons task: its picture in the parts menu is settled (the game's own, or the one chosen)."""
+        return {"success": self._mark_part("part_icons", part)}
+
+    def unmark_part_icon_reviewed(self, part):
+        return {"success": self._mark_part("part_icons", part, undo=True)}
+
+    def _part_pictures_left_to_mods(self):
+        """File names (lower-case) of loose part pictures a ticked mod supplies for a part it is NOT filed under - a character
+        mod's per-outfit Standard Kart picture, say. A picture you chose for the part is not written over those: they stay
+        the character mod's. (A mod filed under the part itself is what your choice replaces.)"""
+        fmap = self._part_folder_map()
+        names = vehicle_icons.key_names()
+        left = set()
+        for key, on in self._load_state().items():
+            if not on or key.count("/") < 2:
+                continue
+            files = self._unit_loose_part_files(key)
+            if not files:
+                continue
+            cat, folder = key.split("/")[:2]
+            unit_part = fmap.get((cat, normalize_char_name(folder))) if cat in ui_setup.PART_KINDS else None
+            for f in files:
+                if unit_part is None or names.get(vehicle_icons.loose_family(f.name)) != unit_part:
+                    left.add(f.name.lower())
+        return left
+
+    def sync_part_pictures(self):
+        """Brings part-icons/ (always merged in) in line with the pictures the user chose for parts that are loose files: every
+        variant file written, files no longer wanted removed. Cheap when there is nothing chosen. Returns build_part_pictures()'s
+        report ({"written", "left_to_mods", "problems"})."""
+        if self.mod_root is None:
+            return {"written": [], "left_to_mods": [], "problems": []}
+        out_dir = self.mod_root / PART_ICONS_DIRNAME / "romfs" / "UI" / "cmn" / "menu"
+        ov = ui_setup.load_overrides(self.mod_root)
+        if not any(ui_setup.is_loose_item(i) for i in ov["textures"]) and not out_dir.is_dir():
+            return {"written": [], "left_to_mods": [], "problems": []}
+        return ui_setup.build_part_pictures(self.mod_root, game_files.current_vehicle_picts(self.mod_root), out_dir,
+                                            self._part_pictures_left_to_mods())
+
+    def _set_part_icon(self, part, png_bytes):
+        section, item = self._vehicle_item(part)
+        iid = ui_setup.part_item(section, item.get("internal")) if item else None
+        if iid is None:
+            return {"success": False, "error": f"Don't know the game's picture for {part}."}
+        try:
+            rel = ui_setup.store_icon_picture(self.mod_root, png_bytes, square=False)
+        except Exception as e:  # PIL raises a variety
+            return {"success": False, "error": f"Couldn't use that picture: {e}"}
+        ov = ui_setup.load_overrides(self.mod_root)
+        ov["textures"][iid] = {"png": rel, "who": part}
+        ui_setup.save_overrides(self.mod_root, ov)
+        report = self.sync_part_pictures()
+        if report["problems"]:
+            return {"success": False, "error": "Couldn't write the picture into the game's files: " + "; ".join(report["problems"][:2])}
+        return {"success": True, "left_to_mods": len(report["left_to_mods"])}
+
+    def set_part_icon_from_url(self, part, image_url, crop_x, crop_y, crop_w, crop_h):
+        """Uses (a crop of) an image from the web - one of a mod's own GameBanana screenshots - as a part's picture."""
+        try:
+            image_bytes = gamebanana_api.fetch_bytes(image_url)
+            from PIL import Image
+            src = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+            cropped = src.crop((crop_x, crop_y, crop_x + crop_w, crop_y + crop_h))
+            buf = io.BytesIO()
+            cropped.save(buf, format="PNG")
+        except gamebanana_api.GameBananaError as e:
+            return {"success": False, "error": str(e)}
+        except Exception as e:
+            return {"success": False, "error": f"Couldn't process that image: {e}"}
+        return self._set_part_icon(part, buf.getvalue())
+
+    def set_part_icon_from_data(self, part, data_url):
+        """Same, for a picture the user chose from their own computer (already cropped in the page, sent as a data: URL)."""
+        try:
+            png = base64.b64decode(data_url.split(",", 1)[1])
+        except (IndexError, ValueError):
+            return {"success": False, "error": "That picture couldn't be read."}
+        return self._set_part_icon(part, png)
+
+    def clear_part_icon(self, part):
+        """Back to the game's own picture (or the ticked mod's, if it brings one)."""
+        section, item = self._vehicle_item(part)
+        iid = ui_setup.part_item(section, item.get("internal")) if item else None
+        ov = ui_setup.load_overrides(self.mod_root)
+        if iid and ov["textures"].pop(iid, None) is not None:
+            ui_setup.save_overrides(self.mod_root, ov)
+        self.sync_part_pictures()
+        self._mark_part("part_icons", part, undo=True)
+        return {"success": True}
 
     def _guessed_names(self):
         """The names the app guessed (see sync_auto_names) that the user hasn't confirmed yet - the Commit
@@ -4060,10 +4324,25 @@ class Api(VoiceEditMixin):
                         }
                         course_icons_files += 1
 
+        # ...and for the user's own vehicle-part pictures that are loose files (see sync_part_pictures()).
+        part_icons_files = 0
+        if include_ui_icons:
+            part_icons_romfs = self.mod_root / PART_ICONS_DIRNAME / "romfs"
+            if part_icons_romfs.is_dir():
+                for filepath in part_icons_romfs.rglob("*"):
+                    if filepath.is_file():
+                        rel = filepath.relative_to(part_icons_romfs)
+                        claims[rel.as_posix().lower()] = {
+                            "mod": "part-icons (your vehicle part pictures)",
+                            "src": filepath,
+                            "rel": rel,
+                        }
+                        part_icons_files += 1
+
         return types.SimpleNamespace(
             claims=claims, conflicts=conflicts, mods_processed=mods_processed, missing=missing,
             ui_icons_files=ui_icons_files, bgm_bars_skipped=bgm_bars_skipped, resolved=resolved,
-            ui_archives_skipped=ui_archives_skipped, course_icons_files=course_icons_files,
+            ui_archives_skipped=ui_archives_skipped, course_icons_files=course_icons_files, part_icons_files=part_icons_files,
             conflict_paths=conflict_paths, claimants=claimants, file_counts=file_counts,
             excluded_counts=excluded_counts,
         )
@@ -4427,6 +4706,7 @@ class Api(VoiceEditMixin):
         counts = {
             "mods": len(res.mods_processed), "files": len(res.claims), "left_out": left_out_total,
             "code_patches": len(exefs_keys), "ui_files": res.ui_icons_files, "course_icons": res.course_icons_files,
+            "part_icons": res.part_icons_files,
         }
         return counts, warnings
 
@@ -4450,6 +4730,7 @@ class Api(VoiceEditMixin):
 
     def merge(self, checked_keys):
         self.sync_voice_edits()
+        self.sync_part_pictures()   # (what a ticked mod supplies itself may have changed since the picture was set)
         lines = []
         staging_root = self.mod_root.parent / "sd-card-staging"
         out_romfs = staging_root / "atmosphere" / "contents" / TITLE_ID / "romfs"
@@ -4598,6 +4879,11 @@ class Api(VoiceEditMixin):
         if course_icons_files:
             lines.append(
                 f"  (includes {course_icons_files} generated course-select icon(s) from course-icons/, "
+                "always merged in)"
+            )
+        if res.part_icons_files:
+            lines.append(
+                f"  (includes {res.part_icons_files} vehicle part picture file(s) from part-icons/, "
                 "always merged in)"
             )
         if staged_patches:
@@ -5365,16 +5651,44 @@ class Api(VoiceEditMixin):
     def get_course_default_pictures(self, course_names):
         """{course name: PNG data URI} - the game's own course-select picture for each course asked about that has one.
         A base-game copy made before pictures were part of it gets them added from the folder it was made from, if that is
-        still there (once per run - see game_files.top_up_course_pictures())."""
+        still there (once per run - see game_files.top_up_pictures())."""
         if self.mod_root is None:
             return {}
-        if not self.__dict__.get("_course_pict_topup_done"):
-            self._course_pict_topup_done = True
-            try:
-                game_files.top_up_course_pictures(self.mod_root)
-            except OSError:
-                pass
+        self._top_up_pictures_once()
         return {n: uri for n in course_names for uri in [self._default_course_pict(n)] if uri}
+
+    def _top_up_pictures_once(self):
+        if self.__dict__.get("_picture_topup_done"):
+            return
+        self._picture_topup_done = True
+        try:
+            game_files.top_up_pictures(self.mod_root)
+        except OSError:
+            pass
+
+    def get_vehicle_icons(self):
+        """{part name: PNG data URI} - the game's own picture of every vehicle part (body, tire, glider) that has one, for
+        the Vehicles screen (see vehicle_icons.py). {} before Setup or when the copy can't be read; the tiles then keep
+        their plain names. Decoded once per copy: remembered until menu.sarc changes."""
+        if self.mod_root is None:
+            return {}
+        menu = self._game_files().get("menu")
+        if menu is None:
+            return {}
+        self._top_up_pictures_once()
+        try:
+            stamp = (str(menu), menu.stat().st_mtime_ns, menu.stat().st_size,
+                     len([f for f in vehicle_icons.LOOSE_FILENAMES if game_files.find_current_vehicle_pict(self.mod_root, f)]))
+        except OSError:
+            return {}
+        cached = getattr(self, "_vehicle_icon_cache", None)
+        if cached is None or cached[0] != stamp:
+            parts = [(section, item["name"], item.get("internal"))
+                     for section, items in self._load_vehicle_roster().items() for item in items]
+            pngs = vehicle_icons.load(menu, parts, lambda f: game_files.find_current_vehicle_pict(self.mod_root, f))
+            icons = {n: "data:image/png;base64," + base64.b64encode(png).decode("ascii") for n, png in pngs.items()}
+            self._vehicle_icon_cache = cached = (stamp, icons)
+        return cached[1]
 
     def get_base_files_status(self):
         """{"done", "source" (shown for reference only - it doesn't need to still exist), "copied_at", "icons",
@@ -5801,6 +6115,8 @@ class Api(VoiceEditMixin):
             self._mark_signature("names", item_name)   # typing a name confirms the Name task (not Icons)
         elif kind == "courses" and mark_reviewed:
             self._mark_course("course_names", item_name)
+        elif kind in ui_setup.PART_KINDS and mark_reviewed:
+            self._mark_part("part_names", item_name)
         return {"success": True}
 
     def clear_item_name(self, item_name, kind, mark_reviewed=True):
@@ -5814,6 +6130,8 @@ class Api(VoiceEditMixin):
             self._mark_signature("names", item_name)   # choosing "back to normal" confirms the Name task
         elif kind == "courses" and mark_reviewed:
             self._mark_course("course_names", item_name)
+        elif kind in ui_setup.PART_KINDS and mark_reviewed:
+            self._mark_part("part_names", item_name)
         return {"success": True}
 
     def open_ui_setup_folder(self):

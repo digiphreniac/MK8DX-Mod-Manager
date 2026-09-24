@@ -24,8 +24,10 @@ document.getElementById("help-modal-body").addEventListener("click", (e) => {
 // was measured). Cropping to this ratio means a typical 16:9 screenshot
 // needs no letterboxing at all - the app adds the matching border after.
 const ICON_GEN_COURSE_ASPECT = 288 / 162;
+// A vehicle part's picture in the parts menu is 200x128 in the game.
+const ICON_GEN_PART_ASPECT = 200 / 128;
 let iconGenAspect = ICON_GEN_COURSE_ASPECT;
-let iconGenMode = "course";       // "course" (select-screen picture) | "character" (menu icons)
+let iconGenMode = "course";       // "course" (select-screen picture) | "character" (menu icons) | "part" (a vehicle part's picture)
 let iconGenOnDone = null;
 let iconGenKinds = null;          // character mode: only these icons ("Chara" / "MapChara" / "edChara"), else all three
 let iconGenColour = null;         // ...and only this colour (0-based) of a colour-variant character, else all of them
@@ -90,16 +92,19 @@ function openIconGenModal(courseName, screenshots, mode, onDone, opts) {
   iconGenKinds = (opts && opts.kinds) || null;
   iconGenColour = opts && opts.colour != null ? opts.colour : null;
   const one = iconGenMode === "character" && opts && opts.label;   // a picture for one icon only
-  iconGenAspect = iconGenMode === "character" ? 1 : ICON_GEN_COURSE_ASPECT;
+  iconGenAspect = iconGenMode === "character" ? 1 : iconGenMode === "part" ? ICON_GEN_PART_ASPECT : ICON_GEN_COURSE_ASPECT;
   document.getElementById("icon-gen-title").textContent = iconGenMode === "character"
-    ? (one ? `Change the ${opts.label} icon for ${courseName}` : "Icons for " + courseName) : "Generate Course Icon";
+    ? (one ? `Change the ${opts.label} icon for ${courseName}` : "Icons for " + courseName)
+    : iconGenMode === "part" ? "Picture for " + courseName : "Generate Course Icon";
   document.getElementById("icon-gen-pick-hint").textContent = iconGenMode === "character"
     ? (one ? `Pick a picture for ${courseName}'s ${opts.label} icon: one of the mod's own icons (used as they are), or a GameBanana screenshot or a file from your computer (you'll choose which part of it shows next).`
            : "Pick a picture for this character's menu icons: one of the mod's own icons (used as they are), or a GameBanana screenshot or a file from your computer (you'll choose which part of it shows next).")
+    : iconGenMode === "part" ? `Pick a picture for ${courseName} in the parts menu: a GameBanana screenshot or a file from your computer (you'll choose which part of it shows next). It is shown in the game 200 pixels wide - a picture of the part on a plain or see-through background works best.`
     : "Pick one of this mod's own GameBanana screenshots to use as the course-select picture. Nothing this mod doesn't already show off gets used.";
   document.getElementById("icon-gen-crop-hint").textContent = iconGenMode === "character"
     ? (one ? `Drag the square to choose what shows - it becomes the ${opts.label} icon only.`
            : "Drag the square to choose what shows - it becomes the character-select, map and results icons.")
+    : iconGenMode === "part" ? "Drag the box to choose what shows - it becomes the part's picture in the parts menu."
     : "Drag the box to choose what shows - this exact area becomes the in-game picture.";
   iconGenCourseName = courseName;
   iconGenSelectedShot = null;
@@ -116,7 +121,7 @@ function openIconGenModal(courseName, screenshots, mode, onDone, opts) {
     img.addEventListener("click", () => selectIconGenScreenshot(shot));
     grid.appendChild(img);
   }
-  if (iconGenMode === "character") {
+  if (iconGenMode === "character" || iconGenMode === "part") {
     const up = cgEl("label", "ml-upload", "Choose a picture from your computer...");
     const input = document.createElement("input");
     input.type = "file";
@@ -236,7 +241,18 @@ document.getElementById("btn-icon-gen-confirm").addEventListener("click", async 
   confirmBtn.disabled = true;
   confirmBtn.textContent = "Generating…";
   let result;
-  if (iconGenMode === "character") {
+  if (iconGenMode === "part") {
+    if (iconGenSelectedShot.local) {
+      const img = document.getElementById("icon-gen-crop-image");
+      const canvas = document.createElement("canvas");
+      canvas.width = 400;
+      canvas.height = 256;
+      canvas.getContext("2d").drawImage(img, cropX, cropY, cropW, cropH, 0, 0, 400, 256);
+      result = await pywebview.api.set_part_icon_from_data(iconGenCourseName, canvas.toDataURL("image/png"));
+    } else {
+      result = await pywebview.api.set_part_icon_from_url(iconGenCourseName, iconGenSelectedShot.full_url, cropX, cropY, cropW, cropH);
+    }
+  } else if (iconGenMode === "character") {
     if (iconGenSelectedShot.local) {
       // a picture from the user's own computer: crop it here and send the result
       const img = document.getElementById("icon-gen-crop-image");

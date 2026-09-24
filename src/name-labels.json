@@ -1,5 +1,5 @@
 {
- "_note": "Which numeric text entry of the game's Common.msbt holds each character's / course's name (the numbers are the same in every language). Plain reference data - no game text is included. Derived from English message files; Villager (Boy)/(Girl) are not listed because two identical 'Villager' entries (1035, 1053) can't be told apart.",
+ "_note": "Which numeric text entry of the game's Common.msbt holds each character's / course's / vehicle part's name (the numbers are the same in every language). Plain reference data - no game text is included. Derived from English message files; Villager (Boy)/(Girl) are not listed because two identical 'Villager' entries (1035, 1053) can't be told apart.",
  "characters": {
   "Mario": [
    "1001"
@@ -582,6 +582,246 @@
    "11748",
    "11824",
    "11848"
+  ]
+ },
+ "vehicles": {
+  "Standard Kart": [
+   "1101"
+  ],
+  "Pipe Frame": [
+   "1102"
+  ],
+  "Mach 8": [
+   "1104"
+  ],
+  "Steel Driver": [
+   "1105"
+  ],
+  "Cat Cruiser": [
+   "1106"
+  ],
+  "Circuit Special": [
+   "1107"
+  ],
+  "Tri-Speeder": [
+   "1108"
+  ],
+  "Badwagon": [
+   "1109"
+  ],
+  "Prancer": [
+   "1110"
+  ],
+  "Biddybuggy": [
+   "1111"
+  ],
+  "Landship": [
+   "1112"
+  ],
+  "Sneeker": [
+   "1113"
+  ],
+  "Sports Coupe": [
+   "1115"
+  ],
+  "Gold Standard": [
+   "1114"
+  ],
+  "GLA": [
+   "1116"
+  ],
+  "W 25 Silver Arrow": [
+   "1117"
+  ],
+  "300 SL Roadster": [
+   "1118"
+  ],
+  "Blue Falcon": [
+   "1119"
+  ],
+  "Tanooki Kart": [
+   "1120"
+  ],
+  "B Dasher": [
+   "1121"
+  ],
+  "Streetle": [
+   "1123"
+  ],
+  "P-Wing": [
+   "1124"
+  ],
+  "Koopa Clown": [
+   "1125"
+  ],
+  "Standard Bike": [
+   "1151"
+  ],
+  "The Duke": [
+   "1155"
+  ],
+  "Flame Rider": [
+   "1156"
+  ],
+  "Varmint": [
+   "1157"
+  ],
+  "Mr. Scooty": [
+   "1158"
+  ],
+  "Master Cycle Zero": [
+   "1162"
+  ],
+  "City Tripper": [
+   "1161"
+  ],
+  "Comet": [
+   "1153"
+  ],
+  "Sport Bike": [
+   "1154"
+  ],
+  "Jet Bike": [
+   "1159"
+  ],
+  "Yoshi Bike": [
+   "1160"
+  ],
+  "Master Cycle": [
+   "1122"
+  ],
+  "Standard ATV": [
+   "1181"
+  ],
+  "Wild Wiggler": [
+   "1182"
+  ],
+  "Teddy Buggy": [
+   "1183"
+  ],
+  "Bone Rattler": [
+   "1184"
+  ],
+  "Splat Buggy": [
+   "1185"
+  ],
+  "Inkstriker": [
+   "1186"
+  ]
+ },
+ "wheels": {
+  "Standard": [
+   "1201"
+  ],
+  "Monster": [
+   "1202"
+  ],
+  "Roller": [
+   "1203"
+  ],
+  "Slim": [
+   "1204"
+  ],
+  "Slick": [
+   "1205"
+  ],
+  "Metal": [
+   "1206"
+  ],
+  "Button": [
+   "1207"
+  ],
+  "Off-Road": [
+   "1208"
+  ],
+  "Sponge": [
+   "1209"
+  ],
+  "Wood": [
+   "1210"
+  ],
+  "Cushion": [
+   "1211"
+  ],
+  "Blue Standard": [
+   "1212"
+  ],
+  "Hot Monster": [
+   "1213"
+  ],
+  "Azure Roller": [
+   "1214"
+  ],
+  "Crimson Slim": [
+   "1215"
+  ],
+  "Cyber Slick": [
+   "1216"
+  ],
+  "Retro Off-Road": [
+   "1217"
+  ],
+  "Gold Tires": [
+   "1218"
+  ],
+  "GLA Tires": [
+   "1219"
+  ],
+  "Triforce Tires": [
+   "1220"
+  ],
+  "Leaf Tires": [
+   "1221"
+  ],
+  "Ancient Tires": [
+   "1222"
+  ]
+ },
+ "gliders": {
+  "Super Glider": [
+   "1251"
+  ],
+  "Cloud Glider": [
+   "1252"
+  ],
+  "Wario Wing": [
+   "1253"
+  ],
+  "Waddle Wing": [
+   "1254"
+  ],
+  "Peach Parasol": [
+   "1255"
+  ],
+  "Parachute": [
+   "1257"
+  ],
+  "Parafoil": [
+   "1258"
+  ],
+  "Flower Glider": [
+   "1259"
+  ],
+  "Bowser Kite": [
+   "1260"
+  ],
+  "Plane Glider": [
+   "1256"
+  ],
+  "MKTV Parafoil": [
+   "1262"
+  ],
+  "Gold Glider": [
+   "1261"
+  ],
+  "Hylian Kite": [
+   "1263"
+  ],
+  "Paraglider": [
+   "1265"
+  ],
+  "Paper Glider": [
+   "1264"
   ]
  }
 }

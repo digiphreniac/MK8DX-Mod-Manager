@@ -130,82 +130,6 @@ function buildAlsoShipsBadge(key) {
   return badge;
 }
 
-const VEHICLE_BODY_GROUPS = [
-  { type: "kart", label: "Karts" },
-  { type: "bike", label: "Bikes" },
-  { type: "atv", label: "ATVs" },
-];
-
-function renderVehiclesView() {
-  const container = document.getElementById("vehicle-sections");
-  container.innerHTML = "";
-  for (const section of state.vehicles) {
-    const box = document.createElement("div");
-    box.className = "vehicle-section";
-    const withMods = section.items.filter(i => i.units.length > 0).length;
-    const heading = document.createElement("div");
-    heading.className = "vehicle-section-heading";
-    heading.appendChild(document.createTextNode(section.label));
-    const summary = document.createElement("span");
-    summary.className = "vehicle-section-summary";
-    summary.textContent = `${withMods}/${section.items.length} with mods`;
-    heading.appendChild(summary);
-    box.appendChild(heading);
-
-    const grid = document.createElement("div");
-    grid.className = "vehicle-grid";
-    const buildItemTile = (item) => {
-      const { tile, checkedUnits } = buildTile(
-        item.name, item.units, () => openCharacterModal(item.name), item.gb_attempted,
-        { overlayCount: true, hideBadge: true }
-      );
-      // Mods filed elsewhere that also ship this part's model file. Shown as
-      // a small marker only - never added to the X/Y count, the section
-      // summary, or any footer stat, which stay about mods chosen for this part.
-      const linked = state.vehicleLinks.by_item[item.name] || [];
-      if (linked.length > 0) {
-        tile.classList.add("has-linked");
-        const mark = document.createElement("div");
-        mark.className = "char-linked-mark";
-        mark.textContent = `${linked.length} linked mod${linked.length === 1 ? "" : "s"}`;
-        mark.title = "Also ships this part's model file: " + linked.map(k => k.split("/").slice(1).join("/")).join("; ");
-        tile.appendChild(mark);
-      }
-      const conflictPool = checkedUnits.concat(linked.filter(k => state.checked[k]));
-      if (conflictPool.length >= 2) {
-        pywebview.api.check_conflicts(conflictPool).then(result => {
-          if (result.conflicts && result.conflicts.length > 0) {
-            tile.classList.add("has-conflict");
-            const badge = document.createElement("div");
-            badge.className = "char-conflict-badge";
-            badge.textContent = "!";
-            badge.title = `${result.conflicts.length} conflicting file(s) among selected mods`;
-            tile.appendChild(badge);
-          }
-        });
-      }
-      return tile;
-    };
-    if (section.key === "vehicles") {
-      // Bodies split into Karts / Bikes / ATVs, the way the game's own parts
-      // menu does.
-      for (const group of VEHICLE_BODY_GROUPS) {
-        const groupItems = section.items.filter(i => i.type === group.type);
-        if (groupItems.length === 0) continue;
-        const sub = document.createElement("div");
-        sub.className = "vehicle-subheading";
-        sub.textContent = group.label;
-        grid.appendChild(sub);
-        for (const item of groupItems) grid.appendChild(buildItemTile(item));
-      }
-    } else {
-      for (const item of section.items) grid.appendChild(buildItemTile(item));
-    }
-    box.appendChild(grid);
-    container.appendChild(box);
-  }
-}
-
 function renderMoreList() {
   const container = document.getElementById("more-list");
   container.innerHTML = "";
@@ -640,6 +564,7 @@ function switchView(mode) {
   document.getElementById("tab-list").classList.toggle("active", mode === "list");
   applyCharacterLayout();
   if (mode === "courses") fitCourseScreen();   // (it was hidden, so it hasn't been measured since the window last changed)
+  if (mode === "vehicles") fitVehicleScreen();
   if (mode === "characters") {
     if (dockedLayout()) ensureDockedSelection();
     else if (dockedKey !== null) closeDetail();

@@ -89,6 +89,7 @@ function markActiveTile() {
   const key = dockedKey !== null ? tileKeyFor(dockedKey) : (viewMode === "characters" && openCharacter !== null ? tileKeyFor(openCharacter) : null);
   for (const tile of document.querySelectorAll("#char-grid .char-tile")) tile.classList.toggle("active", key !== null && tile.dataset.char === key);
   updateNameBar();
+  markActiveVehicle();
 }
 
 function applyCharacterLayout() {
