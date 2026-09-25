@@ -655,7 +655,7 @@ function assembleCharacterCard(ctx) {
     }
     const bothDone = ns.state === "done" && is_.state === "done";
     // say exactly which of Name/Icons still needs a look, rather than the vague "appearance" -
-    // the two are independent tasks now (see "Name and Icons" in the README), so naming them here
+    // the two are independent tasks now (see "Name and Icons" in docs/menu-look.md), so naming them here
     // says at a glance which row below to open.
     const needing = [ns.state === "current" && "name", is_.state === "current" && "icons"].filter(Boolean);
     let sub;

@@ -270,7 +270,7 @@ function buildFilesPanel(modKey, onChange) {
       row.appendChild(cb);
       row.appendChild(cgEl("code", null, f.path));
       const why = reasons[f.path.toLowerCase()];
-      const note = f.skipped_anyway ? "never copied (see README)"
+      const note = f.skipped_anyway ? "never copied (see docs/merge-rules.md)"
         : f.left_out ? (why && why.kept_label ? `kept ${why.kept_label}'s instead` : why && why.reason === "conflict" ? "game's own file used" : "you left this out")
         : f.kind;
       row.appendChild(cgEl("small", null, note));

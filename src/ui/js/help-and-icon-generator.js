@@ -20,7 +20,7 @@ document.getElementById("help-modal-body").addEventListener("click", (e) => {
 // Matches the visible-content window Api.generate_course_icon() actually
 // composites into (288x162, exactly 16:9) - not the full 304x256 texture,
 // which real CoursePict files leave bordered (see the Help page and
-// README's "Course-select icon preview & generation" section for how that
+// docs/course-select.md ("Course-select icon preview & generation") for how that
 // was measured). Cropping to this ratio means a typical 16:9 screenshot
 // needs no letterboxing at all - the app adds the matching border after.
 const ICON_GEN_COURSE_ASPECT = 288 / 162;

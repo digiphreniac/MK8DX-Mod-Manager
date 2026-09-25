@@ -1507,7 +1507,7 @@ class Api(VoiceEditMixin):
     def _migrate_flat_mod_folders(self):
         """One-time-per-launch, idempotent migration from the old flat
         "<item> - <mod name>" folder/archive naming to the current nested
-        "<item>/<mod name>" layout (see README). Runs on every startup and
+        "<item>/<mod name>" layout (see docs/architecture.md). Runs on every startup and
         master-dir switch - a no-op beyond a quick path-depth check per
         tracked file once everything's already migrated.
 
@@ -3392,8 +3392,8 @@ class Api(VoiceEditMixin):
     def _find_course_pict_file(self, unit_key):
         """Returns the Path to this course unit's own select-screen thumbnail
         (romfs/UI/cmn/menu/ym_CoursePict_<internal id>.bntx), or None if it
-        doesn't bundle one - most course mods don't (see README's "packed
-        UI/*.sarc" section for the character-icon equivalent of this).
+        doesn't bundle one - most course mods don't (see the "packed
+        UI/*.sarc" section of docs/merge-rules.md for the character-icon equivalent of this).
 
         Resolves the exact checked unit's own romfs the same way
         _compute_claims() does (category/unit_rel/romfs) rather than via
@@ -4340,7 +4340,7 @@ class Api(VoiceEditMixin):
     @mutates_library
     def _download_and_extract_one(self, category, item_name, mod_name, file_entry):
         # Nested by item ("<category>/<item>/<mod>") rather than the old flat
-        # "<item> - <mod>" naming - see README's "Folder layout" section.
+        # "<item> - <mod>" naming - see "Folder naming" in docs/architecture.md.
         # item_name itself is sanitized here (unlike mod_name it was never
         # sanitized under the old flat scheme, since it was never the last -
         # and therefore never the trailing-dot/space-sensitive - path segment
@@ -5375,7 +5375,7 @@ class Api(VoiceEditMixin):
         if bgm_bars_skipped:
             lines.append(
                 f"  ({bgm_bars_skipped} mod(s) bundled Audio/Static/BGM.bars - always skipped, "
-                "see README)"
+                "see docs/merge-rules.md)"
             )
         if resolved:
             lines.append(
