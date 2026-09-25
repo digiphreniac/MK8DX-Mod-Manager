@@ -228,18 +228,26 @@ window.addEventListener("resize", () => {
   }, 150);
 });
 
-function refreshBehindModal() {
+// Several things that change what is behind a card often follow one another within moments (a tick, then a conflict check settling,
+// then the file list closing); each used to redraw everything. The redraw is now started once, shortly after the last of them:
+// `ifChanged` (a plain tick - see viewSignature) only if EVERY one of them said so.
+const behindRedraw = { timer: null, ifChanged: true };
+function runBehindRedraw() {
+  const ifChanged = behindRedraw.ifChanged;
+  behindRedraw.timer = null;
+  behindRedraw.ifChanged = true;
+  redrawViews(["characters", "courses", "vehicles", "items", "more"], { ifChanged });
+}
+
+function refreshBehindModal(opts) {
   scheduleFlowRefresh();
   menuLookState.cache.clear();
   if (menuLookState.pending) menuLookState.pending();   // the open card's Appearance shows it is reading again, right away
   // the tick that caused this is saved by now (its call was made first); re-read the open Menu look card
   clearTimeout(menuLookState.timer);
   menuLookState.timer = setTimeout(() => { if (menuLookState.reload) menuLookState.reload(); }, 450);
-  renderCharacterGrid();
-  renderCupOrCourseGrid();
-  renderVehiclesView();
-  renderItemsView();
-  renderMoreList();
+  behindRedraw.ifChanged = behindRedraw.ifChanged && !!(opts && opts.ifChanged);
+  if (behindRedraw.timer === null) behindRedraw.timer = setTimeout(runBehindRedraw, 60);
 }
 
 // The mod "Use this mod" just added: bring it into view; with one file, download it right away - with

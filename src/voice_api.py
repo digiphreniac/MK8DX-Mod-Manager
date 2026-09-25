@@ -29,6 +29,7 @@ from array import array
 from pathlib import Path
 
 import voice_audio as va
+from library_cache import mutates_library
 import voice_edit as ve
 
 VOICE_EDITS_FILENAME = "voice-edits.json"
@@ -195,6 +196,7 @@ class VoiceEditMixin:
         return rate, [samples[c::nch] for c in range(nch)]
 
     # ---------------------------------------------------------------- building the Custom voice mod
+    @mutates_library
     def _voice_build(self, character):
         """Writes (or removes) the Custom voice mod for a character from its saved edits, and brings the left-out-file
         bookkeeping and the ticked state in line. Returns {"problems": [plain sentences]}."""
@@ -269,6 +271,7 @@ class VoiceEditMixin:
         self._voice_apply_exclusions(character)
         return {"problems": problems}
 
+    @mutates_library
     def _voice_suspend(self, character):
         """There is nothing to start from (the voice mod it was made from is unticked and the game's files aren't set): the edits
         are kept, but the Custom voice mod is put away - it would otherwise still play the old mod's voice."""
@@ -289,6 +292,7 @@ class VoiceEditMixin:
         rec["unit"] = unit_key
         self._voice_save(data)
 
+    @mutates_library
     def _voice_drop(self, character):
         """Removes a character's Custom voice mod, its record and its saved audio, and gives back any file left out for it."""
         data = self._voice_load()

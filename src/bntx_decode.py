@@ -18,6 +18,7 @@ ships a tested decoder for it; this module's own job is just getting the
 raw, correctly-ordered BC7 bytes into a shape Pillow recognizes.
 """
 
+import functools
 import io
 import struct
 
@@ -64,22 +65,30 @@ def _block_linear_address(x, y, width_in_blocks, bytes_per_block, block_height):
     )
 
 
-def _deswizzle(width_px, height_px, block_px, bytes_per_block, block_height_log2, data):
-    """Undoes block-linear tiling for a single-mip texture, returning its
-    blocks in plain left-to-right, top-to-bottom order."""
+@functools.lru_cache(maxsize=32)
+def _swizzle_table(width_px, height_px, block_px, bytes_per_block, block_height_log2):
+    """(byte offset in the swizzled data of each block, in plain left-to-right, top-to-bottom order; the size of the
+    swizzled surface). It depends only on the texture's shape, and every icon in an archive has the same one - so it is
+    worked out once, not once per picture."""
     block_height = 1 << block_height_log2
     w = _div_round_up(width_px, block_px)
     h = _div_round_up(height_px, block_px)
     pitch = _round_up(w * bytes_per_block, 64)
     surf_size = pitch * _round_up(h, block_height * 8)
-    out = bytearray(w * h * bytes_per_block)
-    for y in range(h):
-        for x in range(w):
-            src = _block_linear_address(x, y, w, bytes_per_block, block_height)
-            dst = (y * w + x) * bytes_per_block
-            if src + bytes_per_block <= surf_size and src + bytes_per_block <= len(data):
-                out[dst:dst + bytes_per_block] = data[src:src + bytes_per_block]
-    return bytes(out)
+    offsets = tuple(_block_linear_address(x, y, w, bytes_per_block, block_height) for y in range(h) for x in range(w))
+    return offsets, surf_size
+
+
+def _deswizzle(width_px, height_px, block_px, bytes_per_block, block_height_log2, data):
+    """Undoes block-linear tiling for a single-mip texture, returning its
+    blocks in plain left-to-right, top-to-bottom order. A block that would
+    be read from outside the data comes out as zeros."""
+    offsets, surf_size = _swizzle_table(width_px, height_px, block_px, bytes_per_block, block_height_log2)
+    limit = min(surf_size, len(data))
+    view = memoryview(data)
+    n = bytes_per_block
+    zero = bytes(n)
+    return b"".join([view[a:a + n] if a + n <= limit else zero for a in offsets])
 
 
 def _read_int64(data, pos, endian):

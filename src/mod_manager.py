@@ -9,6 +9,7 @@ Run with:  python3 mod_manager.py
 """
 
 import base64
+import copy
 import difflib
 import filecmp
 import hashlib
@@ -19,6 +20,8 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
+import time
 import types
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
@@ -30,6 +33,9 @@ import webview
 import bntx_decode
 import bntx_encode
 import cup_icons
+import image_cache
+import library_cache
+from library_cache import mutates_library
 import item_icons
 import vehicle_icons
 import gamebanana_api
@@ -37,6 +43,7 @@ import ui_setup
 import voice_audio
 import voice_edit
 import game_files
+import gb_desc_cache
 from voice_api import VoiceEditMixin, VOICE_EDITS_FILENAME
 
 TITLE_ID = "0100152000022000"  # Mario Kart 8 Deluxe
@@ -45,6 +52,7 @@ ROSTER_FILENAME = "roster.json"
 GB_CATEGORIES_CACHE_FILENAME = "gamebanana-categories-cache.json"
 DLC_FIRST_CUP = "Golden Dash Cup"   # the first Booster Course Pass cup (its courses' pictures are DLC01..DLC48)
 GB_MODS_FILENAME = "gamebanana-mods.json"
+GB_DESCRIPTIONS_FILENAME = "gamebanana-descriptions.json"
 CONFLICT_RESOLUTIONS_FILENAME = "conflict-resolutions.json"
 # Files a mod must NOT contribute to the merge ("leave this file out of this
 # mod") - the way conflicts get settled, and also a plain per-mod choice. See
@@ -205,9 +213,9 @@ DEFAULT_SETTINGS = {
 # KNOWN_SHARED_FILES_FILENAME isn't here either.
 MASTER_DIR_ITEMS = [
     STATE_FILENAME,
-    GB_CATEGORIES_CACHE_FILENAME, GB_MODS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME,
+    GB_CATEGORIES_CACHE_FILENAME, GB_MODS_FILENAME, GB_DESCRIPTIONS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME,
     EXCLUDED_FILES_FILENAME, SETTINGS_FILENAME, MODS_DIRNAME, "ui-icons", COURSE_ICONS_DIRNAME, PART_ICONS_DIRNAME,
-    "ui-icons-backups", "ui-setup-cache.json",
+    "ui-icons-backups", "ui-setup-cache.json", image_cache.DIRNAME,
     ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME,
 ]
 _INVALID_FS_CHARS = re.compile(r'[<>:"/\\|?*]')
@@ -1458,6 +1466,8 @@ class Api(VoiceEditMixin):
         # get_AllowExternalDrop(), get_CanGoBack(), get_ZoomFactor(), ...) -
         # exactly the exception signature from the earlier freeze debugging.
         self._window = None  # set by main() right after webview.create_window()
+        self._library = library_cache.LibraryCache()
+        self._desc_fetch_lock = threading.Lock()
         self._gb_desc_cache = {}  # mod id -> description, for the browse lists that read the text (vehicles, items, courses)
         self._configure_root(mod_root)
 
@@ -1477,18 +1487,23 @@ class Api(VoiceEditMixin):
             self.state_path = None
             self.gb_categories_cache_path = None
             self.gb_mods_path = None
+            self._gb_desc_store = gb_desc_cache.DescriptionCache(None)
             self.conflict_resolutions_path = None
             self.excluded_files_path = None
             self.settings_path = None
+            ui_setup.ua.set_cache_dir(None)
             return
+        ui_setup.ua.set_cache_dir(mod_root / image_cache.DIRNAME / "archives")
         self.state_path = mod_root / STATE_FILENAME
         self.gb_categories_cache_path = mod_root / GB_CATEGORIES_CACHE_FILENAME
         self.gb_mods_path = mod_root / GB_MODS_FILENAME
+        self._gb_desc_store = gb_desc_cache.DescriptionCache(mod_root / GB_DESCRIPTIONS_FILENAME)
         self.conflict_resolutions_path = mod_root / CONFLICT_RESOLUTIONS_FILENAME
         self.excluded_files_path = mod_root / EXCLUDED_FILES_FILENAME
         self.settings_path = mod_root / SETTINGS_FILENAME
         self._migrate_flat_mod_folders()
 
+    @mutates_library
     def _migrate_flat_mod_folders(self):
         """One-time-per-launch, idempotent migration from the old flat
         "<item> - <mod name>" folder/archive naming to the current nested
@@ -1792,13 +1807,17 @@ class Api(VoiceEditMixin):
         "Replaces" is read from the files (see _unit_replaces) and is deliberately all this claims: authors sometimes bundle
         stock files unchanged, and there is no vanilla copy to compare against. A mod stays a single unit filed in one place -
         these are listings of it, never copies - and ticking it turns on everything in it."""
+        return self._library.get("pack_links", None, self._compute_pack_links, token=self._extracted_token, max_age=30,
+                                 copy=copy.deepcopy)
+
+    def _compute_pack_links(self):
         key_map = self._vehicle_key_map()
         characters = {_name_key(n): n for n in self._load_roster()}
         course_owners = self._course_names_by_internal()
         item_owners = self._item_folder_owners()
         homes = self._home_names()
         by_item, by_unit = {}, {}
-        for category, units in discover_mods(self.mod_root).items():
+        for category, units in self._discover_mods().items():
             for unit in units:
                 key = f"{category}/{unit.as_posix()}"
                 names = self._unit_replaces(key, key_map, characters, course_owners, item_owners)
@@ -2362,6 +2381,7 @@ class Api(VoiceEditMixin):
         """What a mod can be moved between: parts to parts (across bodies, tires and gliders), items to items, and so on."""
         return "vehicle parts" if section in VEHICLE_SECTIONS else section
 
+    @mutates_library
     def gb_move_mod(self, from_item, mod_id, to_item, record_type="Mod"):
         """Re-files a tracked mod under another character / course / vehicle part / item - what a download's files
         say it replaces (see _refile_mod), what "Move to..." on a mod asks for, and how a mod filed under "Other items" gets its
@@ -2453,7 +2473,7 @@ class Api(VoiceEditMixin):
         sections: every roster item always shows up (even with nothing
         downloaded yet), with its discovered mod units grouped by the item
         folder they were downloaded into."""
-        categories = discover_mods(self.mod_root)
+        categories = self._discover_mods()
         gb_attempted = self._gb_attempted_names()
         sections = []
         for key, items in self._load_vehicle_roster().items():
@@ -2483,7 +2503,7 @@ class Api(VoiceEditMixin):
         """Same idea as get_vehicles_view(), for the Items screen: every roster item always shows up (even with nothing
         downloaded yet) with its discovered mod units grouped by the item folder they were downloaded into, and a last
         catch-all ("Items": the folder everything filed before items had a roster is in) for what fits none of them."""
-        categories = discover_mods(self.mod_root)
+        categories = self._discover_mods()
         gb_attempted = self._gb_attempted_names()
         roster = self._load_item_roster()
         norm_to_name = {normalize_char_name(sanitize_filename(i["name"])): i["name"] for i in roster}
@@ -2751,9 +2771,19 @@ class Api(VoiceEditMixin):
         self._save_gb_mods({})
         return {"success": True, "deleted": deleted, "errors": errors}
 
+    def _extracted_token(self):
+        """(see library_cache.tree_token) - changes when a mod folder is added or removed under mods/extracted/."""
+        return library_cache.tree_token(self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME)
+
+    def _discover_mods(self):
+        """discover_mods() for this library, remembered until the library changes (see library_cache.py)."""
+        return self._library.get("discover", None, lambda: discover_mods(self.mod_root), token=self._extracted_token,
+                                 copy=lambda found: {category: list(units) for category, units in found.items()})
+
     def get_mods(self):
+        self._library.bump()   # (this is what the Refresh button asks for: look at the folders again)
         self.sync_voice_edits()
-        categories = discover_mods(self.mod_root)
+        categories = self._discover_mods()
         saved = self._load_state()
         payload = {}
         for category, units in categories.items():
@@ -3031,11 +3061,8 @@ class Api(VoiceEditMixin):
             for k in keys:
                 mine = [f for f in self._unit_loose_part_files(k) if vehicle_icons.loose_family(f.name) == fam]
                 if mine:
-                    try:
-                        png = bntx_decode.decode_to_png(mine[0])
-                        preview = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
-                    except (bntx_decode.UnsupportedBNTXError, OSError):
-                        preview = None
+                    png = self._decoded_pict(f"part-mod:{mine[0]}", mine[0])
+                    preview = image_cache.data_uri(png) if png else None
                     return {**base, "state": "mod", "mod": k.split("/")[2], "preview": preview}
         else:
             won = self._packed_winner(ctx["plan"], ctx["choices"], "menu", iid)
@@ -3414,11 +3441,8 @@ class Api(VoiceEditMixin):
                 pict_path = generated
         if pict_path is None:
             return None
-        try:
-            png_bytes = bntx_decode.decode_to_png(pict_path, crop_box=_COURSE_PICT_CROP_BOX)
-        except bntx_decode.UnsupportedBNTXError:
-            return None
-        return "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+        png_bytes = self._decoded_pict(f"course-mod:{pict_path}", pict_path, _COURSE_PICT_CROP_BOX)
+        return image_cache.data_uri(png_bytes) if png_bytes else None
 
     def _find_any_course_pict_template(self):
         """Returns the Path to any one real, mod-provided CoursePict.bntx
@@ -3515,6 +3539,7 @@ class Api(VoiceEditMixin):
         mod_folder = self._mod_folder(unit_key)
         return self.reveal_path(str(mod_folder))
 
+    @mutates_library
     def remove_mod_unit(self, unit_key):
         """Deletes a downloaded mod's folder from disk entirely, regardless
         of how it got there (manual download or GameBanana fetch). A
@@ -3568,7 +3593,7 @@ class Api(VoiceEditMixin):
         """Groups discovered 'characters' mod units by character (parsed from the
         '<Character> - <Mod Name>' folder naming convention), against the full
         roster so every character shows up even with nothing downloaded yet."""
-        categories = discover_mods(self.mod_root)
+        categories = self._discover_mods()
         char_units = categories.get("characters", [])
         roster = list(self._load_roster())
         roster_norm = {normalize_char_name(name): name for name in roster}
@@ -3647,7 +3672,7 @@ class Api(VoiceEditMixin):
         """Same idea as get_character_view(), but for the 'courses' category,
         grouped by cup (Grand Prix) the way the game's map-select screen does -
         pick a cup first, then a course within it."""
-        categories = discover_mods(self.mod_root)
+        categories = self._discover_mods()
         course_units = categories.get("courses", [])
         cups = self._load_course_roster()
         all_course_names = [c["name"] for cup in cups for c in cup["courses"]]
@@ -3692,7 +3717,7 @@ class Api(VoiceEditMixin):
         under that same fixed item name (see gb_download_files() callers in
         ui/js/add-mod.js and gamebanana.js), so unlike get_character_view()'s folder-name parsing
         this can just take every discovered unit under the category as-is."""
-        categories = discover_mods(self.mod_root)
+        categories = self._discover_mods()
         gb_attempted = self._gb_attempted_names()
         payload = [
             {
@@ -3705,11 +3730,20 @@ class Api(VoiceEditMixin):
         ]
         return {"categories": payload, "checked": self._load_state()}
 
-    @staticmethod
-    def _dir_size(folder: Path) -> int:
-        if not folder.is_dir():
-            return 0
-        return sum(f.stat().st_size for f in folder.rglob("*") if f.is_file())
+    def _dir_size(self, folder: Path) -> int:
+        """Bytes in every file under `folder` - remembered for a minute unless a folder in it changes (library_cache.py)."""
+        def compute():
+            if not folder.is_dir():
+                return 0
+            total = 0
+            for dirpath, _dirnames, filenames in os.walk(folder):
+                for name in filenames:
+                    try:
+                        total += os.stat(os.path.join(dirpath, name)).st_size
+                    except OSError:
+                        pass
+            return total
+        return self._library.get(f"size:{folder}", None, compute, token=lambda: library_cache.tree_token(folder), max_age=60)
 
     def get_stats(self):
         """Footer summary: what fraction of the roster currently has at
@@ -3776,14 +3810,15 @@ class Api(VoiceEditMixin):
         result["subcategory_id"] = sub_id
         return result
 
-    def gb_browse_course(self, course_name, page=1):
+    def gb_browse_course(self, course_name, page=1, quick=False):
         """Courses have no per-item GameBanana subcategory the way characters
         do, so this searches by the base course name instead (stripped of any
         platform prefix) and filters to the course-editing subcategories.
         Each call reads a few search pages at once (see search_course_mods) and
         gives the one to ask for next as `next_page`; every mod comes with a
         snippet of its description (around the course's name where it has it)
-        and whether the course is named in its title or description."""
+        and whether the course is named in its title or description. quick=True answers at once with only the descriptions
+        already remembered (`pending` says more is to come); the same call without it fills in the rest."""
         query = strip_course_prefix(course_name)
         try:
             result = gamebanana_api.search_course_mods(query, first_page=page)
@@ -3792,7 +3827,7 @@ class Api(VoiceEditMixin):
         records = result["records"]
         if not self._load_settings().get("show_nsfw", False):
             records = [r for r in records if not r.get("has_content_ratings")]
-        descriptions = self._descriptions(records, workers=4)
+        descriptions = self._descriptions(records, workers=4, wait=not quick)
         needle = query.lower()
         for rec in records:
             desc = descriptions[rec["mod_id"]]
@@ -3802,6 +3837,7 @@ class Api(VoiceEditMixin):
         result["records"] = records
         result["error"] = None
         result["query"] = query
+        result["pending"] = self._still_pending(records, quick)
         return result
 
     def _search_kind(self, rec, characters):
@@ -3830,7 +3866,7 @@ class Api(VoiceEditMixin):
                 return "characters", match
         return "other", None
 
-    def gb_search(self, category, query, page=1):
+    def gb_search(self, category, query, page=1, quick=False):
         """Searches GameBanana (all of Mario Kart 8 Deluxe) for `query` from the Browse window of a card of `category`
         (characters / courses / a vehicle section / items / a simple category). Only the kind of mod that card is for is
         kept - a search for "odyssey" from a character's card lists character mods (of any character: the mod is moved
@@ -3871,8 +3907,8 @@ class Api(VoiceEditMixin):
             elif rec["kind"] == "items":
                 groups.setdefault(ITEMS_CATEGORY, (self._load_item_roster(), []))[1].append(rec)
         for section, (roster, recs) in groups.items():
-            self._annotate_targets(section, roster, recs)
-        descriptions = self._descriptions(records, workers=4)
+            self._annotate_targets(section, roster, recs, wait=not quick)
+        descriptions = self._descriptions(records, workers=4, wait=not quick)
         for rec in records:
             desc = descriptions[rec["mod_id"]]
             rec["described"] = desc is not None
@@ -3880,6 +3916,7 @@ class Api(VoiceEditMixin):
         result["records"] = records
         result["error"] = None
         result["query"] = query
+        result["pending"] = self._still_pending(records, quick)
         return result
 
     def gb_browse_simple(self, category_key, page=1, sort="most_liked"):
@@ -4059,7 +4096,7 @@ class Api(VoiceEditMixin):
             )
         return VEHICLE_SECTIONS[section]["gb_category_id"]
 
-    def gb_browse_vehicle(self, item_name, page=1, sort="most_viewed"):
+    def gb_browse_vehicle(self, item_name, page=1, sort="most_viewed", quick=False):
         """Browses the GameBanana category that holds this vehicle part's
         kind of mod (bodies by type: Kart / Bikes Outward|Inward / ATVs; tires;
         gliders) - there's no per-part subcategory, so every mod of that kind
@@ -4087,14 +4124,15 @@ class Api(VoiceEditMixin):
                 records.append(rec)
         if not self._load_settings().get("show_nsfw", False):
             records = [r for r in records if not r.get("has_content_ratings")]
-        self._annotate_vehicle_targets(section, records)
+        self._annotate_vehicle_targets(section, records, wait=not quick)
         result["records"] = records
         result["error"] = None
         result["subcategory_id"] = cat_id
         result["target_name"] = item_name
+        result["pending"] = self._still_pending(records, quick)
         return result
 
-    def gb_browse_item(self, item_name, page=1, sort="most_viewed"):
+    def gb_browse_item(self, item_name, page=1, sort="most_viewed", quick=False):
         """Browses GameBanana's one flat Items category for an item's card. Like a vehicle part's browse, every item mod is
         listed and each is annotated with the item(s) its text says it replaces (`targets`), so the card can mark the likely
         matches. The catch-all ("Other items") is any item mod at all."""
@@ -4111,22 +4149,36 @@ class Api(VoiceEditMixin):
                 records.append(rec)
         if not self._load_settings().get("show_nsfw", False):
             records = [r for r in records if not r.get("has_content_ratings")]
-        self._annotate_targets("items", self._load_item_roster(), records)
+        self._annotate_targets("items", self._load_item_roster(), records, wait=not quick)
         result["records"] = records
         result["error"] = None
         result["subcategory_id"] = ITEMS_GB_CATEGORY_ID
         result["target_name"] = item_name
+        result["pending"] = self._still_pending(records, quick)
         return result
 
-    def _annotate_vehicle_targets(self, section, records):
-        self._annotate_targets(section, self._load_vehicle_roster()[section], records)
+    def _annotate_vehicle_targets(self, section, records, wait=True):
+        self._annotate_targets(section, self._load_vehicle_roster()[section], records, wait=wait)
 
-    def _descriptions(self, records, workers=3):
+    @staticmethod
+    def _still_pending(records, quick):
+        """For a quick browse answer: whether some mod's description wasn't remembered, so a second call (quick=False) has
+        something to add - matching, snippets and the "likely" filter all read the description."""
+        return bool(quick) and any(not r.get("described") for r in records)
+
+    def _descriptions(self, records, workers=3, wait=True):
         """{mod id: description text, or None if it couldn't be fetched} for a list of browse records. A browse list has no
         descriptions, so each costs one GameBanana request - only the ones not seen before are fetched, a few at a time
-        (GameBanana rate-limits bursts with HTTP 429)."""
+        (GameBanana rate-limits bursts with HTTP 429). With wait=False nothing is fetched: only what is already remembered
+        comes back (the rest is None), so a list can be shown at once and finished by a second, waiting, call."""
         cache = self._gb_desc_cache
-        todo = [r for r in records if r["mod_id"] not in cache]
+        store = self._gb_desc_store   # (the same descriptions kept on disk, so a restart doesn't fetch them all again)
+        for r in records:
+            if r["mod_id"] not in cache:
+                saved = store.get(r["mod_id"])
+                if saved is not None:
+                    cache[r["mod_id"]] = saved
+        todo = [r for r in records if r["mod_id"] not in cache] if wait else []
 
         def fetch(rec):
             try:
@@ -4135,14 +4187,17 @@ class Api(VoiceEditMixin):
                 return rec["mod_id"], None
 
         if todo:
-            with ThreadPoolExecutor(max_workers=workers) as pool:
+            fetched = {}
+            with self._desc_fetch_lock, ThreadPoolExecutor(max_workers=workers) as pool:   # (one batch at a time: the rate limit)
+                todo = [r for r in todo if r["mod_id"] not in cache]   # (another call may have fetched some while this one waited)
                 for mod_id, desc in pool.map(fetch, todo):
                     if desc is not None:
-                        cache[mod_id] = desc
+                        cache[mod_id] = fetched[mod_id] = desc
+            store.put_many(fetched)
         return {r["mod_id"]: cache.get(r["mod_id"]) for r in records}
 
-    def _annotate_targets(self, section, items, records):
-        descriptions = self._descriptions(records)
+    def _annotate_targets(self, section, items, records, wait=True):
+        descriptions = self._descriptions(records, wait=wait)
         for rec in records:
             desc = descriptions[rec["mod_id"]]
             matches = match_vehicle_targets(section, items, rec["name"], desc or "")
@@ -4282,6 +4337,7 @@ class Api(VoiceEditMixin):
         except OSError as e:
             return {"success": False, "error": f"Couldn't open a browser. Details: {e}"}
 
+    @mutates_library
     def _download_and_extract_one(self, category, item_name, mod_name, file_entry):
         # Nested by item ("<category>/<item>/<mod>") rather than the old flat
         # "<item> - <mod>" naming - see README's "Folder layout" section.
@@ -4477,6 +4533,7 @@ class Api(VoiceEditMixin):
             "music_mismatch": music_mismatch,
         }
 
+    @mutates_library
     def _retire_previous_download(self, old_folder_str, old_archive_str):
         """Deletes a file's previous extracted folder/archive - called only
         after its replacement has already downloaded and extracted
@@ -4608,6 +4665,34 @@ class Api(VoiceEditMixin):
                           "mod_id": record["mod_id"], "record_type": record.get("record_type", "Mod"),
                           "mod_name": record["name"], "moved_folders": result["moved_folders"],
                           "pack": replaced if len(replaced) > 1 else []}}
+
+    def _claims_for_status(self, checked_keys):
+        """_compute_claims(..., include_ui_icons=False) for the read-only questions (the flow bar, the conflict cards, the live
+        warnings), which the page asks over and over with the same ticks. Remembered while nothing it read has changed: the ticked
+        mods' folders (down to every subfolder), the leave-out and settled-conflict files. Never used by the commit itself - that
+        always reads the files afresh. The answer is shared, so callers must only read it."""
+        keys = tuple(sorted(checked_keys))
+        root = self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME
+
+        def file_sig(path):
+            try:
+                st = path.stat()
+                return (st.st_mtime_ns, st.st_size)
+            except OSError:
+                return None
+
+        def token():
+            parts = [self._extracted_token()]
+            for key in keys:
+                category, unit_rel = key.split("/", 1)
+                unit = root / category / unit_rel
+                parts.append(library_cache.tree_token(unit, depth=0))   # (files beside romfs/)
+                parts.append(library_cache.tree_token(unit / "romfs", depth=24))
+            return hash(tuple(parts))
+
+        key = (keys, file_sig(self.excluded_files_path), file_sig(self.conflict_resolutions_path))
+        return self._library.get(f"claims:{hash(key)}", key, lambda: self._compute_claims(keys, include_ui_icons=False),
+                                 token=token, max_age=15)
 
     def _compute_claims(self, checked_keys, include_ui_icons=True):
         """Walks every checked mod's romfs tree and figures out which mod claims
@@ -4907,7 +4992,7 @@ class Api(VoiceEditMixin):
         before the user ever clicks Merge & Stage. Returns the flat pairwise
         list ("conflicts") and the same clashes grouped per set of mods
         ("groups", see _conflict_groups()) for the settle-it-here cards."""
-        res = self._compute_claims(checked_keys, include_ui_icons=False)
+        res = self._claims_for_status(checked_keys)
         exefs_conflicts = self._compute_exefs(checked_keys)[1]
         conflicts = res.conflicts + exefs_conflicts
         return {
@@ -4916,6 +5001,15 @@ class Api(VoiceEditMixin):
             ],
             "groups": self._conflict_groups(res, exefs_conflicts),
         }
+
+    def check_conflict_counts(self, key_sets):
+        """[how many conflicting files there are among each set of mods] for many sets at once - what the tiles' "!" badges need,
+        without the detail check_conflicts() adds. One call instead of one per tile."""
+        counts = []
+        for keys in key_sets:
+            res = self._claims_for_status(keys)
+            counts.append(len(res.conflicts) + len(self._compute_exefs(keys)[1]))
+        return counts
 
     def _conflict_groups(self, res, exefs_conflicts):
         """One entry per SET of mods that clash, however many files they clash
@@ -4989,7 +5083,7 @@ class Api(VoiceEditMixin):
         checked_keys = [k for k, v in self._load_state().items() if v]
         if not checked_keys:
             return {"conflicts": [], "resolved": [], "groups": [], "settled": [], "left_out": self.get_excluded_files()}
-        res = self._compute_claims(checked_keys, include_ui_icons=False)
+        res = self._claims_for_status(checked_keys)
         resolved = res.resolved
         # Code-patch overlaps ("exefs/<build id>@0x..." pseudo-paths) have no
         # leave-out mechanism - half a patch can't be dropped - so they
@@ -5413,7 +5507,7 @@ class Api(VoiceEditMixin):
         base = game_files.status(self.mod_root)
         setup_done = bool(settings.get("setup_done")) and base["done"]
 
-        res = self._compute_claims(checked, include_ui_icons=False) if checked else None
+        res = self._claims_for_status(checked) if checked else None
         exefs_conflicts = self._compute_exefs(checked)[1] if checked else []
         conflicts = 0
         if res:
@@ -5497,7 +5591,11 @@ class Api(VoiceEditMixin):
     def _ui_setup_plan(self):
         """The cached analysis of every checked mod's packed UI archives -
         recomputed only when a source file changes or the set of checked mods
-        does."""
+        does. One at a time: the background warm-up and a screen can ask together."""
+        with self.__dict__.setdefault("_plan_lock", threading.RLock()):
+            return self._ui_setup_plan_unlocked()
+
+    def _ui_setup_plan_unlocked(self):
         checked = sorted(k for k, v in self._load_state().items() if v)
         extracted = self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME
         game_files = self._game_files()
@@ -5720,18 +5818,24 @@ class Api(VoiceEditMixin):
         (used to show the game's own icon)."""
         base = analysis["variants"][analysis["base"]]
         path = Path(base["path"])
-        memo = getattr(self, "_ui_base_tex", None)
-        if memo is None:
-            memo = self._ui_base_tex = {}
-        key = (str(path), path.stat().st_mtime_ns, entry)
-        if key not in memo:
-            try:
-                memo[key] = ui_setup.ua.entry_texture_map(ui_setup.ua.parse_sarc(path.read_bytes())[entry])
-            except (OSError, KeyError, ui_setup.ua.ArchiveError):
-                memo[key] = {}
-        tex = memo[key].get(texture_name)
-        png = ui_setup.ua.texture_png(tex) if tex else None
-        return "data:image/png;base64," + base64.b64encode(png).decode("ascii") if png else None
+        stamp = image_cache.file_stamp(path)
+
+        def build():
+            memo = getattr(self, "_ui_base_tex", None)
+            if memo is None:
+                memo = self._ui_base_tex = {}
+            key = (str(path), stamp, entry)
+            if key not in memo:
+                try:
+                    memo[key] = ui_setup.ua.entry_texture_map(ui_setup.ua.parse_sarc(path.read_bytes())[entry])
+                except (OSError, KeyError, ui_setup.ua.ArchiveError):
+                    memo[key] = {}
+            tex = memo[key].get(texture_name)
+            return ui_setup.ua.texture_png(tex) if tex else None
+
+        # (a picture already on disk doesn't even open the archive - the slow part)
+        png = self._image_cache().picture(f"base-icon:{path}:{entry}:{texture_name}", stamp, build)
+        return image_cache.data_uri(png) if png else None
 
     def _thumb_uri(self, path, size=96):
         """A small data-URL picture of an image file (None if unreadable)."""
@@ -5775,7 +5879,7 @@ class Api(VoiceEditMixin):
             return modded
         return next(((k, slots[k]) for k in order if k in slots and slots[k].get("preview")), None)
 
-    def get_character_tile_view(self, item_names):
+    def get_character_tile_view(self, item_names, known_icons=None):
         """{"looks": get_character_looks(), "review": {name: _review_state()}} in one pass over
         the plan - what the character grid needs to draw its tiles. Every "looks" entry carries whatever
         picture will actually show - the game's own (once base files are set up) if nothing changes it,
@@ -5783,7 +5887,9 @@ class Api(VoiceEditMixin):
         picture on every tile, not only the modded ones. "voice": {name: {"race", "menu", "select", "from"}}
         for characters with a ticked mod that ships voice files for them (one whose voice files are for
         somebody else's slot doesn't count); "select": whether clicking the tile has a character-select
-        sound to play."""
+        sound to play." Every look with a picture also carries `icon_id` (a fingerprint of it); `known_icons` is {name: icon_id}
+        of the pictures the page already holds - for those the picture itself is left out (`icon_known` true), since it is the
+        biggest part of the answer and hardly ever changes."""
         ticked = self._ticked_by_char()
         voice = {}
         for name in item_names:
@@ -5825,6 +5931,12 @@ class Api(VoiceEditMixin):
                 icons_changed = any(s["state"] != "vanilla" for s in slots.values())
                 name_changed = nm.get("state", "vanilla") != "vanilla"
                 review[name] = self._review_state(self._canon_char(name), keys, name_changed, icons_changed)
+        known = known_icons or {}
+        for name, look in looks.items():
+            if look["icon"]:
+                look["icon_id"] = hashlib.sha1(look["icon"].encode("ascii", "ignore")).hexdigest()[:12]
+                if known.get(name) == look["icon_id"]:
+                    look["icon"], look["icon_known"] = None, True
         return {"looks": looks, "review": review, "voice": voice}
 
     def get_character_looks(self, item_names):
@@ -6011,18 +6123,66 @@ class Api(VoiceEditMixin):
         return out
 
     def warm_ui_analysis(self):
-        """Reads the ticked mods' menu files ahead of time (in the background,
-        right after the app starts) so the first Menu look card opens instantly."""
-        try:
-            self._ui_setup_plan()
-        except (OSError, ui_setup.ua.ArchiveError):
-            return False
+        """Starts getting everything the screens will ask for ready in the background (right after the app starts) - the
+        ticked mods' menu files, the game's pictures, the decompressed icon archives - so the first card, and the first
+        time on each screen, open as fast as the later ones. Returns at once; see _warm_up()."""
+        self._start_warmup()
         return True
+
+    def _start_warmup(self):
+        if self.mod_root is None:
+            return
+        self._warm_gen = getattr(self, "_warm_gen", 0) + 1
+        threading.Thread(target=self._warm_up, args=(self._warm_gen,), daemon=True, name="warm-caches").start()
+
+    def _warm_up(self, gen):
+        """Runs what each screen would run the first time, one step after the other, and throws the answers away - the point
+        is what it leaves behind: the disk caches (image-cache/) and this run's memory caches. Once everything is on disk a
+        pass costs a fraction of a second. A step that fails is skipped (the screen will meet the same problem itself and
+        say so); a new "Update from a new dump" (which bumps _warm_gen) ends a pass that is still running for the old one."""
+        if self._game_files().get("menu") is None:
+            return   # (no copy of the game's files yet: nothing to warm)
+        try:
+            names = [r["name"] if isinstance(r, dict) else r for r in self._load_roster()]
+            course_names = [c["name"] for cup in self._load_course_roster() for c in cup["courses"]]
+        except (OSError, ValueError, KeyError, TypeError):
+            return
+        steps = (
+            self._ui_setup_plan,                                   # (the ticked mods' menu files)
+            self.get_cup_icons,
+            lambda: self.get_course_default_pictures(course_names),
+            self.get_vehicle_icons,
+            self.get_item_icons,
+            lambda: self.get_character_tile_view(names),           # (the character icons, and the archives behind them)
+            self.get_ui_setup,
+        )
+        for step in steps:
+            if gen != getattr(self, "_warm_gen", gen):
+                return
+            try:
+                step()
+            except Exception:
+                pass
+            time.sleep(0.05)   # (leave the page's own requests a turn)
 
     # --- the user's own game files (the base the UI step builds on) -----------
 
     def _game_files(self):
         return game_files.find_current(self.mod_root)
+
+    def _image_cache(self):
+        """The disk cache of decoded pictures (see image_cache.py) - kept in the master folder, so it follows it."""
+        return image_cache.ImageCache(None if self.mod_root is None else self.mod_root / image_cache.DIRNAME)
+
+    def _decoded_pict(self, name, path, crop_box=None):
+        """PNG bytes of a .bntx picture, decoded once and then read back from the disk cache; None when it can't be
+        decoded (that is not remembered, so it is tried again next time)."""
+        def build():
+            try:
+                return bntx_decode.decode_to_png(path, crop_box=crop_box)
+            except (bntx_decode.UnsupportedBNTXError, OSError):
+                return None
+        return self._image_cache().picture(name, (image_cache.file_stamp(path), crop_box), build)
 
     def get_cup_icons(self):
         """{cup name: PNG data URI} - the game's own Grand Prix medallions for the Courses screen, decoded from the app's
@@ -6039,8 +6199,7 @@ class Api(VoiceEditMixin):
             return {}
         cached = getattr(self, "_cup_icon_cache", None)
         if cached is None or cached[0] != stamp:
-            icons = {cup: "data:image/png;base64," + base64.b64encode(png).decode("ascii")
-                     for cup, png in cup_icons.load(menu).items()}
+            icons = self._image_cache().group("cups", stamp, lambda: cup_icons.load(menu))
             self._cup_icon_cache = cached = (stamp, icons)
         return cached[1]
 
@@ -6079,11 +6238,8 @@ class Api(VoiceEditMixin):
             cache = self.__dict__.setdefault("_default_pict_cache", {})
             stamp = (str(path), path.stat().st_mtime_ns)
             if cache.get(pid, (None,))[0] != stamp:
-                try:
-                    png = bntx_decode.decode_to_png(path, crop_box=_COURSE_PICT_CROP_BOX)
-                    cache[pid] = (stamp, "data:image/png;base64," + base64.b64encode(png).decode("ascii"))
-                except (bntx_decode.UnsupportedBNTXError, OSError):
-                    cache[pid] = (stamp, None)
+                png = self._decoded_pict(f"course-default:{pid}", path, _COURSE_PICT_CROP_BOX)
+                cache[pid] = (stamp, image_cache.data_uri(png) if png else None)
             if cache[pid][1]:
                 return cache[pid][1]
         return None
@@ -6125,8 +6281,10 @@ class Api(VoiceEditMixin):
         if cached is None or cached[0] != stamp:
             parts = [(section, item["name"], item.get("internal"))
                      for section, items in self._load_vehicle_roster().items() for item in items]
-            pngs = vehicle_icons.load(menu, parts, lambda f: game_files.find_current_vehicle_pict(self.mod_root, f))
-            icons = {n: "data:image/png;base64," + base64.b64encode(png).decode("ascii") for n, png in pngs.items()}
+            loose = game_files.current_vehicle_picts(self.mod_root)
+            disk_stamp = (stamp[:3], parts, sorted((n, image_cache.file_stamp(p)) for n, p in loose.items()))
+            icons = self._image_cache().group("vehicles", disk_stamp, lambda: vehicle_icons.load(
+                menu, parts, lambda f: game_files.find_current_vehicle_pict(self.mod_root, f)))
             self._vehicle_icon_cache = cached = (stamp, icons)
         return cached[1]
 
@@ -6145,8 +6303,9 @@ class Api(VoiceEditMixin):
             return {}
         cached = getattr(self, "_item_icon_cache", None)
         if cached is None or cached[0] != stamp:
-            pngs = item_icons.load(menu, self._load_item_roster())
-            icons = {n: "data:image/png;base64," + base64.b64encode(png).decode("ascii") for n, png in pngs.items()}
+            roster = self._load_item_roster()
+            icons = self._image_cache().group("items", (stamp[1:], [(i["name"], i.get("icon")) for i in roster]),
+                                              lambda: item_icons.load(menu, roster))
             self._item_icon_cache = cached = (stamp, icons)
         return cached[1]
 
@@ -6164,6 +6323,11 @@ class Api(VoiceEditMixin):
         if not res["success"]:
             return res
         self._ui_plan_cache = None
+        self._image_cache().clear()   # (a new dump can hold different pictures behind the same file sizes and dates)
+        for attr in ("_cup_icon_cache", "_vehicle_icon_cache", "_item_icon_cache", "_default_pict_cache", "_ui_base_tex"):
+            self.__dict__.pop(attr, None)
+        ui_setup.ua.forget_decompressed()
+        self._start_warmup()   # (bumps _warm_gen: a pass still running for the old dump stops)
         self.sync_voice_edits()
         return {"success": True, "status": game_files.status(self.mod_root)}
 
@@ -6281,8 +6445,11 @@ class Api(VoiceEditMixin):
         """(auto picks, characters needing a choice) for the ticked mods - see
         ui_setup.gather_auto_icons()."""
         checked = sorted(k for k, v in self._load_state().items() if v)
-        return ui_setup.gather_auto_icons(
-            self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME, checked, ui_setup.load_overrides(self.mod_root))
+        return self._library.get(
+            "auto_icons", (tuple(checked), ui_setup.overrides_signature(self.mod_root)),
+            lambda: ui_setup.gather_auto_icons(
+                self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME, checked, ui_setup.load_overrides(self.mod_root)),
+            token=self._extracted_token, max_age=20, copy=copy.deepcopy)
 
     def get_icon_only_mods(self, item_name):
         """UI-icons-only downloads filed under this character - no mergeable

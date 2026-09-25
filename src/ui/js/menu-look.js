@@ -88,6 +88,15 @@ function suggestFiles(files, itemName) {
 // `reload` re-reads the card that is currently open (set by buildMenuLookCard).
 const menuLookState = { cache: new Map(), reload: null, pending: null, timer: null };
 
+// The game's own pictures kept by the page (the game's files changed, so they may have): asked for afresh next time.
+function resetPictureCaches() {
+  for (const k of Object.keys(characterIconCache)) delete characterIconCache[k];
+  for (const k of Object.keys(courseDefaultPictures)) delete courseDefaultPictures[k];
+  cupIcons = {};
+  vehicleIcons = {};
+  itemIcons = {};
+}
+
 function invalidateMenuLook() {
   menuLookState.cache.clear();
   uiSetup.data = null; // Settings' "UI icons & text" card must re-read

@@ -79,13 +79,13 @@ function renderVehiclesView() {
       tile.dataset.kind = kind;
       const conflictPool = checkedUnits;
       if (conflictPool.length >= 2) {
-        pywebview.api.check_conflicts(conflictPool).then(result => {
-          if (result.conflicts && result.conflicts.length > 0) {
+        conflictCount(conflictPool).then(n => {
+          if (n > 0) {
             tile.classList.add("has-conflict");
             const badge = document.createElement("div");
             badge.className = "char-conflict-badge";
             badge.textContent = "!";
-            badge.title = `${result.conflicts.length} conflicting file(s) among selected mods`;
+            badge.title = `${n} conflicting file(s) among selected mods`;
             tile.appendChild(badge);
           }
         });

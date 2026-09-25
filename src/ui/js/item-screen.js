@@ -54,13 +54,13 @@ function renderItemsView() {
     tile.querySelector(".char-name").textContent = tile.dataset.label;
     if (item.catch_all) tile.classList.add("catch-all");
     if (checkedUnits.length >= 2) {
-      pywebview.api.check_conflicts(checkedUnits).then(result => {
-        if (result.conflicts && result.conflicts.length > 0) {
+      conflictCount(checkedUnits).then(n => {
+        if (n > 0) {
           tile.classList.add("has-conflict");
           const badge = document.createElement("div");
           badge.className = "char-conflict-badge";
           badge.textContent = "!";
-          badge.title = `${result.conflicts.length} conflicting file(s) among selected mods`;
+          badge.title = `${n} conflicting file(s) among selected mods`;
           tile.appendChild(badge);
         }
       });

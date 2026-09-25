@@ -705,7 +705,7 @@ function assembleCharacterCard(ctx) {
         }
         if (cleared) {
           pywebview.api.save_checked(state.checked);
-          refreshBehindModal();
+          refreshBehindModal({ ifChanged: true });
           if (refreshCount) refreshCount();
           if (refreshToggle) refreshToggle();
           if (refreshConflicts) refreshConflicts();
@@ -850,7 +850,7 @@ function openCharacterModal(name) {
         row.classList.toggle("checked", target);
       }
       pywebview.api.save_checked(state.checked);
-      refreshBehindModal();
+      refreshBehindModal({ ifChanged: true });
       updateModalConflicts();
       refreshModsCount();
       refreshModsToggleBtn();
@@ -897,7 +897,7 @@ function openCharacterModal(name) {
         state.checked[key] = cb.checked;
         row.classList.toggle("checked", cb.checked);
         pywebview.api.save_checked(state.checked);
-        refreshBehindModal();
+        refreshBehindModal({ ifChanged: true });
         updateModalConflicts();
         refreshModsCount();
         refreshModsToggleBtn();

@@ -46,6 +46,13 @@ Given a character or a course, it can:
 - `src/vehicle_icons.py` - the same for the game's own pictures of every vehicle part, for the Vehicles screen - see "Vehicle
   parts" below.
 - `src/item_icons.py` - and for the game's own pictures of every item, for the Items screen - see "Items" below.
+- `src/image_cache.py` - the disk cache for everything decoded from a game texture (see `image-cache/` below), so a
+  picture is decoded once, not on every launch. `ui_archives.py` keeps decompressed icon archives the same way
+  (`image-cache/archives/`), and `src/gb_desc_cache.py` keeps GameBanana descriptions (`gamebanana-descriptions.json`).
+- `src/library_cache.py` - remembers what the app works out about the mods folder (the list of mods, pack links, folder
+  sizes, the read-only conflict check) while nothing it read has changed, so the many calls one screen makes don't each walk
+  the whole library. It is dropped when the app changes the library (`@mutates_library`), on Refresh (`Api.get_mods`), when
+  a mod folder is added or removed by hand, and after a few seconds at most. The commit itself always reads the files afresh.
 - `src/bntx_decode.py` - decodes a course mod's own `ym_CoursePict_*.bntx`
   select-screen thumbnail (a Switch BC7 or RGBA8 texture) to PNG, for the
   inline preview in Course Select - see its own docstring for exactly what
@@ -80,6 +87,16 @@ Given a character or a course, it can:
   build replaced or removed (never deleted automatically)
 - `ui-setup-cache.json` - cache of the icons/text read out of your mods'
   archives (safe to delete; it just makes the next build faster)
+- `image-cache/` - pictures decoded from the game's textures (kept as WebP, quality 90 - 3 to 5 times smaller than PNG, which
+  is what crosses into the page): the cup medallions, vehicle and item pictures (one JSON file
+  each) and each course/part/character-menu picture (`pictures/`), including the previews of mods' own course pictures;
+  and `archives/`, the decompressed icon archives (the ~12 that are opened over and over, ~60 MB; at most 24 files, the
+  least recently used are dropped). An entry is
+  rebuilt whenever the file it came from changes, and "Update from a new dump" clears it; safe to delete at any time.
+  A background pass (`Api._warm_up`, started shortly after launch and after a new dump) fills it, plus this run's memory
+  caches, before you open the screens - about 5 seconds on a fresh folder, under a second once it is filled.
+- `gamebanana-descriptions.json` - the descriptions of the mods GameBanana listed in a browse or search, so seeing the
+  same list again (or after a restart) needs no requests; an entry is used for 14 days, at most 3000 are kept. Safe to delete.
 - `excluded-files.json` - files each mod must NOT contribute to a commit (how
   clashes are settled, and per-file choices from a mod's "Files" button - **Edit included files** in a character mod's **...** menu) - see
   "Conflicts: leaving files out" below
@@ -131,7 +148,7 @@ Which file holds what, roughly: `tiles-and-review.js` (character/course tiles, t
 `character-select-layout.js` (the docked card, hover name bar), `gamebanana.js` (the mod detail window and the GameBanana card), `refile.js` (a mod for something other than its card: the note, Undo, "Move to..."),
 `gb-browse.js` (the Browse GameBanana window), `rich-text.js` (descriptions with links),
 `voice.js` (playback, the voice editor, the "Use my own sound" tool, the card's Voice row), `character-card.js` (the card
-itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, More, Course Select, tab switching), `vehicle-screen.js` (the Vehicles screen), `vehicle-card.js` (the vehicle card's "Right part" step), `item-screen.js` (the Items screen, its docked card and fit), `item-card.js` (the item card), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
+itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, More, Course Select, tab switching; `renderAll()` draws the screen being looked at at once and the others one at a time a moment later), `api-coalesce.js` (identical read-only backend calls made at the same moment share one answer, and `conflictCount()` sends every tile's conflict question of one draw as a single `check_conflict_counts` call). A tick redraws only the screen it changed (`refreshBehindModal({ifChanged: true})`, see `viewSignature()` in `views.js`), bursts of refreshes are merged into one redraw, and the character icons and course pictures the page already holds are not sent again (`get_character_tile_view`'s `known_icons`, `courseDefaultPictures`; emptied by `resetPictureCaches()` when the game's files change), `vehicle-screen.js` (the Vehicles screen), `vehicle-card.js` (the vehicle card's "Right part" step), `item-screen.js` (the Items screen, its docked card and fit), `item-card.js` (the item card), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
 `settings-panels.js` (master directory, UI setup card), `menu-icons-text.js` / `menu-look.js` (the base-file copy and the
 Menu Look cards), `flow.js` (step bar, Commit, Copy to Switch), `setup-wizard.js`, `tooltips.js`.
 
@@ -159,7 +176,7 @@ comes from differs (`fetchPage()`): `gb_browse` (a character's subcategory), `gb
   once, kept to the Course Edits / Course Retextures / Custom Race Courses subcategories - most results are something else).
   Each mod comes with a snippet of its description around the course's name and `mentions_course` (named in its title or
   description), shown as a badge like the "Replaces X" ones on vehicles and items; an "only mods that name this course" filter
-  is there too, off by default. Descriptions are fetched through `_descriptions()` and cached (`_gb_desc_cache`), shared with the
+  is there too, off by default. Descriptions are fetched through `_descriptions()` and cached (`_gb_desc_cache`, and on disk - see `gamebanana-descriptions.json`); a browse or search of courses, vehicle parts or items answers in two steps (`quick=True` gives the list at once with the descriptions already known and `pending`; the same call without it reads the rest, one batch at a time), and the window shows a note on each mod until its description is in. Shared with the
   vehicle and item lists, which now show a snippet too.
 - **Search** (the box in the window's header): searches all of Mario Kart 8 Deluxe through the same full-text search the course
   list uses (`gb_search(category, query, page)` -> `search_filtered()`), then keeps the kind of mod the card is for. The kind is
@@ -204,7 +221,7 @@ Prix's four courses under it, and a name plate along the bottom.
 - **The medallions** come from the base game files (no mod needed): `menu.sarc` -> `mn_L_CupSlctBtn_00.szs` -> one 200x200
   `ym_CupIcon<Name>^h` texture per cup. They are 16-bit blue-green-red 5-6-5 with no alpha - a round medallion on a square
   backdrop - so `cup_icons.py` unpacks them, swaps red and blue, and cuts the circle. `Api.get_cup_icons()` returns
-  `{cup name: PNG data URI}` (decoded once, about a second, and remembered until `menu.sarc` changes). The base game's
+  `{cup name: PNG data URI}` (decoded once, about a second, then kept in `image-cache/` until `menu.sarc` changes). The base game's
   cups are named after their emblem (Mushroom ... Thunder) or, for the four DLC-wave cups, `DLC02`..`DLC05`; the Booster
   Course Pass cups are `Charger00`..`Charger11`, in the pass's order - `cup_icons.CUP_TEXTURES` is that mapping, checked
   against the decoded pictures. Before Setup has copied the game's files there is no artwork, and the tiles keep the old
