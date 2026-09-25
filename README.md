@@ -140,7 +140,7 @@ Menu Look cards), `flow.js` (step bar, Commit, Copy to Switch), `setup-wizard.js
 "Browse GameBanana" (`js/gb-browse.js`, markup in `html/gb-browse-modal.html`, styles in `css/gb-browse.css`) is the same window
 whatever card opens it - a character, a course, a vehicle part, an item, or one of the plain categories. Only where the list
 comes from differs (`fetchPage()`): `gb_browse` (a character's subcategory), `gb_browse_simple`, `gb_browse_vehicle`,
-`gb_browse_item` - all sortable categories - or `gb_browse_course`, a search.
+`gb_browse_item` - all sortable categories - or `gb_browse_course`, a search - and `gb_search` when the user has typed one.
 
 - **The list loads as you scroll** (no pages). `checkFill()` asks for the next batch whenever the end of the list is within
   `GB_LOOKAHEAD` (500 px) of the window's bottom edge - after each batch, on scroll, on resize, and when the layout changes - so a
@@ -161,6 +161,18 @@ comes from differs (`fetchPage()`): `gb_browse` (a character's subcategory), `gb
   description), shown as a badge like the "Replaces X" ones on vehicles and items; an "only mods that name this course" filter
   is there too, off by default. Descriptions are fetched through `_descriptions()` and cached (`_gb_desc_cache`), shared with the
   vehicle and item lists, which now show a snippet too.
+- **Search** (the box in the window's header): searches all of Mario Kart 8 Deluxe through the same full-text search the course
+  list uses (`gb_search(category, query, page)` -> `search_filtered()`), then keeps the kind of mod the card is for. The kind is
+  read from the GameBanana category each result is filed in (`_search_kind()`: the vehicle-part and item category ids, the course
+  subcategories, a subcategory named after a roster character, or a plain category) - so a search from a character's card lists
+  character mods of *any* character (each tile says which one it is filed under; green when it is this card's own - the download
+  moves it to the right card if its files say otherwise, see below), and one from a tire card lists any vehicle part, with the
+  usual "Replaces / Mentions" badges read against the roster of the result's own section. Results are best match first (no sort),
+  are shown with a snippet around the words searched for, and load as you scroll like everything else; a batch that has none of the
+  kind wanted counts towards a pause after `GB_SEARCH_EMPTY_RUN_LIMIT` (4). Emptying the box (the x, or Esc - a second Esc closes
+  the window) goes back to browsing with the remembered sort. A search with nothing found offers to search gamebanana.com itself.
+  The card's paste field is the shortcut into it: a link or id is fetched as before (`looksLikeModRef()`), anything else opens this
+  window already searching for it - the field's button changes from "Fetch" to "Search" as you type.
 - **Tags**: a mod's own page gives tags as `{"_sTitle", "_sValue"}` objects (the list gives strings) - `tag_names()` turns both
   into "Title: Value" strings.
 - **Links in descriptions**: `gamebanana_api.html_to_runs()` turns a description's HTML into runs (`{text}` / `{text, href}`;

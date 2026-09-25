@@ -6,13 +6,20 @@
 //   - as a grid of pictures or as a list of small ones (the last choice is remembered, as is the sort);
 //   - a mod of a kind that has no category per item (a vehicle part, an item) or none per course is tagged with what it seems to
 //     replace, and the list can be narrowed to the ones that look right.
-// What differs is where the list comes from (see fetchPage): a category browsed with a sort, or - for a course - a search,
-// which GameBanana can only rank by best match.
+//   - a search box in the header searches GameBanana (all of Mario Kart 8 Deluxe) for the words typed, keeping the kind of mod
+//     the card is for; emptying it goes back to browsing. The paste field on a card hands anything that isn't a link or an id
+//     to this box (see buildGameBananaCard).
+// What differs is where the list comes from (see fetchPage): a category browsed with a sort, a search - which GameBanana can
+// only rank by best match - or, for a course, a search for its name.
 
 const GB_SORTS = [["most_liked", "Most Liked"], ["most_downloaded", "Most Downloaded"], ["most_viewed", "Most Viewed"], ["newest", "Newest"]];
 // pages in a row that bring nothing to show (under the "looks like it replaces" filter) before the list stops asking for more
 // by itself - each one costs GameBanana a request per mod
 const GB_EMPTY_RUN_LIMIT = 2;
+// the same for a search, where a batch can well hold none of the kind wanted (most of what a search finds is something else)
+const GB_SEARCH_EMPTY_RUN_LIMIT = 4;
+// what a card's search keeps, for "Nothing found among ... mods"
+const GB_SEARCH_KIND_NOUN = { characters: "character", courses: "course", vehicles: "vehicle-part", wheels: "vehicle-part", gliders: "vehicle-part", items: "item", mechanics: "Mechanics", ui: "UI" };
 // how far below the window's bottom edge (px) the end of the list may be before the next batch is fetched
 const GB_LOOKAHEAD = 500;
 
@@ -41,13 +48,15 @@ function highlightFirstMatch(text, needle) {
   return frag;
 }
 
-function openGbBrowseModal(itemName, category, onUseMod) {
+function openGbBrowseModal(itemName, category, onUseMod, opts) {
   closeGbBrowseModal();
   const backdrop = document.getElementById("gb-browse-modal-backdrop");
   const bodyEl = document.getElementById("gb-browse-modal-body");
   const resultsEl = document.getElementById("gb-browse-modal-results");
   const sortSelect = document.getElementById("gb-browse-modal-sort");
   const viewButtons = [...document.querySelectorAll("#gb-browse-modal-view button")];
+  const searchInput = document.getElementById("gb-browse-modal-search");
+  const searchClear = document.getElementById("gb-browse-modal-search-clear");
 
   const isCourse = category === "courses";
   const isSimple = SIMPLE_CATEGORIES.some(c => c.key === category);
@@ -74,7 +83,8 @@ function openGbBrowseModal(itemName, category, onUseMod) {
     error: null,
     notice: null,
     skeleton: false,
-    query: "",
+    query: "",         // what the course browse searched for (its own name)
+    search: ((opts && opts.search) || "").trim(),   // what the user searched for; "" = browsing
     // Vehicle parts have always started on Most Viewed (GameBanana's Most Liked repeats mods between pages in its big
     // categories); whatever the user picked last wins over either
     sort: GB_SORTS.some(([k]) => k === settings.gb_browse_sort) ? settings.gb_browse_sort : (tagged ? "most_viewed" : "most_liked"),
@@ -87,56 +97,68 @@ function openGbBrowseModal(itemName, category, onUseMod) {
   const likelyFor = (r) => isCourse ? !!r.mentions_course
     : catchAll ? (r.targets || []).length !== 1
     : (r.targets || []).includes(itemName);
-  const visible = (r) => !S.likelyOnly || likelyFor(r);
+  const visible = (r) => S.search || !S.likelyOnly || likelyFor(r);   // (a search has narrowed it already)
+  const searchNoun = GB_SEARCH_KIND_NOUN[category] || "";
 
   // ---- the frame: a bar (filter, count), the list, and the foot (what is happening at the end of it) ----
   const bar = cgEl("div", "gb-browse-bar");
   const countEl = cgEl("span", "gb-browse-count");
   let likelyBox = null;
-  if (hasFilter) {
-    const label = cgEl("label", "gb-target-toolbar");
-    likelyBox = document.createElement("input");
-    likelyBox.type = "checkbox";
-    likelyBox.checked = S.likelyOnly;
-    likelyBox.addEventListener("change", () => {
-      S.likelyOnly = likelyBox.checked;
-      S.paused = false;
-      S.emptyRun = 0;
-      rebuildList();
-      bodyEl.scrollTop = 0;
-      renderFoot();
-      renderCount();
-      checkFill();
-    });
-    label.appendChild(likelyBox);
-    label.appendChild(document.createTextNode(
-      isCourse ? "Only show mods that name this course in their title or description"
-      : catchAll ? "Only show mods that don't look like they replace one single listed item - packs, and ones that name none (badges are guessed from each mod's description)"
-      : `Only show mods that look like they replace ${shownName} (badges are guessed from each mod's description)`
-    ));
-    bar.appendChild(label);
-  }
-  bar.appendChild(countEl);
-  const hint = isCourse
-    ? cgEl("div", "gb-browse-status", "Read each snippet (or open the mod) to confirm what it actually replaces before using it - titles are often unrelated to the real target course.")
-    : null;
+  const hint = cgEl("div", "gb-browse-status", "Read each snippet (or open the mod) to confirm what it actually replaces before using it - titles are often unrelated to the real target course.");
   const list = cgEl("div", "gb-browse-grid");
   const foot = cgEl("div", "gb-browse-foot");
-  resultsEl.replaceChildren(bar, ...(hint ? [hint] : []), list, foot);
+  resultsEl.replaceChildren(bar, hint, list, foot);
+
+  // the bar and the hint differ between browsing and searching: a search has no "looks right" filter (it has narrowed the list
+  // already) and no advice about reading snippets
+  function buildBar() {
+    likelyBox = null;
+    bar.replaceChildren();
+    if (hasFilter && !S.search) {
+      const label = cgEl("label", "gb-target-toolbar");
+      likelyBox = document.createElement("input");
+      likelyBox.type = "checkbox";
+      likelyBox.checked = S.likelyOnly;
+      likelyBox.addEventListener("change", () => {
+        S.likelyOnly = likelyBox.checked;
+        S.paused = false;
+        S.emptyRun = 0;
+        rebuildList();
+        bodyEl.scrollTop = 0;
+        renderFoot();
+        renderCount();
+        checkFill();
+      });
+      label.appendChild(likelyBox);
+      label.appendChild(document.createTextNode(
+        isCourse ? "Only show mods that name this course in their title or description"
+        : catchAll ? "Only show mods that don't look like they replace one single listed item - packs, and ones that name none (badges are guessed from each mod's description)"
+        : `Only show mods that look like they replace ${shownName} (badges are guessed from each mod's description)`
+      ));
+      bar.appendChild(label);
+    }
+    bar.appendChild(countEl);
+    hint.hidden = !isCourse || !!S.search;
+  }
+  buildBar();
 
   // ---- the controls in the header ----
   sortSelect.hidden = false;
-  if (isCourse) {
-    // GameBanana's search takes no sort (every parameter for one is ignored) - the best matches come first
-    sortSelect.replaceChildren(new Option("Sort: Best match", "best"));
-    sortSelect.disabled = true;
-    sortSelect.title = "GameBanana's search can't be sorted - the best matches for this course come first.";
-  } else {
-    sortSelect.replaceChildren(...GB_SORTS.map(([k, label]) => new Option("Sort: " + label, k)));
-    sortSelect.disabled = false;
-    sortSelect.title = "";
-    sortSelect.value = S.sort;
+  // GameBanana's search takes no sort (every parameter for one is ignored) - the best matches come first; that goes for
+  // a course's browse (a search for its name) as much as for the user's own search
+  function applySortControl() {
+    if (isCourse || S.search) {
+      sortSelect.replaceChildren(new Option("Sort: Best match", "best"));
+      sortSelect.disabled = true;
+      sortSelect.title = S.search ? "GameBanana's search can't be sorted - the best matches come first." : "GameBanana's search can't be sorted - the best matches for this course come first.";
+    } else {
+      sortSelect.replaceChildren(...GB_SORTS.map(([k, label]) => new Option("Sort: " + label, k)));
+      sortSelect.disabled = false;
+      sortSelect.title = "";
+      sortSelect.value = S.sort;
+    }
   }
+  applySortControl();
   sortSelect.onchange = () => {
     S.sort = sortSelect.value;
     saveBrowsePref("gb_browse_sort", S.sort);
@@ -160,6 +182,37 @@ function openGbBrowseModal(itemName, category, onUseMod) {
     };
   }
   applyView();
+
+  // ---- the search box ----
+  let searchTimer = null;
+  function setSearch(text) {
+    text = text.trim();
+    clearTimeout(searchTimer);
+    searchClear.hidden = !searchInput.value;
+    if (text === S.search) return;
+    S.search = text;
+    buildBar();
+    applySortControl();
+    restart();
+  }
+  searchInput.value = S.search;
+  searchClear.hidden = !S.search;
+  // as you type (once you pause), and at once on Enter
+  searchInput.oninput = () => {
+    searchClear.hidden = !searchInput.value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => setSearch(searchInput.value), 450);
+  };
+  searchInput.onkeydown = (e) => {
+    if (e.key === "Enter") { e.preventDefault(); setSearch(searchInput.value); }
+    else if (e.key === "Escape" && searchInput.value) {   // (Esc clears the box first; the window closes on the next one)
+      e.preventDefault();
+      e.stopPropagation();
+      searchInput.value = "";
+      setSearch("");
+    }
+  };
+  searchClear.onclick = () => { searchInput.value = ""; setSearch(""); searchInput.focus(); };
 
   // ---- one mod ----
   function buildBrowseTile(rec) {
@@ -186,7 +239,15 @@ function openGbBrowseModal(itemName, category, onUseMod) {
     body.appendChild(meta);
 
     const pills = cgEl("div", "gb-pills");
-    if (rec.subcategory) pills.appendChild(cgEl("span", "gb-search-subcat", rec.subcategory));
+    if (S.search && rec.kind === "characters" && rec.character) {
+      // what the author filed it under: green when it is this card's own character (others move to theirs on download)
+      const mine = category === "characters" && rec.character === itemName;
+      const badge = cgEl("span", "gb-target-badge" + (mine ? " match" : ""), mine ? `✓ ${rec.character}` : rec.character);
+      badge.title = mine ? "Filed under this character on GameBanana." : `Filed under ${rec.character} on GameBanana.`;
+      pills.appendChild(badge);
+    } else if (rec.subcategory) {
+      pills.appendChild(cgEl("span", "gb-search-subcat", rec.subcategory));
+    }
     if (tagged && (rec.targets || []).length > 0) {
       const isThis = rec.targets.includes(itemName);
       const verb = rec.target_strength >= 2 ? "Replaces" : "Mentions";
@@ -198,12 +259,12 @@ function openGbBrowseModal(itemName, category, onUseMod) {
         : "Only mentioned in the title or description - a weaker guess.";
       pills.appendChild(badge);
     }
-    if (isCourse && rec.mentions_course) pills.appendChild(cgEl("span", "gb-target-badge match weak", `✓ Mentions ${S.query || shownName}`));
+    if (isCourse && !S.search && rec.mentions_course) pills.appendChild(cgEl("span", "gb-target-badge match weak", `✓ Mentions ${S.query || shownName}`));
     if (pills.childElementCount) body.appendChild(pills);
 
     if (rec.description_snippet) {
       const snippet = cgEl("div", "gb-search-snippet");
-      snippet.appendChild(highlightFirstMatch(rec.description_snippet, isCourse ? S.query : ""));
+      snippet.appendChild(highlightFirstMatch(rec.description_snippet, S.search || (isCourse ? S.query : "")));
       body.appendChild(snippet);
     }
     tile.appendChild(body);
@@ -234,6 +295,11 @@ function openGbBrowseModal(itemName, category, onUseMod) {
   function renderCount() {
     const loaded = S.records.length;
     if (S.error || (!loaded && !S.done)) { countEl.textContent = ""; return; }
+    if (S.search) {
+      if (!loaded && S.done) { countEl.textContent = ""; return; }   // (the foot says nothing was found)
+      countEl.textContent = `${loaded} ${loaded === 1 ? "mod" : "mods"} for “${S.search}”${S.done ? "" : " so far"}`;
+      return;
+    }
     const of = S.total ? ` of ${S.total.toLocaleString()}` : "";   // (a search has no count of its own to give)
     countEl.textContent = S.likelyOnly
       ? `${S.shown} that look right · ${loaded}${of} checked`
@@ -257,13 +323,20 @@ function openGbBrowseModal(itemName, category, onUseMod) {
       foot.appendChild(cgEl("div", "gb-browse-status", `Couldn't load: ${S.error}`));
       foot.appendChild(button("Try again", "ghost small", () => { S.error = null; loadMore(); }));
     } else if (S.loading) {
-      foot.appendChild(loadingNote(S.records.length ? "Loading more mods..." : isCourse ? "Searching GameBanana for this course..." : "Loading mods from GameBanana..."));
+      foot.appendChild(loadingNote(S.records.length ? "Loading more mods..." : S.search || isCourse ? `Searching GameBanana for ${S.search ? `“${S.search}”` : "this course"}...` : "Loading mods from GameBanana..."));
     } else if (S.paused) {
-      foot.appendChild(cgEl("div", "gb-browse-status", `Nothing on the last ${GB_EMPTY_RUN_LIMIT} batches looked like a match (${S.records.length} mods checked so far).`));
+      foot.appendChild(cgEl("div", "gb-browse-status", S.search
+        ? `The last ${GB_SEARCH_EMPTY_RUN_LIMIT} batches of results held no ${searchNoun} mods.`
+        : `Nothing on the last ${GB_EMPTY_RUN_LIMIT} batches looked like a match (${S.records.length} mods checked so far).`));
       const row = cgEl("div", "gb-foot-actions");
       row.appendChild(button("Keep searching", "ghost small", () => { S.paused = false; S.emptyRun = 0; loadMore(); }));
-      row.appendChild(button("Show every mod", "ghost small", showEverything));
+      if (!S.search) row.appendChild(button("Show every mod", "ghost small", showEverything));
       foot.appendChild(row);
+    } else if (S.done && S.shown === 0 && S.search) {
+      foot.appendChild(cgEl("div", "gb-browse-status", `No ${searchNoun} mods found for “${S.search}”. GameBanana's search matches the words in a mod's title and description - try fewer or different ones.`));
+      foot.appendChild(button("Search gamebanana.com instead ↗", "ghost small", () => {
+        pywebview.api.open_external_url("https://gamebanana.com/search?" + new URLSearchParams({ _idGameRow: "6507", _sSearchString: S.search }));
+      }));
     } else if (S.done && S.shown === 0) {
       if (S.notice) {
         foot.appendChild(cgEl("div", "gb-browse-status", S.notice));
@@ -284,7 +357,7 @@ function openGbBrowseModal(itemName, category, onUseMod) {
           : "No mods found."));
       }
     } else if (S.done) {
-      foot.appendChild(cgEl("div", "gb-browse-end", "That's everything."));
+      foot.appendChild(cgEl("div", "gb-browse-end", S.search ? "That's everything GameBanana found." : "That's everything."));
     }
   }
 
@@ -296,6 +369,7 @@ function openGbBrowseModal(itemName, category, onUseMod) {
   }
 
   function fetchPage(page) {
+    if (S.search) return pywebview.api.gb_search(category, S.search, page);
     if (isCourse) return pywebview.api.gb_browse_course(itemName, page);
     if (isSimple) return pywebview.api.gb_browse_simple(category, page, S.sort);
     if (isItem) return pywebview.api.gb_browse_item(itemName, page, S.sort);
@@ -321,7 +395,7 @@ function openGbBrowseModal(itemName, category, onUseMod) {
       return;
     }
     if (res.query) S.query = res.query;
-    if (!isCourse && res.total != null) S.total = res.total;   // (a search's own count includes things that aren't mods)
+    if (!isCourse && !S.search && res.total != null) S.total = res.total;   // (a search's own count includes things that aren't mods)
     S.page = res.next_page || S.page + 1;
     const fresh = [];
     for (const rec of res.records) {
@@ -333,7 +407,7 @@ function openGbBrowseModal(itemName, category, onUseMod) {
     appendTiles(show);
     S.shown += show.length;
     S.emptyRun = show.length ? 0 : S.emptyRun + 1;
-    if (S.emptyRun >= GB_EMPTY_RUN_LIMIT && !S.done) S.paused = true;
+    if (S.emptyRun >= (S.search ? GB_SEARCH_EMPTY_RUN_LIMIT : GB_EMPTY_RUN_LIMIT) && !S.done) S.paused = true;
     renderFoot();
     renderCount();
     checkFill();
@@ -355,7 +429,7 @@ function openGbBrowseModal(itemName, category, onUseMod) {
     loadMore();
   }
 
-  const session = { checkFill, stop: () => { S.gen++; } };
+  const session = { checkFill, stop: () => { S.gen++; clearTimeout(searchTimer); } };
   gbBrowse = session;
   backdrop.hidden = false;
   restart();

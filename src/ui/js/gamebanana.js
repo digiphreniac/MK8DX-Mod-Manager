@@ -1,3 +1,8 @@
+// A GameBanana link (a mod's or a sound's) or a bare mod id - what the paste field fetches; anything else it searches for.
+function looksLikeModRef(text) {
+  return /^\d+$/.test(text) || /gamebanana\.com\/(?:mods|sounds)\//i.test(text);
+}
+
 function buildGameBananaCard(itemName, category, opts) {
   const card = document.createElement("div");
   card.className = "modal-card";
@@ -21,7 +26,7 @@ function buildGameBananaCard(itemName, category, opts) {
   fetchRow.className = "gb-fetch-row";
   const fetchInput = document.createElement("input");
   fetchInput.type = "text";
-  fetchInput.placeholder = "Paste a GameBanana mod/sound link or ID";
+  fetchInput.placeholder = "Paste a GameBanana link or ID - or type a name to search";
   const fetchBtn = document.createElement("button");
   fetchBtn.className = "primary small";
   fetchBtn.textContent = "Fetch";
@@ -38,7 +43,7 @@ function buildGameBananaCard(itemName, category, opts) {
   browseToggleRow.className = "gb-browse-toggle-row";
   const browseToggleBtn = document.createElement("button");
   browseToggleBtn.className = "ghost small";
-  browseToggleBtn.textContent = "Browse GameBanana ↗";
+  browseToggleBtn.textContent = "Browse & search GameBanana ↗";
   browseToggleRow.appendChild(browseToggleBtn);
   sectionBody.appendChild(browseToggleRow);
 
@@ -77,7 +82,7 @@ function buildGameBananaCard(itemName, category, opts) {
     title.textContent = "+ Add another mod";
     const hint = document.createElement("span");
     hint.className = "gb-slim-hint";
-    hint.textContent = "Paste a link or browse GameBanana";
+    hint.textContent = "Paste a link, or browse and search GameBanana";
     header.insertBefore(hint, collapseToggle);
     collapseToggle.hidden = true;
     header.addEventListener("click", (e) => { if (!e.target.closest("button")) collapseToggle.click(); });
@@ -98,7 +103,7 @@ function buildGameBananaCard(itemName, category, opts) {
     const result = await pywebview.api.gb_fetch_mod(itemName, idOrUrl);
     if (!result.success) {
       fetchBtn.disabled = false;
-      fetchBtn.textContent = "Fetch";
+      syncFetchBtn();
       fetchError.textContent = result.error;
       fetchError.hidden = false;
       return false;
@@ -114,15 +119,26 @@ function buildGameBananaCard(itemName, category, opts) {
     return true;
   }
 
-  fetchBtn.addEventListener("click", () => {
+  // The one field takes a link or id (fetched right away) or, as a shortcut, anything else (searched for: the Browse window
+  // opens on the results). The button says which it will do as you type.
+  function syncFetchBtn() {
     const v = fetchInput.value.trim();
-    if (v) doFetch(v);
-  });
+    fetchBtn.textContent = v && !looksLikeModRef(v) ? "Search" : "Fetch";
+  }
+  function submitField() {
+    const v = fetchInput.value.trim();
+    if (!v) return;
+    if (looksLikeModRef(v)) { doFetch(v); return; }
+    fetchInput.value = "";
+    syncFetchBtn();
+    openGbBrowseModal(itemName, category, doFetch, { search: v });
+  }
+  fetchInput.addEventListener("input", syncFetchBtn);
+  fetchBtn.addEventListener("click", submitField);
   fetchInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      const v = fetchInput.value.trim();
-      if (v) doFetch(v);
+      submitField();
     }
   });
 

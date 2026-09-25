@@ -2,6 +2,11 @@
   <div id="gb-browse-modal">
     <div id="gb-browse-modal-header">
       <h2 id="gb-browse-modal-title">Browse GameBanana</h2>
+      <div id="gb-browse-modal-searchbox" class="gb-searchbox">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5 14 14"/></svg>
+        <input id="gb-browse-modal-search" type="text" placeholder="Search GameBanana..." aria-label="Search GameBanana" autocomplete="off" spellcheck="false">
+        <button type="button" id="gb-browse-modal-search-clear" class="gb-search-clear" title="Clear the search" aria-label="Clear the search" hidden>✕</button>
+      </div>
       <select id="gb-browse-modal-sort" class="gb-sort-select" aria-label="Sort"></select>
       <div id="gb-browse-modal-view" class="gb-view-toggle" role="group" aria-label="Layout">
         <button type="button" data-view="grid" title="Grid: big pictures" aria-pressed="true">

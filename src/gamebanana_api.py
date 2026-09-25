@@ -353,6 +353,12 @@ def fetch_mod_detail(mod_id: int, record_type: str = "Mod"):
 COURSE_SEARCH_SUBCATEGORIES = {"Course Edits", "Course Retextures", "Custom Race Courses"}
 
 
+def _category_id(category):
+    """The id at the end of a category's profile link ('.../mods/cats/10553'), None when there isn't one."""
+    m = re.search(r"/cats/(\d+)", (category or {}).get("_sProfileUrl") or "")
+    return int(m.group(1)) if m else None
+
+
 def search_mods(query: str, game_id: int = 6507, page: int = 1, per_page: int = 15):
     """GameBanana's full-text search (same engine as the site's search box) -
     unlike browse_category, this matches against a mod's description too, not
@@ -386,22 +392,25 @@ def search_mods(query: str, game_id: int = 6507, page: int = 1, per_page: int = 
             "tags": tag_names(row.get("_aTags")),
             "added": _added(row.get("_tsDateAdded")),
             "subcategory": (row.get("_aSubCategory") or {}).get("_sName"),
+            "subcategory_id": _category_id(row.get("_aSubCategory")),
+            "root_category": (row.get("_aRootCategory") or {}).get("_sName"),
+            "root_category_id": _category_id(row.get("_aRootCategory")),
         })
     result = _page_result(records, data.get("_aMetadata", {}), page, per_page)
     result["done"] = result["done"] or not records   # (a page past the end comes back empty)
     return result
 
 
-def search_course_mods(query: str, first_page: int = 1, pages: int = 3):
-    """Searches for a course name and keeps only the results in the course-editing subcategories. Most of a page's results
-    are something else (other mod kinds, other games' courses), so this reads several search pages at the same time to
-    bring back a useful handful in one go. `next_page` is where the next call should start."""
+def search_filtered(query: str, keep, first_page: int = 1, pages: int = 3):
+    """Searches GameBanana and keeps only the results `keep(record)` accepts. Most of a page's results are something else
+    (other mod kinds, other games' courses), so this reads several search pages at the same time to bring back a useful
+    handful in one go. `next_page` is where the next call should start."""
     with ThreadPoolExecutor(max_workers=pages) as pool:
         results = list(pool.map(lambda p: search_mods(query, page=p), range(first_page, first_page + pages)))
     records, seen, done = [], set(), False
     for res in results:
         for rec in res["records"]:
-            if rec["mod_id"] not in seen and rec["subcategory"] in COURSE_SEARCH_SUBCATEGORIES:
+            if rec["mod_id"] not in seen and keep(rec):
                 seen.add(rec["mod_id"])
                 records.append(rec)
         if res["done"]:
@@ -409,6 +418,11 @@ def search_course_mods(query: str, first_page: int = 1, pages: int = 3):
             break
     return {"records": records, "done": done, "next_page": first_page + pages, "page": first_page,
             "total": results[0]["total"], "per_page": results[0]["per_page"]}
+
+
+def search_course_mods(query: str, first_page: int = 1, pages: int = 3):
+    """A course's mods: the search results in the course-editing subcategories."""
+    return search_filtered(query, lambda rec: rec["subcategory"] in COURSE_SEARCH_SUBCATEGORIES, first_page, pages)
 
 
 def snippet_around(text: str, needle: str, radius: int = 90) -> str:

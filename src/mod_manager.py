@@ -3794,6 +3794,78 @@ class Api(VoiceEditMixin):
         result["query"] = query
         return result
 
+    def _search_kind(self, rec, characters):
+        """What kind of mod a search result is, from the GameBanana category it is filed in: ("characters", the character's
+        roster name), ("courses"|"vehicles"|"items"|"mechanics"|"ui", None), or ("other", None). Only the author's own
+        filing - the files can still say otherwise, which the download checks (see _refile_mod)."""
+        sub_id, root_id = rec.get("subcategory_id"), rec.get("root_category_id")
+        if sub_id in VEHICLE_BODY_CATEGORY_IDS.values() or sub_id == VEHICLES_CATEGORY_ID or any(
+                info.get("gb_category_id") == sub_id for info in VEHICLE_SECTIONS.values()):
+            return "vehicles", None
+        if sub_id == ITEMS_GB_CATEGORY_ID:
+            return "items", None
+        if rec.get("subcategory") in gamebanana_api.COURSE_SEARCH_SUBCATEGORIES:
+            return "courses", None
+        for key, info in SIMPLE_MOD_CATEGORIES.items():
+            if info["gb_category_id"] in (sub_id, root_id):
+                return key, None
+        if rec.get("subcategory"):
+            wanted = normalize_char_name(rec["subcategory"])
+            match = next((name for name in characters if normalize_char_name(name) == wanted), None)
+            if match:
+                return "characters", match
+        return "other", None
+
+    def gb_search(self, category, query, page=1):
+        """Searches GameBanana (all of Mario Kart 8 Deluxe) for `query` from the Browse window of a card of `category`
+        (characters / courses / a vehicle section / items / a simple category). Only the kind of mod that card is for is
+        kept - a search for "odyssey" from a character's card lists character mods (of any character: the mod is moved
+        to the right one when it is downloaded, see _refile_mod). Like gb_browse_course, one call reads a few search pages at once and gives the one to ask for next as
+        `next_page`. Each mod comes with the kind it is filed as (`kind`, and `character` for a character), a snippet of its
+        description around the query, and - for vehicle parts and items - the parts / items it looks like it replaces."""
+        query = (query or "").strip()
+        if not query:
+            return {"error": None, "records": [], "total": 0, "done": True, "page": page, "query": query}
+        wanted = "vehicles" if category in VEHICLE_SECTIONS else category
+        characters = self._load_roster()
+        kinds = {}
+
+        def keep(rec):
+            kinds[rec["mod_id"]] = self._search_kind(rec, characters)
+            return kinds[rec["mod_id"]][0] == wanted
+
+        try:
+            result = gamebanana_api.search_filtered(query, keep, first_page=page)
+        except gamebanana_api.GameBananaError as e:
+            return {"error": str(e), "records": [], "total": 0, "done": True, "page": page, "query": query}
+        records = result["records"]
+        if not self._load_settings().get("show_nsfw", False):
+            records = [r for r in records if not r.get("has_content_ratings")]
+        for rec in records:
+            rec["kind"], rec["character"] = kinds[rec["mod_id"]]
+        # vehicle parts and items are tagged with what they look like they replace, by the roster of the mod's own kind
+        # (a tire mod found from a kart's card is read against the tires)
+        vehicles = self._load_vehicle_roster()
+        groups = {}
+        for rec in records:
+            if rec["kind"] == "vehicles":
+                sub_id = rec.get("subcategory_id")
+                section = next((k for k, info in VEHICLE_SECTIONS.items() if info.get("gb_category_id") == sub_id), "vehicles")
+                groups.setdefault(section, (vehicles[section], []))[1].append(rec)
+            elif rec["kind"] == "items":
+                groups.setdefault(ITEMS_CATEGORY, (self._load_item_roster(), []))[1].append(rec)
+        for section, (roster, recs) in groups.items():
+            self._annotate_targets(section, roster, recs)
+        descriptions = self._descriptions(records, workers=4)
+        for rec in records:
+            desc = descriptions[rec["mod_id"]]
+            rec["described"] = desc is not None
+            rec["description_snippet"] = gamebanana_api.snippet_around(desc or "", query)
+        result["records"] = records
+        result["error"] = None
+        result["query"] = query
+        return result
+
     def gb_browse_simple(self, category_key, page=1, sort="most_liked"):
         """Browses a whole "simple" category (see SIMPLE_MOD_CATEGORIES)
         directly by its GameBanana category id - unlike characters, these
