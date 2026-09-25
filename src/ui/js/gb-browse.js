@@ -74,6 +74,8 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
     page: 1,           // what to ask for next
     records: [],       // every mod loaded so far, in order
     seen: new Set(),   // their ids (GameBanana can list one twice across pages)
+    byId: new Map(),   // id -> record, to add what the second (waiting) answer knows
+    enriching: 0,      // batches whose descriptions are still being read (see loadMore)
     shown: 0,          // how many of those the list is showing (the filter hides some)
     total: null,
     done: false,
@@ -97,7 +99,12 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
   const likelyFor = (r) => isCourse ? !!r.mentions_course
     : catchAll ? (r.targets || []).length !== 1
     : (r.targets || []).includes(itemName);
-  const visible = (r) => S.search || !S.likelyOnly || likelyFor(r);   // (a search has narrowed it already)
+  // (a search has narrowed it already; a mod whose description hasn't been read yet is shown until it has been: see loadMore)
+  const visible = (r) => S.search || !S.likelyOnly || r._pending || likelyFor(r);
+  // These lists need each mod's description (for the likely match, the snippet), which costs GameBanana a request per mod - so they
+  // are answered in two steps: the list at once (with whatever descriptions are already known), then the same page again once
+  // its descriptions have been read, which fills them in.
+  const progressive = !!S.search || isCourse || isItem || tagged;
   const searchNoun = GB_SEARCH_KIND_NOUN[category] || "";
 
   // ---- the frame: a bar (filter, count), the list, and the foot (what is happening at the end of it) ----
@@ -217,6 +224,7 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
   // ---- one mod ----
   function buildBrowseTile(rec) {
     const tile = cgEl("div", "gb-browse-tile");
+    tile.dataset.modId = rec.mod_id;
     tile.title = "View details";
     tile.addEventListener("click", () => openGbDetailModal(rec.mod_id, onUseMod));
     const thumb = cgEl("div", "gb-thumb");
@@ -259,6 +267,7 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
         : "Only mentioned in the title or description - a weaker guess.";
       pills.appendChild(badge);
     }
+    if (rec._pending) pills.appendChild(cgEl("span", "gb-pending-pill", tagged && !S.search ? "Checking what it replaces..." : "Reading its description..."));
     if (isCourse && !S.search && rec.mentions_course) pills.appendChild(cgEl("span", "gb-target-badge match weak", `✓ Mentions ${S.query || shownName}`));
     if (pills.childElementCount) body.appendChild(pills);
 
@@ -301,6 +310,7 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
       return;
     }
     const of = S.total ? ` of ${S.total.toLocaleString()}` : "";   // (a search has no count of its own to give)
+    if (S.enriching && S.likelyOnly) { countEl.textContent = `${loaded}${of} mods · checking which ones fit...`; return; }
     countEl.textContent = S.likelyOnly
       ? `${S.shown} that look right · ${loaded}${of} checked`
       : `${loaded}${of} mods${isCourse && !S.done ? " so far" : ""}`;
@@ -368,13 +378,45 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
     if (room < GB_LOOKAHEAD) loadMore();
   }
 
-  function fetchPage(page) {
-    if (S.search) return pywebview.api.gb_search(category, S.search, page);
-    if (isCourse) return pywebview.api.gb_browse_course(itemName, page);
+  // `quick`: answer at once with only the descriptions already known (`pending` in the answer says more is to come)
+  function fetchPage(page, quick) {
+    if (S.search) return pywebview.api.gb_search(category, S.search, page, !!quick);
+    if (isCourse) return pywebview.api.gb_browse_course(itemName, page, !!quick);
     if (isSimple) return pywebview.api.gb_browse_simple(category, page, S.sort);
-    if (isItem) return pywebview.api.gb_browse_item(itemName, page, S.sort);
-    if (tagged) return pywebview.api.gb_browse_vehicle(itemName, page, S.sort);
+    if (isItem) return pywebview.api.gb_browse_item(itemName, page, S.sort, !!quick);
+    if (tagged) return pywebview.api.gb_browse_vehicle(itemName, page, S.sort, !!quick);
     return pywebview.api.gb_browse(itemName, page, S.sort);
+  }
+
+  // The second step for a batch shown while its descriptions were still unread: add what they say to each mod, redraw the ones that
+  // changed (a mod that turns out not to fit is taken off the list), and settle what the first step couldn't know.
+  async function completeBatch(page, gen, batch, emptyRunBefore) {
+    S.enriching++;
+    renderCount();
+    let full = null;
+    try { full = await fetchPage(page, false); } catch (e) { full = null; }
+    if (gen !== S.gen) return;   // (the list started over, or the window closed)
+    S.enriching--;
+    if (full && !full.error) {
+      for (const rec of full.records || []) {
+        const mine = S.byId.get(rec.mod_id);
+        if (mine) Object.assign(mine, { targets: rec.targets, target_strength: rec.target_strength, described: rec.described,
+          description_snippet: rec.description_snippet, mentions_course: rec.mentions_course });
+      }
+    }
+    for (const rec of batch) {
+      rec._pending = false;   // (a description that couldn't be read stays unknown: the mod is judged on its title alone)
+      const tile = list.querySelector(`.gb-browse-tile[data-mod-id="${rec.mod_id}"]`);
+      if (!tile) continue;
+      if (visible(rec)) tile.replaceWith(buildBrowseTile(rec)); else tile.remove();
+    }
+    S.shown = S.records.filter(visible).length;
+    const shownInBatch = batch.filter(visible).length;
+    S.emptyRun = shownInBatch ? 0 : emptyRunBefore + 1;
+    if (S.emptyRun >= (S.search ? GB_SEARCH_EMPTY_RUN_LIMIT : GB_EMPTY_RUN_LIMIT) && !S.done) S.paused = true;
+    renderFoot();
+    renderCount();
+    checkFill();
   }
 
   async function loadMore() {
@@ -383,7 +425,8 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
     S.loading = true;
     renderFoot();
     let res;
-    try { res = await fetchPage(S.page); } catch (e) { res = { error: String((e && e.message) || e) }; }
+    const requested = S.page;
+    try { res = await fetchPage(requested, progressive); } catch (e) { res = { error: String((e && e.message) || e) }; }
     if (gen !== S.gen) return;   // the list started over (a new sort) or the window closed while this was on its way
     S.loading = false;
     if (S.skeleton) { list.replaceChildren(); S.skeleton = false; }
@@ -399,14 +442,21 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
     S.page = res.next_page || S.page + 1;
     const fresh = [];
     for (const rec of res.records) {
-      if (!S.seen.has(rec.mod_id)) { S.seen.add(rec.mod_id); fresh.push(rec); }
+      if (!S.seen.has(rec.mod_id)) {
+        S.seen.add(rec.mod_id);
+        S.byId.set(rec.mod_id, rec);
+        if (res.pending && !rec.described) rec._pending = true;
+        fresh.push(rec);
+      }
     }
     S.records.push(...fresh);
     S.done = !!res.done;
     const show = fresh.filter(visible);
     appendTiles(show);
     S.shown += show.length;
+    const emptyRunBefore = S.emptyRun;
     S.emptyRun = show.length ? 0 : S.emptyRun + 1;
+    if (res.pending) completeBatch(requested, gen, fresh.filter(r => r._pending), emptyRunBefore);
     if (S.emptyRun >= (S.search ? GB_SEARCH_EMPTY_RUN_LIMIT : GB_EMPTY_RUN_LIMIT) && !S.done) S.paused = true;
     renderFoot();
     renderCount();
@@ -418,6 +468,8 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
     S.page = 1;
     S.records = [];
     S.seen = new Set();
+    S.byId = new Map();
+    S.enriching = 0;
     S.shown = 0;
     S.total = null;
     S.done = S.loading = S.paused = false;

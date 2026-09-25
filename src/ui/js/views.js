@@ -99,15 +99,46 @@ function renderListView() {
   });
 }
 
+// Every screen is drawn from the same data, so a change (a tick, a download, a move) redraws all of them - but only the one being
+// looked at is drawn right away. The others are drawn a moment later, one at a time, so they don't compete with it (each asks the
+// backend for its own pictures and checks), and a screen is drawn the instant it is switched to if its turn hasn't come yet.
+const VIEW_ORDER = ["characters", "courses", "vehicles", "items", "more", "list"];
+const VIEW_DRAWERS = {
+  characters: () => renderCharacterGrid(),
+  courses: () => renderCupOrCourseGrid(),
+  vehicles: () => renderVehiclesView(),
+  items: () => renderItemsView(),
+  more: () => renderMoreList(),
+  list: () => renderListView(),
+};
+const staleViews = new Set();
+let staleViewsTimer = null;
+
+function drawViewIfStale(mode) {
+  if (staleViews.delete(mode)) VIEW_DRAWERS[mode]();
+}
+
+function drawStaleViewsSoon() {
+  clearTimeout(staleViewsTimer);
+  staleViewsTimer = setTimeout(() => {
+    const next = VIEW_ORDER.find(m => staleViews.has(m));
+    if (next === undefined) return;
+    drawViewIfStale(next);
+    drawStaleViewsSoon();
+  }, 80);
+}
+
+// Redraws `modes` (default: all): the current one now, the rest in the background.
+function redrawViews(modes = VIEW_ORDER) {
+  for (const mode of modes) if (mode !== viewMode) staleViews.add(mode);
+  if (modes.includes(viewMode)) { staleViews.delete(viewMode); VIEW_DRAWERS[viewMode](); }
+  drawStaleViewsSoon();
+}
+
 function renderAll() {
   scheduleFlowRefresh();
   updateTabCounts();
-  renderCharacterGrid();
-  renderCupOrCourseGrid();
-  renderVehiclesView();
-  renderItemsView();
-  renderMoreList();
-  renderListView();
+  redrawViews();
   refreshStats();
 }
 
@@ -615,6 +646,7 @@ function switchView(mode) {
   document.getElementById("tab-more").classList.toggle("active", mode === "more");
   document.getElementById("tab-list").classList.toggle("active", mode === "list");
   applyCharacterLayout();
+  drawViewIfStale(mode);   // (its redraw was still waiting for its turn)
   if (mode === "courses") fitCourseScreen();   // (it was hidden, so it hasn't been measured since the window last changed)
   if (mode === "vehicles") fitVehicleScreen();
   if (mode === "items") showItemsView();

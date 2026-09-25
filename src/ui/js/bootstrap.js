@@ -18,6 +18,7 @@
     "html/setup-overlay.html",
   ];
   const SCRIPTS = [
+    "js/api-coalesce.js",
     "js/state-and-helpers.js",
     "js/tiles-and-review.js",
     "js/rich-text.js",

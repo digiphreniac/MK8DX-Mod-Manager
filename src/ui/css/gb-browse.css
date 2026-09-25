@@ -68,6 +68,12 @@
   }
   .gb-target-badge.match { color: var(--ok); background: var(--ok-soft); border-color: var(--ok); }
   .gb-target-badge.match.weak { color: var(--warn); background: var(--warn-soft); border-color: var(--warn); }
+  .gb-pending-pill {
+    font-size: 11px; color: var(--text-dim); padding: 2px 8px; border-radius: 999px;
+    border: 1px dashed var(--divider); animation: gb-pending-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes gb-pending-pulse { 50% { opacity: .45; } }
+  @media (prefers-reduced-motion: reduce) { .gb-pending-pill { animation: none; } }
   .gb-search-subcat {
     font-size: 10px;
     font-weight: 700;

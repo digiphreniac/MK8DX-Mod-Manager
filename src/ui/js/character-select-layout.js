@@ -235,11 +235,7 @@ function refreshBehindModal() {
   // the tick that caused this is saved by now (its call was made first); re-read the open Menu look card
   clearTimeout(menuLookState.timer);
   menuLookState.timer = setTimeout(() => { if (menuLookState.reload) menuLookState.reload(); }, 450);
-  renderCharacterGrid();
-  renderCupOrCourseGrid();
-  renderVehiclesView();
-  renderItemsView();
-  renderMoreList();
+  redrawViews(["characters", "courses", "vehicles", "items", "more"]);
 }
 
 // The mod "Use this mod" just added: bring it into view; with one file, download it right away - with

@@ -49,6 +49,10 @@ Given a character or a course, it can:
 - `src/image_cache.py` - the disk cache for everything decoded from a game texture (see `image-cache/` below), so a
   picture is decoded once, not on every launch. `ui_archives.py` keeps decompressed icon archives the same way
   (`image-cache/archives/`), and `src/gb_desc_cache.py` keeps GameBanana descriptions (`gamebanana-descriptions.json`).
+- `src/library_cache.py` - remembers what the app works out about the mods folder (the list of mods, pack links, folder
+  sizes, the read-only conflict check) while nothing it read has changed, so the many calls one screen makes don't each walk
+  the whole library. It is dropped when the app changes the library (`@mutates_library`), on Refresh (`Api.get_mods`), when
+  a mod folder is added or removed by hand, and after a few seconds at most. The commit itself always reads the files afresh.
 - `src/bntx_decode.py` - decodes a course mod's own `ym_CoursePict_*.bntx`
   select-screen thumbnail (a Switch BC7 or RGBA8 texture) to PNG, for the
   inline preview in Course Select - see its own docstring for exactly what
@@ -144,7 +148,7 @@ Which file holds what, roughly: `tiles-and-review.js` (character/course tiles, t
 `character-select-layout.js` (the docked card, hover name bar), `gamebanana.js` (the mod detail window and the GameBanana card), `refile.js` (a mod for something other than its card: the note, Undo, "Move to..."),
 `gb-browse.js` (the Browse GameBanana window), `rich-text.js` (descriptions with links),
 `voice.js` (playback, the voice editor, the "Use my own sound" tool, the card's Voice row), `character-card.js` (the card
-itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, More, Course Select, tab switching), `vehicle-screen.js` (the Vehicles screen), `vehicle-card.js` (the vehicle card's "Right part" step), `item-screen.js` (the Items screen, its docked card and fit), `item-card.js` (the item card), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
+itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, More, Course Select, tab switching; `renderAll()` draws the screen being looked at at once and the others one at a time a moment later), `api-coalesce.js` (identical read-only backend calls made at the same moment share one answer), `vehicle-screen.js` (the Vehicles screen), `vehicle-card.js` (the vehicle card's "Right part" step), `item-screen.js` (the Items screen, its docked card and fit), `item-card.js` (the item card), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
 `settings-panels.js` (master directory, UI setup card), `menu-icons-text.js` / `menu-look.js` (the base-file copy and the
 Menu Look cards), `flow.js` (step bar, Commit, Copy to Switch), `setup-wizard.js`, `tooltips.js`.
 
@@ -172,7 +176,7 @@ comes from differs (`fetchPage()`): `gb_browse` (a character's subcategory), `gb
   once, kept to the Course Edits / Course Retextures / Custom Race Courses subcategories - most results are something else).
   Each mod comes with a snippet of its description around the course's name and `mentions_course` (named in its title or
   description), shown as a badge like the "Replaces X" ones on vehicles and items; an "only mods that name this course" filter
-  is there too, off by default. Descriptions are fetched through `_descriptions()` and cached (`_gb_desc_cache`, and on disk - see `gamebanana-descriptions.json`), shared with the
+  is there too, off by default. Descriptions are fetched through `_descriptions()` and cached (`_gb_desc_cache`, and on disk - see `gamebanana-descriptions.json`); a browse or search of courses, vehicle parts or items answers in two steps (`quick=True` gives the list at once with the descriptions already known and `pending`; the same call without it reads the rest, one batch at a time), and the window shows a note on each mod until its description is in. Shared with the
   vehicle and item lists, which now show a snippet too.
 - **Search** (the box in the window's header): searches all of Mario Kart 8 Deluxe through the same full-text search the course
   list uses (`gb_search(category, query, page)` -> `search_filtered()`), then keeps the kind of mod the card is for. The kind is
