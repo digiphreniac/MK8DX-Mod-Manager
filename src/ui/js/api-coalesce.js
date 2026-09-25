@@ -30,3 +30,23 @@
   window.addEventListener("pywebviewready", install);
   install();   // (already ready when this loads)
 })();
+
+// How many conflicting files there are among a set of ticked mods - what a tile's "!" badge needs. A screen draws dozens of tiles in
+// one go, so the questions asked in the same moment go to the backend as ONE call (Api.check_conflict_counts) instead of one each.
+const conflictBatch = { queue: [], scheduled: false };
+function conflictCount(keys) {
+  return new Promise((resolve) => {
+    conflictBatch.queue.push({ keys, resolve });
+    if (conflictBatch.scheduled) return;
+    conflictBatch.scheduled = true;
+    Promise.resolve().then(flushConflictBatch);   // (after the loop that is drawing the tiles has asked for all of them)
+  });
+}
+async function flushConflictBatch() {
+  const queue = conflictBatch.queue;
+  conflictBatch.queue = [];
+  conflictBatch.scheduled = false;
+  let counts = null;
+  try { counts = await pywebview.api.check_conflict_counts(queue.map(q => q.keys)); } catch (e) { counts = null; }
+  queue.forEach((q, i) => q.resolve(counts && Number.isInteger(counts[i]) ? counts[i] : 0));   // (no answer: no badge)
+}

@@ -122,6 +122,22 @@ let characterReview = {};   // name -> {applicable, reviewed} for characters wit
 let courseReview = {};      // name -> {applicable, finished} for courses with ticked mods (Api.get_course_tile_view)
 let partReview = {};        // name -> {applicable, finished, shown, icon} for vehicle parts with ticked mods (Api.get_part_tile_view)
 let characterVoice = {};    // name -> {race, menu, from} for characters with a ticked mod that ships voice files
+// The pictures the page already holds, so a redraw asks only for status: {character name: {id, icon}} (Api.get_character_tile_view
+// leaves out a picture whose id it is told the page has). Emptied when the game's files change (resetPictureCaches).
+const characterIconCache = {};
+async function fetchCharacterTileView(names) {
+  const known = {};
+  for (const n of names) if (characterIconCache[n]) known[n] = characterIconCache[n].id;
+  const view = await pywebview.api.get_character_tile_view(names, known);
+  if (view && view.looks) {
+    for (const [n, look] of Object.entries(view.looks)) {
+      if (look.icon_known) look.icon = characterIconCache[n] ? characterIconCache[n].icon : null;
+      else if (look.icon) characterIconCache[n] = { id: look.icon_id, icon: look.icon };
+    }
+  }
+  return view;
+}
+
 let characterLooksToken = 0;
 let characterLooksTimer = null;
 let characterLooksFor = {};   // tile name -> the ticked mods the answer above was worked out for
@@ -262,7 +278,7 @@ function unfinishedCount() { return unfinishedNames(characterReview).length + un
 // Everything unfinished, asked afresh: [{kind: "character" | "course" | "part", name, shown}], characters first.
 async function freshUnfinished() {
   try {
-    const view = await pywebview.api.get_character_tile_view((state.roster || []).map(r => r.name));
+    const view = await fetchCharacterTileView((state.roster || []).map(r => r.name));
     if (view) { characterLooks = view.looks; characterReview = view.review; characterVoice = view.voice || {}; }
   } catch (e) { /* fall back on what the grid last knew */ }
   try { await refreshCourseReview(true); } catch (e) { /* likewise */ }
@@ -419,7 +435,7 @@ function scheduleCharacterLooks(refs) {
   // the tick that caused this render is saved by a call that isn't awaited - give it a moment to land
   characterLooksTimer = setTimeout(async () => {
     let view = null;
-    try { view = await pywebview.api.get_character_tile_view([...new Set(refs.flatMap(r => r.names))]); } catch (e) { /* no answer: stop pulsing below */ }
+    try { view = await fetchCharacterTileView([...new Set(refs.flatMap(r => r.names))]); } catch (e) { /* no answer: stop pulsing below */ }
     if (token !== characterLooksToken) return;   // (a newer render is waiting for its own answer)
     if (!view) { for (const r of refs) r.tile.classList.remove("looks-loading"); return; }
     characterLooks = view.looks;
@@ -511,13 +527,13 @@ async function renderCharacterGrid() {
 
     if (selected >= 2) {
       conflictChecks.push(
-        pywebview.api.check_conflicts(checkedUnits).then(result => {
-          if (result.conflicts && result.conflicts.length > 0) {
+        conflictCount(checkedUnits).then(n => {
+          if (n > 0) {
             tile.classList.add("has-conflict");
             const badge = document.createElement("div");
             badge.className = "char-conflict-badge";
             badge.textContent = "!";
-            badge.title = `${result.conflicts.length} conflicting file(s) among selected mods`;
+            badge.title = `${n} conflicting file(s) among selected mods`;
             tile.appendChild(badge);
           }
         })
@@ -544,8 +560,8 @@ async function renderCharacterGrid() {
       lookRefs.push({ tile, displayName: entry.name, names: [entry.name], gradientColors: CHARACTER_COLORS[entry.name], ticked: checkedUnits });
       if (selected >= 2) {
         conflictChecks.push(
-          pywebview.api.check_conflicts(checkedUnits).then(result => {
-            if (result.conflicts && result.conflicts.length > 0) {
+          conflictCount(checkedUnits).then(n => {
+            if (n > 0) {
               tile.classList.add("has-conflict");
               const badge = document.createElement("div");
               badge.className = "char-conflict-badge";

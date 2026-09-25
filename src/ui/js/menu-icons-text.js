@@ -157,6 +157,7 @@ async function chooseGameFiles(after) {
   const r = await pywebview.api.pick_base_files_source();
   if (r.cancelled) return null;
   if (!r.success) { alert(r.error); return null; }
+  resetPictureCaches();   // (a new copy of the game's files: its pictures may differ)
   invalidateMenuLook();
   if (after) after(r.status);
   return r.status;
@@ -168,6 +169,7 @@ async function chooseGameFiles(after) {
 async function useGameFilesPath(path) {
   const r = await pywebview.api.set_base_files_source(path);
   if (!r.success) { alert(r.error); return null; }
+  resetPictureCaches();
   invalidateMenuLook();
   return r.status;
 }

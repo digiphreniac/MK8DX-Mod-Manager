@@ -5002,6 +5002,15 @@ class Api(VoiceEditMixin):
             "groups": self._conflict_groups(res, exefs_conflicts),
         }
 
+    def check_conflict_counts(self, key_sets):
+        """[how many conflicting files there are among each set of mods] for many sets at once - what the tiles' "!" badges need,
+        without the detail check_conflicts() adds. One call instead of one per tile."""
+        counts = []
+        for keys in key_sets:
+            res = self._claims_for_status(keys)
+            counts.append(len(res.conflicts) + len(self._compute_exefs(keys)[1]))
+        return counts
+
     def _conflict_groups(self, res, exefs_conflicts):
         """One entry per SET of mods that clash, however many files they clash
         on: {"id", "mods", "labels", "paths", "summary", "kinds", "impact"
@@ -5870,7 +5879,7 @@ class Api(VoiceEditMixin):
             return modded
         return next(((k, slots[k]) for k in order if k in slots and slots[k].get("preview")), None)
 
-    def get_character_tile_view(self, item_names):
+    def get_character_tile_view(self, item_names, known_icons=None):
         """{"looks": get_character_looks(), "review": {name: _review_state()}} in one pass over
         the plan - what the character grid needs to draw its tiles. Every "looks" entry carries whatever
         picture will actually show - the game's own (once base files are set up) if nothing changes it,
@@ -5878,7 +5887,9 @@ class Api(VoiceEditMixin):
         picture on every tile, not only the modded ones. "voice": {name: {"race", "menu", "select", "from"}}
         for characters with a ticked mod that ships voice files for them (one whose voice files are for
         somebody else's slot doesn't count); "select": whether clicking the tile has a character-select
-        sound to play."""
+        sound to play." Every look with a picture also carries `icon_id` (a fingerprint of it); `known_icons` is {name: icon_id}
+        of the pictures the page already holds - for those the picture itself is left out (`icon_known` true), since it is the
+        biggest part of the answer and hardly ever changes."""
         ticked = self._ticked_by_char()
         voice = {}
         for name in item_names:
@@ -5920,6 +5931,12 @@ class Api(VoiceEditMixin):
                 icons_changed = any(s["state"] != "vanilla" for s in slots.values())
                 name_changed = nm.get("state", "vanilla") != "vanilla"
                 review[name] = self._review_state(self._canon_char(name), keys, name_changed, icons_changed)
+        known = known_icons or {}
+        for name, look in looks.items():
+            if look["icon"]:
+                look["icon_id"] = hashlib.sha1(look["icon"].encode("ascii", "ignore")).hexdigest()[:12]
+                if known.get(name) == look["icon_id"]:
+                    look["icon"], look["icon_known"] = None, True
         return {"looks": looks, "review": review, "voice": voice}
 
     def get_character_looks(self, item_names):

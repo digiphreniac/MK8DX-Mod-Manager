@@ -61,7 +61,7 @@ function renderListView() {
       }
       pywebview.api.save_checked(state.checked);
       refreshToggleLabels();
-      refreshBehindModal();
+      refreshBehindModal({ ifChanged: true });
     });
     for (const unit of state.categories[cat]) {
       const key = cat + "/" + unit;
@@ -76,7 +76,7 @@ function renderListView() {
         state.checked[key] = cb.checked;
         pywebview.api.save_checked(state.checked);
         refreshToggleLabels();
-        refreshBehindModal();
+        refreshBehindModal({ ifChanged: true });
       });
       const label = document.createElement("label");
       label.textContent = unit;
@@ -114,8 +114,32 @@ const VIEW_DRAWERS = {
 const staleViews = new Set();
 let staleViewsTimer = null;
 
+// What a screen is drawn from, as one string: each entry's name, which of its mods are ticked, and whether GameBanana was tried for it.
+// A tick changes this for the screen it is on (and for a pack's other screens) and for no other, so redrawing only where it differs
+// (redrawViews with ifChanged) skips the rest. Nothing else a screen shows is in it - so it is used for ticks only, never after
+// something that changes how a tile looks (an icon, a name, a download).
+function entriesSignature(entries) {
+  return entries.map(e => `${e.name}:${(e.units || []).map(u => (state.checked[u] ? "1" : "0")).join("")}${e.gb_attempted ? "g" : ""}`).join("|");
+}
+function viewSignature(mode) {
+  const counts = state.settings && state.settings.show_tile_counts ? "c" : "";
+  switch (mode) {
+    case "characters": return counts + entriesSignature(state.roster || []);
+    case "courses": return counts + entriesSignature((state.cups || []).flatMap(c => c.courses)) + `@${selectedCup}`;
+    case "vehicles": return counts + entriesSignature((state.vehicles || []).flatMap(s => s.items));
+    case "items": return counts + entriesSignature(state.items || []);
+    case "more": return counts + entriesSignature((state.simpleCategories || []).map(c => ({ name: c.key, units: c.units, gb_attempted: c.gb_attempted })));
+    default: return null;   // (never skipped)
+  }
+}
+const drawnSignature = {};
+function drawView(mode) {
+  drawnSignature[mode] = viewSignature(mode);
+  VIEW_DRAWERS[mode]();
+}
+
 function drawViewIfStale(mode) {
-  if (staleViews.delete(mode)) VIEW_DRAWERS[mode]();
+  if (staleViews.delete(mode)) drawView(mode);
 }
 
 function drawStaleViewsSoon() {
@@ -128,10 +152,12 @@ function drawStaleViewsSoon() {
   }, 80);
 }
 
-// Redraws `modes` (default: all): the current one now, the rest in the background.
-function redrawViews(modes = VIEW_ORDER) {
-  for (const mode of modes) if (mode !== viewMode) staleViews.add(mode);
-  if (modes.includes(viewMode)) { staleViews.delete(viewMode); VIEW_DRAWERS[viewMode](); }
+// Redraws `modes` (default: all): the current one now, the rest in the background. With ifChanged, a screen whose data is what it
+// was drawn from last time (see viewSignature) is left alone.
+function redrawViews(modes = VIEW_ORDER, opts = {}) {
+  const wanted = opts.ifChanged ? modes.filter(m => staleViews.has(m) || viewSignature(m) === null || viewSignature(m) !== drawnSignature[m]) : modes;
+  for (const mode of wanted) if (mode !== viewMode) staleViews.add(mode);
+  if (wanted.includes(viewMode)) { staleViews.delete(viewMode); drawView(viewMode); }
   drawStaleViewsSoon();
 }
 
@@ -342,13 +368,13 @@ async function renderCupGrid() {
 
     if (selected >= 2) {
       conflictChecks.push(
-        pywebview.api.check_conflicts(checkedUnits).then(result => {
-          if (result.conflicts && result.conflicts.length > 0) {
+        conflictCount(checkedUnits).then(n => {
+          if (n > 0) {
             tile.classList.add("has-conflict");
             const conflictBadge = document.createElement("div");
             conflictBadge.className = "char-conflict-badge";
             conflictBadge.textContent = "!";
-            conflictBadge.title = `${result.conflicts.length} conflicting file(s) among selected mods in this cup`;
+            conflictBadge.title = `${n} conflicting file(s) among selected mods in this cup`;
             tile.appendChild(conflictBadge);
           }
         })
@@ -363,6 +389,21 @@ async function renderCupGrid() {
   cupPages.current = cupPageOf(selectedCup);   // (a re-render follows the selected cup to its page)
   applyCupPage();
   updateCourseNameBar();
+}
+
+// The game's own course pictures, kept once fetched (they only change when the game's files do - resetPictureCaches); a course
+// that has none yet is asked for again next time, since they may appear once the game's files are set up.
+const courseDefaultPictures = {};
+async function loadCourseDefaults(names) {
+  const missing = names.filter(n => !courseDefaultPictures[n]);
+  if (missing.length) {
+    let got = null;
+    try { got = await pywebview.api.get_course_default_pictures(missing); } catch (e) { got = null; }
+    for (const n of missing) if (got && got[n]) courseDefaultPictures[n] = got[n];
+  }
+  const out = {};
+  for (const n of names) if (courseDefaultPictures[n]) out[n] = courseDefaultPictures[n];
+  return out;
 }
 
 async function renderCourseStrip(cupName) {
@@ -402,7 +443,7 @@ async function renderCourseStrip(cupName) {
       : Promise.resolve(null);
   });
   // ...and the game's own picture for every course, for the ones with no picture from a mod (the base game files hold them)
-  const defaultsCheck = pywebview.api.get_course_default_pictures(cup.courses.map(c => c.name)).catch(() => ({}));
+  const defaultsCheck = loadCourseDefaults(cup.courses.map(c => c.name));
   const previews = await Promise.all(previewChecks);
   const defaults = (await defaultsCheck) || {};
   if (token !== courseStripToken) return;   // a newer render (another cup, say) is under way; let that one fill the strip
