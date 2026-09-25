@@ -47,7 +47,8 @@ Given a character or a course, it can:
   parts" below.
 - `src/item_icons.py` - and for the game's own pictures of every item, for the Items screen - see "Items" below.
 - `src/image_cache.py` - the disk cache for everything decoded from a game texture (see `image-cache/` below), so a
-  picture is decoded once, not on every launch.
+  picture is decoded once, not on every launch. `ui_archives.py` keeps decompressed icon archives the same way
+  (`image-cache/archives/`), and `src/gb_desc_cache.py` keeps GameBanana descriptions (`gamebanana-descriptions.json`).
 - `src/bntx_decode.py` - decodes a course mod's own `ym_CoursePict_*.bntx`
   select-screen thumbnail (a Switch BC7 or RGBA8 texture) to PNG, for the
   inline preview in Course Select - see its own docstring for exactly what
@@ -83,9 +84,13 @@ Given a character or a course, it can:
 - `ui-setup-cache.json` - cache of the icons/text read out of your mods'
   archives (safe to delete; it just makes the next build faster)
 - `image-cache/` - PNGs decoded from the game's textures: the cup medallions, vehicle and item pictures (one JSON file
-  each) and each course/part picture (`pictures/`), including the previews of mods' own course pictures. An entry is
+  each) and each course/part/character-menu picture (`pictures/`), including the previews of mods' own course pictures;
+  and `archives/`, the decompressed icon archives (the ~12 that are opened over and over, ~60 MB; at most 24 files, the
+  least recently used are dropped). An entry is
   rebuilt whenever the file it came from changes, and "Update from a new dump" clears it; safe to delete at any time
   (the next launch decodes again, about 10 seconds' worth, spread over the screens as you open them).
+- `gamebanana-descriptions.json` - the descriptions of the mods GameBanana listed in a browse or search, so seeing the
+  same list again (or after a restart) needs no requests; an entry is used for 14 days, at most 3000 are kept. Safe to delete.
 - `excluded-files.json` - files each mod must NOT contribute to a commit (how
   clashes are settled, and per-file choices from a mod's "Files" button - **Edit included files** in a character mod's **...** menu) - see
   "Conflicts: leaving files out" below
@@ -165,7 +170,7 @@ comes from differs (`fetchPage()`): `gb_browse` (a character's subcategory), `gb
   once, kept to the Course Edits / Course Retextures / Custom Race Courses subcategories - most results are something else).
   Each mod comes with a snippet of its description around the course's name and `mentions_course` (named in its title or
   description), shown as a badge like the "Replaces X" ones on vehicles and items; an "only mods that name this course" filter
-  is there too, off by default. Descriptions are fetched through `_descriptions()` and cached (`_gb_desc_cache`), shared with the
+  is there too, off by default. Descriptions are fetched through `_descriptions()` and cached (`_gb_desc_cache`, and on disk - see `gamebanana-descriptions.json`), shared with the
   vehicle and item lists, which now show a snippet too.
 - **Search** (the box in the window's header): searches all of Mario Kart 8 Deluxe through the same full-text search the course
   list uses (`gb_search(category, query, page)` -> `search_filtered()`), then keeps the kind of mod the card is for. The kind is

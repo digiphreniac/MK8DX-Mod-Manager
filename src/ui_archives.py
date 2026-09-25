@@ -18,9 +18,13 @@ The shape of these files, measured against real mod downloads:
        are individual labelled strings inside them.
 """
 
+import collections
 import hashlib
 import io
+import os
 import struct
+import threading
+from pathlib import Path
 
 import bntx_decode
 
@@ -81,9 +85,90 @@ def yaz0_decompress(data: bytes, limit: int = None) -> bytes:
     return bytes(out[:dst])
 
 
+# Decompressing a big icon archive takes a third of a second or more (it is a plain Python loop), and the same few
+# archives are opened again and again - by every menu-look card, by the UI step's checks, on every launch. So a
+# decompressed archive is remembered: in memory for this run, and (once set_cache_dir() has been told where) on disk for the
+# next ones. It is found by a fingerprint of the compressed bytes, so a changed archive can never be mistaken for the old one.
+_CACHE_MIN_SIZE = 256 * 1024        # smaller ones aren't worth remembering
+_MEM_LIMIT = 96 * 1024 * 1024       # bytes of decompressed archives kept in memory
+_DISK_FILES = 24                    # decompressed archives kept on disk (least recently used are dropped)
+_DISK_BYTES = 400 * 1024 * 1024
+_mem = collections.OrderedDict()    # fingerprint -> decompressed bytes
+_mem_lock = threading.Lock()
+_cache_dir = None
+
+
+def set_cache_dir(path) -> None:
+    """Where decompressed archives are kept between runs (None = memory only)."""
+    global _cache_dir
+    _cache_dir = Path(path) if path is not None else None
+
+
+def _disk_get(key: str, size: int):
+    if _cache_dir is None:
+        return None
+    path = _cache_dir / f"{key}.bin"
+    try:
+        out = path.read_bytes()
+        if len(out) != size:
+            return None
+        os.utime(path)   # (used just now: it is the last to be dropped)
+        return out
+    except OSError:
+        return None
+
+
+def _disk_put(key: str, out: bytes) -> None:
+    if _cache_dir is None:
+        return
+    try:
+        _cache_dir.mkdir(parents=True, exist_ok=True)
+        path = _cache_dir / f"{key}.bin"
+        tmp = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+        try:
+            tmp.write_bytes(out)
+            tmp.replace(path)
+        finally:
+            tmp.unlink(missing_ok=True)
+        files = sorted(((f.stat().st_mtime, f.stat().st_size, f) for f in _cache_dir.glob("*.bin")), key=lambda t: t[0])
+        total = sum(t[1] for t in files)
+        while files and (len(files) > _DISK_FILES or total > _DISK_BYTES) and files[0][2] != path:
+            _mtime, size, old = files.pop(0)
+            total -= size
+            old.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _yaz0_remembered(blob: bytes) -> bytes:
+    """The whole decompressed archive, worked out once per distinct archive."""
+    size = struct.unpack_from(">I", blob, 4)[0]
+    if size < _CACHE_MIN_SIZE:
+        return yaz0_decompress(blob)
+    key = hashlib.sha1(blob).hexdigest()
+    with _mem_lock:
+        hit = _mem.get(key)
+        if hit is not None:
+            _mem.move_to_end(key)
+            return hit
+    out = _disk_get(key, size)
+    if out is None:
+        out = yaz0_decompress(blob)
+        _disk_put(key, out)
+    with _mem_lock:
+        _mem[key] = out
+        while len(_mem) > 1 and sum(len(v) for v in _mem.values()) > _MEM_LIMIT:
+            _mem.popitem(last=False)
+    return out
+
+
 def unwrap(blob: bytes, limit: int = None) -> bytes:
     """Yaz0-decompresses a blob if it is one, else returns it as is."""
-    return yaz0_decompress(blob, limit) if blob[:4] == b"Yaz0" else blob
+    if blob[:4] != b"Yaz0":
+        return blob
+    if limit is not None:   # (just the start of it: cheap, and not worth remembering)
+        return yaz0_decompress(blob, limit)
+    return _yaz0_remembered(blob)
 
 
 # --- SARC ------------------------------------------------------------------

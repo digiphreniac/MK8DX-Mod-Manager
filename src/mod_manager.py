@@ -38,6 +38,7 @@ import ui_setup
 import voice_audio
 import voice_edit
 import game_files
+import gb_desc_cache
 from voice_api import VoiceEditMixin, VOICE_EDITS_FILENAME
 
 TITLE_ID = "0100152000022000"  # Mario Kart 8 Deluxe
@@ -46,6 +47,7 @@ ROSTER_FILENAME = "roster.json"
 GB_CATEGORIES_CACHE_FILENAME = "gamebanana-categories-cache.json"
 DLC_FIRST_CUP = "Golden Dash Cup"   # the first Booster Course Pass cup (its courses' pictures are DLC01..DLC48)
 GB_MODS_FILENAME = "gamebanana-mods.json"
+GB_DESCRIPTIONS_FILENAME = "gamebanana-descriptions.json"
 CONFLICT_RESOLUTIONS_FILENAME = "conflict-resolutions.json"
 # Files a mod must NOT contribute to the merge ("leave this file out of this
 # mod") - the way conflicts get settled, and also a plain per-mod choice. See
@@ -206,7 +208,7 @@ DEFAULT_SETTINGS = {
 # KNOWN_SHARED_FILES_FILENAME isn't here either.
 MASTER_DIR_ITEMS = [
     STATE_FILENAME,
-    GB_CATEGORIES_CACHE_FILENAME, GB_MODS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME,
+    GB_CATEGORIES_CACHE_FILENAME, GB_MODS_FILENAME, GB_DESCRIPTIONS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME,
     EXCLUDED_FILES_FILENAME, SETTINGS_FILENAME, MODS_DIRNAME, "ui-icons", COURSE_ICONS_DIRNAME, PART_ICONS_DIRNAME,
     "ui-icons-backups", "ui-setup-cache.json", image_cache.DIRNAME,
     ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME,
@@ -1478,13 +1480,17 @@ class Api(VoiceEditMixin):
             self.state_path = None
             self.gb_categories_cache_path = None
             self.gb_mods_path = None
+            self._gb_desc_store = gb_desc_cache.DescriptionCache(None)
             self.conflict_resolutions_path = None
             self.excluded_files_path = None
             self.settings_path = None
+            ui_setup.ua.set_cache_dir(None)
             return
+        ui_setup.ua.set_cache_dir(mod_root / image_cache.DIRNAME / "archives")
         self.state_path = mod_root / STATE_FILENAME
         self.gb_categories_cache_path = mod_root / GB_CATEGORIES_CACHE_FILENAME
         self.gb_mods_path = mod_root / GB_MODS_FILENAME
+        self._gb_desc_store = gb_desc_cache.DescriptionCache(mod_root / GB_DESCRIPTIONS_FILENAME)
         self.conflict_resolutions_path = mod_root / CONFLICT_RESOLUTIONS_FILENAME
         self.excluded_files_path = mod_root / EXCLUDED_FILES_FILENAME
         self.settings_path = mod_root / SETTINGS_FILENAME
@@ -4121,6 +4127,12 @@ class Api(VoiceEditMixin):
         descriptions, so each costs one GameBanana request - only the ones not seen before are fetched, a few at a time
         (GameBanana rate-limits bursts with HTTP 429)."""
         cache = self._gb_desc_cache
+        store = self._gb_desc_store   # (the same descriptions kept on disk, so a restart doesn't fetch them all again)
+        for r in records:
+            if r["mod_id"] not in cache:
+                saved = store.get(r["mod_id"])
+                if saved is not None:
+                    cache[r["mod_id"]] = saved
         todo = [r for r in records if r["mod_id"] not in cache]
 
         def fetch(rec):
@@ -4130,10 +4142,12 @@ class Api(VoiceEditMixin):
                 return rec["mod_id"], None
 
         if todo:
+            fetched = {}
             with ThreadPoolExecutor(max_workers=workers) as pool:
                 for mod_id, desc in pool.map(fetch, todo):
                     if desc is not None:
-                        cache[mod_id] = desc
+                        cache[mod_id] = fetched[mod_id] = desc
+            store.put_many(fetched)
         return {r["mod_id"]: cache.get(r["mod_id"]) for r in records}
 
     def _annotate_targets(self, section, items, records):
@@ -5715,18 +5729,24 @@ class Api(VoiceEditMixin):
         (used to show the game's own icon)."""
         base = analysis["variants"][analysis["base"]]
         path = Path(base["path"])
-        memo = getattr(self, "_ui_base_tex", None)
-        if memo is None:
-            memo = self._ui_base_tex = {}
-        key = (str(path), path.stat().st_mtime_ns, entry)
-        if key not in memo:
-            try:
-                memo[key] = ui_setup.ua.entry_texture_map(ui_setup.ua.parse_sarc(path.read_bytes())[entry])
-            except (OSError, KeyError, ui_setup.ua.ArchiveError):
-                memo[key] = {}
-        tex = memo[key].get(texture_name)
-        png = ui_setup.ua.texture_png(tex) if tex else None
-        return "data:image/png;base64," + base64.b64encode(png).decode("ascii") if png else None
+        stamp = image_cache.file_stamp(path)
+
+        def build():
+            memo = getattr(self, "_ui_base_tex", None)
+            if memo is None:
+                memo = self._ui_base_tex = {}
+            key = (str(path), stamp, entry)
+            if key not in memo:
+                try:
+                    memo[key] = ui_setup.ua.entry_texture_map(ui_setup.ua.parse_sarc(path.read_bytes())[entry])
+                except (OSError, KeyError, ui_setup.ua.ArchiveError):
+                    memo[key] = {}
+            tex = memo[key].get(texture_name)
+            return ui_setup.ua.texture_png(tex) if tex else None
+
+        # (a picture already on disk doesn't even open the archive - the slow part)
+        png = self._image_cache().picture(f"base-icon:{path}:{entry}:{texture_name}", stamp, build)
+        return image_cache.data_uri(png) if png else None
 
     def _thumb_uri(self, path, size=96):
         """A small data-URL picture of an image file (None if unreadable)."""
