@@ -46,6 +46,8 @@ Given a character or a course, it can:
 - `src/vehicle_icons.py` - the same for the game's own pictures of every vehicle part, for the Vehicles screen - see "Vehicle
   parts" below.
 - `src/item_icons.py` - and for the game's own pictures of every item, for the Items screen - see "Items" below.
+- `src/image_cache.py` - the disk cache for everything decoded from a game texture (see `image-cache/` below), so a
+  picture is decoded once, not on every launch.
 - `src/bntx_decode.py` - decodes a course mod's own `ym_CoursePict_*.bntx`
   select-screen thumbnail (a Switch BC7 or RGBA8 texture) to PNG, for the
   inline preview in Course Select - see its own docstring for exactly what
@@ -80,6 +82,10 @@ Given a character or a course, it can:
   build replaced or removed (never deleted automatically)
 - `ui-setup-cache.json` - cache of the icons/text read out of your mods'
   archives (safe to delete; it just makes the next build faster)
+- `image-cache/` - PNGs decoded from the game's textures: the cup medallions, vehicle and item pictures (one JSON file
+  each) and each course/part picture (`pictures/`), including the previews of mods' own course pictures. An entry is
+  rebuilt whenever the file it came from changes, and "Update from a new dump" clears it; safe to delete at any time
+  (the next launch decodes again, about 10 seconds' worth, spread over the screens as you open them).
 - `excluded-files.json` - files each mod must NOT contribute to a commit (how
   clashes are settled, and per-file choices from a mod's "Files" button - **Edit included files** in a character mod's **...** menu) - see
   "Conflicts: leaving files out" below
@@ -204,7 +210,7 @@ Prix's four courses under it, and a name plate along the bottom.
 - **The medallions** come from the base game files (no mod needed): `menu.sarc` -> `mn_L_CupSlctBtn_00.szs` -> one 200x200
   `ym_CupIcon<Name>^h` texture per cup. They are 16-bit blue-green-red 5-6-5 with no alpha - a round medallion on a square
   backdrop - so `cup_icons.py` unpacks them, swaps red and blue, and cuts the circle. `Api.get_cup_icons()` returns
-  `{cup name: PNG data URI}` (decoded once, about a second, and remembered until `menu.sarc` changes). The base game's
+  `{cup name: PNG data URI}` (decoded once, about a second, then kept in `image-cache/` until `menu.sarc` changes). The base game's
   cups are named after their emblem (Mushroom ... Thunder) or, for the four DLC-wave cups, `DLC02`..`DLC05`; the Booster
   Course Pass cups are `Charger00`..`Charger11`, in the pass's order - `cup_icons.CUP_TEXTURES` is that mapping, checked
   against the decoded pictures. Before Setup has copied the game's files there is no artwork, and the tiles keep the old

@@ -30,6 +30,7 @@ import webview
 import bntx_decode
 import bntx_encode
 import cup_icons
+import image_cache
 import item_icons
 import vehicle_icons
 import gamebanana_api
@@ -207,7 +208,7 @@ MASTER_DIR_ITEMS = [
     STATE_FILENAME,
     GB_CATEGORIES_CACHE_FILENAME, GB_MODS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME,
     EXCLUDED_FILES_FILENAME, SETTINGS_FILENAME, MODS_DIRNAME, "ui-icons", COURSE_ICONS_DIRNAME, PART_ICONS_DIRNAME,
-    "ui-icons-backups", "ui-setup-cache.json",
+    "ui-icons-backups", "ui-setup-cache.json", image_cache.DIRNAME,
     ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME,
 ]
 _INVALID_FS_CHARS = re.compile(r'[<>:"/\\|?*]')
@@ -3031,11 +3032,8 @@ class Api(VoiceEditMixin):
             for k in keys:
                 mine = [f for f in self._unit_loose_part_files(k) if vehicle_icons.loose_family(f.name) == fam]
                 if mine:
-                    try:
-                        png = bntx_decode.decode_to_png(mine[0])
-                        preview = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
-                    except (bntx_decode.UnsupportedBNTXError, OSError):
-                        preview = None
+                    png = self._decoded_pict(f"part-mod:{mine[0]}", mine[0])
+                    preview = image_cache.data_uri(png) if png else None
                     return {**base, "state": "mod", "mod": k.split("/")[2], "preview": preview}
         else:
             won = self._packed_winner(ctx["plan"], ctx["choices"], "menu", iid)
@@ -3414,11 +3412,8 @@ class Api(VoiceEditMixin):
                 pict_path = generated
         if pict_path is None:
             return None
-        try:
-            png_bytes = bntx_decode.decode_to_png(pict_path, crop_box=_COURSE_PICT_CROP_BOX)
-        except bntx_decode.UnsupportedBNTXError:
-            return None
-        return "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+        png_bytes = self._decoded_pict(f"course-mod:{pict_path}", pict_path, _COURSE_PICT_CROP_BOX)
+        return image_cache.data_uri(png_bytes) if png_bytes else None
 
     def _find_any_course_pict_template(self):
         """Returns the Path to any one real, mod-provided CoursePict.bntx
@@ -6024,6 +6019,20 @@ class Api(VoiceEditMixin):
     def _game_files(self):
         return game_files.find_current(self.mod_root)
 
+    def _image_cache(self):
+        """The disk cache of decoded pictures (see image_cache.py) - kept in the master folder, so it follows it."""
+        return image_cache.ImageCache(None if self.mod_root is None else self.mod_root / image_cache.DIRNAME)
+
+    def _decoded_pict(self, name, path, crop_box=None):
+        """PNG bytes of a .bntx picture, decoded once and then read back from the disk cache; None when it can't be
+        decoded (that is not remembered, so it is tried again next time)."""
+        def build():
+            try:
+                return bntx_decode.decode_to_png(path, crop_box=crop_box)
+            except (bntx_decode.UnsupportedBNTXError, OSError):
+                return None
+        return self._image_cache().picture(name, (image_cache.file_stamp(path), crop_box), build)
+
     def get_cup_icons(self):
         """{cup name: PNG data URI} - the game's own Grand Prix medallions for the Courses screen, decoded from the app's
         copy of menu.sarc (see cup_icons.py). {} when that copy isn't there (before Setup) or can't be read; the screen
@@ -6039,8 +6048,7 @@ class Api(VoiceEditMixin):
             return {}
         cached = getattr(self, "_cup_icon_cache", None)
         if cached is None or cached[0] != stamp:
-            icons = {cup: "data:image/png;base64," + base64.b64encode(png).decode("ascii")
-                     for cup, png in cup_icons.load(menu).items()}
+            icons = self._image_cache().group("cups", stamp, lambda: cup_icons.load(menu))
             self._cup_icon_cache = cached = (stamp, icons)
         return cached[1]
 
@@ -6079,11 +6087,8 @@ class Api(VoiceEditMixin):
             cache = self.__dict__.setdefault("_default_pict_cache", {})
             stamp = (str(path), path.stat().st_mtime_ns)
             if cache.get(pid, (None,))[0] != stamp:
-                try:
-                    png = bntx_decode.decode_to_png(path, crop_box=_COURSE_PICT_CROP_BOX)
-                    cache[pid] = (stamp, "data:image/png;base64," + base64.b64encode(png).decode("ascii"))
-                except (bntx_decode.UnsupportedBNTXError, OSError):
-                    cache[pid] = (stamp, None)
+                png = self._decoded_pict(f"course-default:{pid}", path, _COURSE_PICT_CROP_BOX)
+                cache[pid] = (stamp, image_cache.data_uri(png) if png else None)
             if cache[pid][1]:
                 return cache[pid][1]
         return None
@@ -6125,8 +6130,10 @@ class Api(VoiceEditMixin):
         if cached is None or cached[0] != stamp:
             parts = [(section, item["name"], item.get("internal"))
                      for section, items in self._load_vehicle_roster().items() for item in items]
-            pngs = vehicle_icons.load(menu, parts, lambda f: game_files.find_current_vehicle_pict(self.mod_root, f))
-            icons = {n: "data:image/png;base64," + base64.b64encode(png).decode("ascii") for n, png in pngs.items()}
+            loose = game_files.current_vehicle_picts(self.mod_root)
+            disk_stamp = (stamp[:3], parts, sorted((n, image_cache.file_stamp(p)) for n, p in loose.items()))
+            icons = self._image_cache().group("vehicles", disk_stamp, lambda: vehicle_icons.load(
+                menu, parts, lambda f: game_files.find_current_vehicle_pict(self.mod_root, f)))
             self._vehicle_icon_cache = cached = (stamp, icons)
         return cached[1]
 
@@ -6145,8 +6152,9 @@ class Api(VoiceEditMixin):
             return {}
         cached = getattr(self, "_item_icon_cache", None)
         if cached is None or cached[0] != stamp:
-            pngs = item_icons.load(menu, self._load_item_roster())
-            icons = {n: "data:image/png;base64," + base64.b64encode(png).decode("ascii") for n, png in pngs.items()}
+            roster = self._load_item_roster()
+            icons = self._image_cache().group("items", (stamp[1:], [(i["name"], i.get("icon")) for i in roster]),
+                                              lambda: item_icons.load(menu, roster))
             self._item_icon_cache = cached = (stamp, icons)
         return cached[1]
 
@@ -6164,6 +6172,9 @@ class Api(VoiceEditMixin):
         if not res["success"]:
             return res
         self._ui_plan_cache = None
+        self._image_cache().clear()   # (a new dump can hold different pictures behind the same file sizes and dates)
+        for attr in ("_cup_icon_cache", "_vehicle_icon_cache", "_item_icon_cache", "_default_pict_cache"):
+            self.__dict__.pop(attr, None)
         self.sync_voice_edits()
         return {"success": True, "status": game_files.status(self.mod_root)}
 
