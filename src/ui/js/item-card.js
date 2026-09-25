@@ -1,8 +1,9 @@
 // The item card - what opens when you click an item on the Items screen (docked beside the grid on a wide window, else a
 // pop-up) - built like the character, course and vehicle cards: a status head (the item's picture, its name and where it
 // stands), the mods in use (with "Find a mod" / "Add another mod" under them), and - since GameBanana files every item mod in one
-// flat category, so a download often lands under the wrong item, or under "Other items" - a fold-away row to move a mod to the
-// item it is really for. openCharacterModal() builds the mods part for all the cards; this file adds what is specific to an item.
+// flat category, so a download often lands under the wrong item, or under "Other items" - moving one is every mod's "..." menu (see
+// refile.js), and "Other items" lists its mods with a picker each. openCharacterModal() builds the mods part for all the cards;
+// this file adds what is specific to an item.
 
 function assembleItemCard(ctx) {
   const { name, entry, body, mainCol, conflictBox, modCheckboxes, secondaryCard } = ctx;
@@ -53,29 +54,30 @@ function assembleItemCard(ctx) {
   modPanel.appendChild(secondaryCard);
   body.appendChild(modPanel);
 
-  // ---- move a mod to another item ----
+  // ---- "Other items": give each mod its item ----
+  // Every mod's "..." menu can move it (see refile.js); "Other items" is where mods that name no single item pile up, so it also
+  // lists each one with a picker right here, open by default.
   const moveBox = cgEl("details", "cc-move");
   moveBox.hidden = true;
-  const moveHead = cgEl("summary", null, catchAll ? "Give a mod its item" : "Filed under the wrong item?");
+  const moveHead = cgEl("summary", null, "Give a mod its item");
   const moveBody = cgEl("div", "cc-move-body");
   moveBox.appendChild(moveHead);
   moveBox.appendChild(moveBody);
-  body.appendChild(moveBox);
+  if (catchAll) body.appendChild(moveBox);
 
   async function loadMoveRows() {
-    if (!hasMods) return;
+    if (!hasMods || !catchAll) return;
     let ids = {};
-    try { ids = (await pywebview.api.get_item_mod_ids(name, entry.units)) || {}; } catch (e) { ids = {}; }
+    try { ids = (await pywebview.api.get_mod_ids(name, entry.units)) || {}; } catch (e) { ids = {}; }
     if (!moveBox.isConnected) return;
     const keys = entry.units.filter(k => ids[k]);
     if (!keys.length) return;
     moveBody.replaceChildren();
-    moveBody.appendChild(cgEl("div", "cg-note", catchAll
-      ? `These mods aren't filed under one of the listed items. Pick the item each one replaces and move it there - its files, its tick and its GameBanana record all move with it.`
-      : `GameBanana keeps every item mod in one category, so a mod can land under the wrong item. Move it to the one it replaces - its files, its tick and its GameBanana record all move with it.`));
+    moveBody.appendChild(cgEl("div", "cg-note", `These mods don't replace one single listed item. Pick the item each one replaces and move it there - its files, its tick and its GameBanana record all move with it.`));
     for (const key of keys) {
       const row = cgEl("div", "cc-move-row");
-      row.appendChild(cgEl("span", "cc-move-name", key.split("/").slice(2).join("/")));
+      const modName = key.split("/").slice(2).join("/");
+      row.appendChild(cgEl("span", "cc-move-name", modName));
       const sel = document.createElement("select");
       sel.appendChild(new Option("Move to...", ""));
       for (const it of state.items) if (it.name !== name) sel.appendChild(new Option(itemLabel(it.name), it.name));
@@ -84,11 +86,8 @@ function assembleItemCard(ctx) {
         if (!sel.value) return;
         go.disabled = true;
         go.textContent = "Moving...";
-        const r = await pywebview.api.gb_move_mod(name, ids[key].mod_id, sel.value, ids[key].record_type);
-        if (!r.success) { go.disabled = false; go.textContent = "Move"; err.textContent = r.error; return; }
-        await loadMods();   // (not just refreshViewsState: the move renamed the mod's ticked-state key too)
-        await openItemCard(sel.value);
-        refreshBehindModal();
+        const r = await refileMod({ from: name, to: sel.value, modId: ids[key].mod_id, recordType: ids[key].record_type, modName, auto: false });
+        if (!r.success) { go.disabled = false; go.textContent = "Move"; err.textContent = r.error; }
       });
       row.appendChild(sel);
       row.appendChild(go);
@@ -96,7 +95,7 @@ function assembleItemCard(ctx) {
       moveBody.appendChild(row);
     }
     moveBox.hidden = false;
-    if (catchAll) moveBox.open = true;
+    moveBox.open = true;
   }
 
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;

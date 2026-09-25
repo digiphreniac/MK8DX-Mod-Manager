@@ -83,7 +83,7 @@ function renderListView() {
       label.setAttribute("for", cb.id);
       row.appendChild(cb);
       row.appendChild(label);
-      const alsoBadge = buildAlsoShipsBadge(key);
+      const alsoBadge = buildPackBadge(key, null);
       if (alsoBadge) row.appendChild(alsoBadge);
       row.appendChild(buildRemoveModButton(key, loadMods));
       box.appendChild(row);
@@ -111,22 +111,19 @@ function renderAll() {
   refreshStats();
 }
 
-// A mod's "also ships" badge: this mod (filed under a character, course, or a
-// different part) also includes model files for one or more vehicle parts -
-// see Api.get_vehicle_links(). Read-only attribution: the mod stays a single
-// unit where it was downloaded; clicking the badge opens the part it also
-// ships. Returns null when there's nothing to show.
-function buildAlsoShipsBadge(key) {
-  const parts = state.vehicleLinks.by_unit[key];
-  if (!parts || parts.length === 0) return null;
+// A pack's badge on a mod row: this mod replaces more than one thing (see Api.get_pack_links), so it is listed on each of their
+// cards. "Pack - also X" on the card of one of them; clicking it opens the next one. Null for a mod that is for just one thing.
+function buildPackBadge(key, cardName) {
+  const names = (state.packLinks.by_unit || {})[key];
+  if (!names || names.length < 2) return null;
+  const others = names.filter(n => n !== cardName);
   const badge = document.createElement("span");
   badge.className = "linked-badge";
-  badge.textContent = parts.length === 1 ? `also ships: ${parts[0]}` : `also ships ${parts.length} vehicle parts`;
-  badge.title = `This mod also includes model files for: ${parts.join(", ")}. Click to open ${parts[0]}.`;
+  badge.textContent = others.length === 1 ? `Pack \u00b7 also ${refileLabel(others[0])}` : `Pack \u00b7 ${names.length} things`;
+  badge.title = `This mod replaces ${names.map(refileLabel).join(", ")}. It is listed on each of their cards; ticking it turns on all of them. Click to open ${refileLabel(others[0])}.`;
   badge.addEventListener("click", (e) => {
     e.stopPropagation();
-    switchView("vehicles");
-    openCharacterModal(parts[0]);
+    showRefileTarget(others[0]);
   });
   return badge;
 }

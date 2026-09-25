@@ -37,7 +37,7 @@ import ui_setup
 import voice_audio
 import voice_edit
 import game_files
-from voice_api import VoiceEditMixin
+from voice_api import VoiceEditMixin, VOICE_EDITS_FILENAME
 
 TITLE_ID = "0100152000022000"  # Mario Kart 8 Deluxe
 STATE_FILENAME = "mod-manager-state.json"
@@ -1404,8 +1404,8 @@ def _name_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", (name or "").lower())
 
 
-def _ci_child(parent: Path, name: str):
-    if not parent.is_dir():
+def _ci_child(parent, name: str):
+    if parent is None or not parent.is_dir():
         return None
     return next((c for c in parent.iterdir() if c.name.lower() == name.lower()), None)
 
@@ -1741,39 +1741,65 @@ class Api(VoiceEditMixin):
                         parts.add(key_map[key])
         return parts
 
-    def get_vehicle_links(self):
-        """Which downloaded mods ship model files for a vehicle part they
-        weren't filed under - e.g. a character mod that also replaces the Gold
-        Standard body, or a body mod filed under one part that actually ships
-        another's file. {"by_item": {part name: [unit keys]}, "by_unit":
-        {unit key: [part names]}}.
+    def _unit_replaces(self, key, key_map, characters, course_owners, item_owners):
+        """The names of everything a mod's files replace - the characters whose driver / voice files it ships, the courses whose
+        Course/ slot it writes, the vehicle parts and the items whose model files it ships - as one set (they are all different names). What
+        makes a mod a "pack" is that this has more than one in it."""
+        unit = self._unit_dir(key)
+        if not unit.is_dir():
+            return set()
+        names = {name for _section, name in self._unit_vehicle_parts(key, key_map)}
+        names |= {characters[_name_key(c)] for c in slot_characters(unit) if _name_key(c) in characters}
+        course_dir = _ci_child(_ci_child(unit, "romfs") or unit / "romfs", "course")
+        if course_dir is not None:
+            names |= {course_owners[d.name] for d in course_dir.iterdir() if d.is_dir() and d.name in course_owners}
+        item_dir = _ci_child(_ci_child(_ci_child(unit, "romfs"), "racecommon"), "item")   # (the exact place only - this runs for every mod)
+        if item_dir is not None:
+            for d in item_dir.iterdir():
+                if d.is_dir():
+                    names.update(self._items_of_folder(d.name, item_owners))
+        return names
 
-        "Ships files for" is deliberately all this claims: authors often
-        bundle unchanged stock files, and there's no vanilla copy to compare
-        against, so this can't tell a replaced part from a bundled one.
-        A mod's home (where it was downloaded) never changes and it stays a
-        single unit - these links are read-only attribution, never a second
-        copy of the mod, and are kept out of every count."""
+    def _home_names(self):
+        """{(category, normalized item folder name): item name} - to tell which thing a mod is filed under."""
+        homes = {}
+        def add(category, names):
+            for n in names:
+                homes[(category, normalize_char_name(sanitize_filename(n)))] = n
+        add("characters", self._load_roster())
+        add("courses", [c["name"] for cup in self._load_course_roster() for c in cup["courses"]])
+        for section, items in self._load_vehicle_roster().items():
+            add(section, [i["name"] for i in items])
+        add(ITEMS_CATEGORY, [i["name"] for i in self._load_item_roster()] + [ITEMS_OTHER])
+        return homes
+
+    def get_pack_links(self):
+        """Which mods are for more than the one thing they are filed under - a pack. {"by_item": {name: [unit keys]}, "by_unit":
+        {unit key: [every name it replaces]}}: `by_item` lists, for each character / course / part, the packs filed under
+        something else that replace it too - the card shows them as ordinary rows (and they count), so a pack is listed on every
+        card it affects; `by_unit` is every pack, with all the names it replaces, for its badge.
+
+        "Replaces" is read from the files (see _unit_replaces) and is deliberately all this claims: authors sometimes bundle
+        stock files unchanged, and there is no vanilla copy to compare against. A mod stays a single unit filed in one place -
+        these are listings of it, never copies - and ticking it turns on everything in it."""
         key_map = self._vehicle_key_map()
-        norm_to_name = {
-            section: {normalize_char_name(sanitize_filename(i["name"])): i["name"] for i in items}
-            for section, items in self._load_vehicle_roster().items()
-        }
+        characters = {_name_key(n): n for n in self._load_roster()}
+        course_owners = self._course_names_by_internal()
+        item_owners = self._item_folder_owners()
+        homes = self._home_names()
         by_item, by_unit = {}, {}
         for category, units in discover_mods(self.mod_root).items():
             for unit in units:
                 key = f"{category}/{unit.as_posix()}"
-                parts = self._unit_vehicle_parts(key, key_map)
-                if not parts:
+                names = self._unit_replaces(key, key_map, characters, course_owners, item_owners)
+                if not names:
                     continue
-                if category in VEHICLE_SECTIONS:  # filed under one part already
-                    home = norm_to_name[category].get(normalize_char_name(unit.parts[0]))
-                    parts.discard((category, home))
-                if not parts:
-                    continue
-                by_unit[key] = sorted(name for _section, name in parts)
-                for _section, name in parts:
+                first = unit.parts[0]   # (the item's folder; an older layout named it "<item> - <mod>")
+                home = homes.get((category, normalize_char_name(first))) or homes.get((category, normalize_char_name(first.split(" - ", 1)[0].strip())))
+                for name in names - {home}:
                     by_item.setdefault(name, []).append(key)
+                if len(names) >= 2:
+                    by_unit[key] = sorted(names)
         for keys in by_item.values():
             keys.sort()
         return {"by_item": by_item, "by_unit": by_unit}
@@ -1833,7 +1859,88 @@ class Api(VoiceEditMixin):
         chars = slot_characters(folder)
         if not chars or any(_name_key(c) == _name_key(item_name) for c in chars):
             return None
-        return {"expected": [item_name], "found": sorted(chars), "found_characters": sorted(chars)}
+        roster = {_name_key(n): n for n in self._load_roster()}
+        targets = sorted({roster[_name_key(c)] for c in chars if _name_key(c) in roster})
+        return {"expected": [item_name], "found": sorted(chars), "found_characters": sorted(chars),
+                "targets": [{"name": n, "category": "characters"} for n in targets],
+                "unresolved": sum(1 for c in chars if _name_key(c) not in roster)}
+
+    # Model folders under RaceCommon/Item/ that two items share (the Green and Red Shell are both ItemKoura), or that the roster
+    # holds no "internal" id for - {folder name (lower case): [item names]}
+    _SHARED_ITEM_FOLDERS = {"itemkoura": ["Green Shell", "Red Shell"]}
+
+    def _item_folder_owners(self):
+        """{model folder (lower case): [item names]} for RaceCommon/Item/ - roster.json's "internal" ids plus the shared ones."""
+        owners = {i["internal"].lower(): [i["name"]] for i in self._load_item_roster() if i.get("internal")}
+        owners.update(self._SHARED_ITEM_FOLDERS)
+        return owners
+
+    def _items_of_folder(self, folder_name, owners):
+        """The item(s) a RaceCommon/Item/<folder_name> model folder belongs to: its own id, or - for the extras an item brings
+        (ItemKoura_FX, ItemBomheiBomb, ItemCoinB) - the longest id it starts with. [] for one the app can't place
+        (ItemCommon, which every item shares, say)."""
+        low = folder_name.lower()
+        best = max((k for k in owners if low.startswith(k)), key=len, default=None)
+        return owners[best] if best else []
+
+    def _unit_item_folders(self, unit):
+        """The names of the model folders a mod folder ships under romfs/RaceCommon/Item/ (anywhere in it)."""
+        found = set()
+        for dirpath, dirnames, _files in os.walk(unit):
+            if Path(dirpath).name.lower() == "item" and Path(dirpath).parent.name.lower() == "racecommon":
+                found.update(dirnames)
+                dirnames[:] = []
+        return found
+
+    def _item_slot_mismatch(self, item_name, folder):
+        """None when a download's item model folders include one of `item_name`'s (or it ships none - a texture-only mod says
+        nothing), else {"expected", "found", "targets": [{name, category}], "unresolved"}: what its folders say it replaces.
+        For the "Other items" catch-all nothing fits, so a mod whose models the app can place is sorted into its item."""
+        found = self._unit_item_folders(folder)
+        if not found:
+            return None
+        owners = self._item_folder_owners()
+        names, unresolved = set(), 0
+        for f in found:
+            owner = self._items_of_folder(f, owners)
+            names.update(owner)
+            unresolved += 0 if owner else 1
+        if item_name in names:
+            return None
+        return {"expected": [item_name], "found": sorted(found),
+                "targets": [{"name": n, "category": ITEMS_CATEGORY} for n in sorted(names)], "unresolved": unresolved}
+
+    def _course_names_by_internal(self):
+        """{internal Course/-slot id: course name} for every course roster.json knows an id for."""
+        return {i: c["name"] for cup in self._load_course_roster() for c in cup["courses"] for i in c.get("internal") or []}
+
+    def _course_slot_mismatch(self, item_name, folder):
+        """None unless the Course/ slot(s) a download writes to are all somebody else's than this course's (a course with
+        no known id, or a download with no Course/ folder, isn't checked): {"expected", "found", "targets": [{name,
+        category}], "unresolved"} - `targets` are the courses those slots belong to."""
+        expected = self._course_internal_names(item_name)
+        if not expected:
+            return None
+        actual = find_course_slot_names(folder)
+        if not actual or actual & expected:
+            return None
+        owners = self._course_names_by_internal()
+        return {"expected": sorted(expected), "found": sorted(actual),
+                "targets": [{"name": n, "category": "courses"} for n in sorted({owners[i] for i in actual if i in owners})],
+                "unresolved": sum(1 for i in actual if i not in owners)}
+
+    def _download_slot_mismatch(self, category, item_name, folder):
+        """What a download's own files say about where it belongs (see the three checks above): None when they agree with
+        `item_name` (or say nothing), else the mismatch dict, whose `targets` name what the files are for."""
+        if category == "courses":
+            return self._course_slot_mismatch(item_name, folder)
+        if category == "characters":
+            return self._character_slot_mismatch(item_name, folder)
+        if category in VEHICLE_SECTIONS:
+            return self._vehicle_slot_mismatch(item_name, folder)
+        if category == ITEMS_CATEGORY:
+            return self._item_slot_mismatch(item_name, folder)
+        return None
 
     def _slot_mismatch(self, unit_key) -> bool:
         """True when this unit's driver/voice files are all for OTHER characters than the
@@ -2136,17 +2243,25 @@ class Api(VoiceEditMixin):
         if item is None or not item.get("internal"):
             return None
         kind = {"vehicles": "Body", "wheels": "Tire", "gliders": "Wing"}[section]
-        actual = find_vehicle_part_ids(folder)[kind]
+        found = find_vehicle_part_ids(folder)
+        actual = found[kind]
         expected_key = self._vehicle_expected_key(section, item)
-        if not actual or expected_key in actual:
+        if expected_key in actual:
             return None
+        if not actual:
+            # Ships no file of this part's kind - fine (a texture pack, say) - unless it ships another kind of part's file:
+            # a tire mod filed under a body, a glider under a wheel.
+            actual = set().union(*found.values())
+            if not actual:
+                return None
         key_map = self._vehicle_key_map()
+        parts = [{"name": key_map[k][1], "section": key_map[k][0]} for k in sorted(actual) if k in key_map]
         return {
             "expected": [expected_key],
             "found": sorted(actual),
-            "found_parts": [
-                {"name": key_map[k][1], "section": key_map[k][0]} for k in sorted(actual) if k in key_map
-            ],
+            "found_parts": parts,
+            "targets": [{"name": p["name"], "category": p["section"]} for p in parts],
+            "unresolved": len(actual) - len(parts),
         }
 
     def get_vehicle_fit(self, part_name, unit_keys):
@@ -2171,10 +2286,10 @@ class Api(VoiceEditMixin):
                         "record_type": (mod or {}).get("record_type", "Mod")}
         return out
 
-    def get_item_mod_ids(self, item_name, unit_keys):
-        """For an item card's "move to another item" row: {unit key: {"mod_id", "record_type"}} of these downloaded mods
-        (unit keys filed under `item_name`) that are tracked from GameBanana - a mod added by hand has no id, so it can't be
-        moved (it is left out)."""
+    def get_mod_ids(self, item_name, unit_keys):
+        """For a "Move to..." on a mod: {unit key: {"mod_id", "record_type"}} of these downloaded mods (unit keys filed under
+        `item_name`, whatever kind of thing it is) that are tracked from GameBanana - a mod added by hand has no id, so it
+        can't be moved (it is left out)."""
         if self.mod_root is None or self._movable_item(item_name)[1] is None:
             return {}
         tracked = self._load_gb_mods().get(item_name, [])
@@ -2189,28 +2304,68 @@ class Api(VoiceEditMixin):
                 out[key] = {"mod_id": mod["mod_id"], "record_type": mod.get("record_type", "Mod")}
         return out
 
+    def _rekey_unit_prefix(self, old_rel, new_rel):
+        """Everything the app remembers about a mod is keyed by its path ("category/item/mod"): the ticks, the files left
+        out, the clash priorities, the voice edits, the look reviews, the menu picture choices. After its folder moves, this
+        rewrites each of those from `old_rel` to `new_rel` (the mod's folder and anything beneath it) so none is orphaned.
+        The ticks are the caller's (they live in one file it already holds)."""
+        def fix(text):
+            return new_rel + text[len(old_rel):] if text == old_rel or text.startswith(old_rel + "/") else text
+
+        def walk(v):
+            if isinstance(v, dict):
+                return {fix(k) if isinstance(k, str) else k: walk(x) for k, x in v.items()}
+            if isinstance(v, list):
+                return [walk(x) for x in v]
+            return fix(v) if isinstance(v, str) else v
+
+        stores = [self.excluded_files_path, self.conflict_resolutions_path, self.settings_path,
+                  self.mod_root / VOICE_EDITS_FILENAME, self.mod_root / LOOK_REVIEWS_FILENAME,
+                  self.mod_root / ui_setup.OVERRIDES_FILENAME]
+        for path in stores:
+            if path is None or not path.is_file():
+                continue
+            data = self._load_json(path, None)
+            if data is None:
+                continue
+            new = walk(data)
+            if new != data:
+                path.write_text(json.dumps(new, indent=2, sort_keys=True), encoding="utf-8")
+
     def _movable_item(self, name):
-        """(category folder, roster entry) of a vehicle part or an item (the "Other items" catch-all too) - the things a mod
-        can be re-filed between - or (None, None)."""
+        """(folder under mods/extracted/ it is filed in, roster entry) of anything a mod can be moved between - a vehicle
+        part, an item (the "Other items" catch-all too), a character or a course - or (None, None). No two of these share a
+        name."""
         section, part = self._vehicle_item(name)
         if part is not None:
             return section, part
         if name == ITEMS_OTHER or any(i["name"] == name for i in self._load_item_roster()):
             return ITEMS_CATEGORY, {"name": name}
+        if name in self._load_roster():
+            return "characters", {"name": name}
+        if any(c["name"] == name for cup in self._load_course_roster() for c in cup["courses"]):
+            return "courses", {"name": name}
         return None, None
 
+    @staticmethod
+    def _move_family(section):
+        """What a mod can be moved between: parts to parts (across bodies, tires and gliders), items to items, and so on."""
+        return "vehicle parts" if section in VEHICLE_SECTIONS else section
+
     def gb_move_mod(self, from_item, mod_id, to_item, record_type="Mod"):
-        """Re-files a tracked vehicle-part (or item) mod under a different part / item - what the "ships X's file, not this
-        part's" warning offers, and how a mod filed under "Other items" gets its item - without a remove-and-re-add: its
-        tracking entry, extracted folders, archives and ticked state all move together, and each moved file's slot check is
-        re-run against its new home. Refuses if the mod is already tracked under the target (two entries for one mod would
-        need merging) or the move would touch anything but vehicle parts and items, or cross from one to the other."""
+        """Re-files a tracked mod under another character / course / vehicle part / item - what a download's files
+        say it replaces (see _refile_mod), what "Move to..." on a mod asks for, and how a mod filed under "Other items" gets its
+        item - without a remove-and-re-add: its tracking entry, extracted folders, archives, ticked state and everything else
+        remembered about its path (see _rekey_unit_prefix) move together, and each moved file's slot check is re-run against its
+        new home. Refuses if the mod is already tracked under the target (two entries for one mod would need merging) or the
+        move would go between different kinds of thing (a character to a course...). Returns the moved folders' new
+        paths as `moved_folders`, which is what an undo needs."""
         from_section, from_part = self._movable_item(from_item)
         to_section, to_part = self._movable_item(to_item)
         if from_part is None or to_part is None:
-            return {"success": False, "error": "Only vehicle parts and items can be moved this way."}
-        if (from_section == ITEMS_CATEGORY) != (to_section == ITEMS_CATEGORY):
-            return {"success": False, "error": "A mod can't be moved between an item and a vehicle part."}
+            return {"success": False, "error": "That isn't something a mod can be moved between."}
+        if self._move_family(from_section) != self._move_family(to_section):
+            return {"success": False, "error": f"A mod can only be moved to another one of the same kind - not from {self._move_family(from_section)} to {self._move_family(to_section)}."}
         if from_item == to_item:
             return {"success": False, "error": "That's already where it is."}
         gb_mods = self._load_gb_mods()
@@ -2230,6 +2385,7 @@ class Api(VoiceEditMixin):
         to_dir = sanitize_filename(to_item)
         state = self._load_state()
         done = []  # (new path, old path) of every completed move, for rollback
+        moved_folders, renames = [], []
         try:
             for f in mod.get("files", []):
                 old_folder = f.get("downloaded_to")
@@ -2245,7 +2401,9 @@ class Api(VoiceEditMixin):
                     new_rel = new.relative_to(extracted_root).as_posix()
                     for key in [k for k in state if k == old_rel or k.startswith(old_rel + "/")]:
                         state[new_rel + key[len(old_rel):]] = state.pop(key)
-                    f["slot_mismatch"] = None if to_section == ITEMS_CATEGORY else self._vehicle_slot_mismatch(to_item, new)
+                    f["slot_mismatch"] = self._download_slot_mismatch(to_section, to_item, new)
+                    moved_folders.append(new_rel)
+                    renames.append((old_rel, new_rel))
                 old_archive = f.get("archive_path")
                 if old_archive and Path(old_archive).is_file():
                     archive_parent = downloads_root / to_section / to_dir
@@ -2270,12 +2428,15 @@ class Api(VoiceEditMixin):
         gb_mods.setdefault(to_item, []).append(mod)
         self._save_gb_mods(gb_mods)
         self.state_path.write_text(json.dumps(state, indent=2, sort_keys=True))
+        for old_rel, new_rel in renames:
+            self._rekey_unit_prefix(old_rel, new_rel)
         for _new, old in done:  # tidy now-empty item folders
             try:
                 old.parent.rmdir()
             except OSError:
                 pass
-        return {"success": True, "to_item": to_item, "to_section": to_section}
+        return {"success": True, "from_item": from_item, "to_item": to_item, "to_section": to_section,
+                "moved_folders": moved_folders}
 
     def get_vehicles_view(self):
         """Same idea as get_character_view(), for the three vehicle-part
@@ -3556,6 +3717,9 @@ class Api(VoiceEditMixin):
         char_view = self.get_character_view()["roster"]
         course_view = self.get_course_view()["cups"]
         course_entries = [c for cup in course_view for c in cup["courses"]]
+        packs = self.get_pack_links()["by_item"]   # (a pack counts on every card it is listed on)
+        for entry in char_view + course_entries:
+            entry["units"] = list(entry["units"]) + packs.get(entry["name"], [])
 
         return {
             "characters": modded_fraction(char_view),
@@ -4152,11 +4316,7 @@ class Api(VoiceEditMixin):
             # simply isn't checked - this only ever flags a definite,
             # verifiable disagreement, never a guess.
             if units and category == "courses":
-                expected = self._course_internal_names(item_name)
-                if expected:
-                    actual = find_course_slot_names(dest_folder)
-                    if actual and not (actual & expected):
-                        slot_mismatch = {"expected": sorted(expected), "found": sorted(actual)}
+                slot_mismatch = self._course_slot_mismatch(item_name, dest_folder)
                 # Same idea, independently, for bundled race music - a mod
                 # can get its Course/ folder right and still ship someone
                 # else's BGM (or vice versa), so this isn't gated on
@@ -4174,6 +4334,8 @@ class Api(VoiceEditMixin):
                 # they replace; a download whose files are all for OTHER characters is
                 # flagged (one that includes this character's own among others isn't).
                 slot_mismatch = self._character_slot_mismatch(item_name, dest_folder)
+            elif units and category == ITEMS_CATEGORY:
+                slot_mismatch = self._item_slot_mismatch(item_name, dest_folder)
             elif units and category in VEHICLE_SECTIONS:
                 # Same idea for vehicle parts: the model files a mod actually
                 # ships (BodyK_Cat.szs, Wing_Pap.szs, TireK_Zst.szs) name the
@@ -4310,7 +4472,54 @@ class Api(VoiceEditMixin):
 
         shutil.rmtree(prefetch_dir, ignore_errors=True)
         self._save_gb_mods(gb_mods)
-        return {"success": True, "results": results}
+        response = {"success": True, "results": results}
+        if (category in VEHICLE_SECTIONS or category in ("characters", "courses", ITEMS_CATEGORY)) and not any(r.get("status") == "error" for r in results):
+            response.update(self._refile_mod(character_name, record))
+        return response
+
+    def _refile_rank(self, name):
+        """Where a name comes in the app's own order (characters, courses, vehicle parts, items) - which of a pack's things it
+        is filed under."""
+        order = (list(self._load_roster()) + [c["name"] for cup in self._load_course_roster() for c in cup["courses"]]
+                 + [i["name"] for items in self._load_vehicle_roster().values() for i in items]
+                 + [i["name"] for i in self._load_item_roster()])
+        return order.index(name) if name in order else len(order)
+
+    def _refile_target(self, item_name, record):
+        """(the thing to file a tracked mod under, every thing it replaces) when its downloaded files say it isn't for `item_name`
+        - else (None, []). Every file that has been downloaded must say something the app can place (nothing unrecognised in
+        it) and none may fit `item_name`: moving a mod moves the whole record, so a file that fits, or says nothing, rules it out.
+        One thing replaced -> that thing; several (a pack) -> the first of them in the app's order, which the pack is then filed
+        under and listed on every card of the others (see get_pack_links)."""
+        replaced = set()
+        for f in record.get("files", []):
+            if f.get("download_status") != "downloaded" or not f.get("downloaded_to"):
+                continue   # (not downloaded: nothing to say about it)
+            mismatch = f.get("slot_mismatch")
+            targets = (mismatch or {}).get("targets") or []
+            if not mismatch or not targets or mismatch.get("unresolved"):
+                return None, []
+            replaced |= {t["name"] for t in targets}
+        if not replaced or item_name in replaced:
+            return None, []
+        names = sorted(replaced, key=self._refile_rank)
+        return names[0], names
+
+    def _refile_mod(self, item_name, record):
+        """After a download: if the files are for something else than the card it came from, file the mod there now (see
+        gb_move_mod) rather than leave it where it was found. {"moved": {...}} when it did (with what the UI needs to say
+        so, open that card and undo it; `pack` names everything a pack replaces), {"move_error": text} when it should have but
+        couldn't, {} otherwise."""
+        target, replaced = self._refile_target(item_name, record)
+        if target is None:
+            return {}
+        result = self.gb_move_mod(item_name, record["mod_id"], target, record.get("record_type", "Mod"))
+        if not result.get("success"):
+            return {"move_error": result["error"]}
+        return {"moved": {"from_item": item_name, "to_item": target, "to_section": result["to_section"],
+                          "mod_id": record["mod_id"], "record_type": record.get("record_type", "Mod"),
+                          "mod_name": record["name"], "moved_folders": result["moved_folders"],
+                          "pack": replaced if len(replaced) > 1 else []}}
 
     def _compute_claims(self, checked_keys, include_ui_icons=True):
         """Walks every checked mod's romfs tree and figures out which mod claims

@@ -67,6 +67,7 @@
     border: 1px solid var(--panel-border);
   }
   .gb-target-badge.match { color: var(--ok); background: var(--ok-soft); border-color: var(--ok); }
+  .gb-target-badge.match.weak { color: var(--warn); background: var(--warn-soft); border-color: var(--warn); }
   .gb-search-subcat {
     font-size: 10px;
     font-weight: 700;

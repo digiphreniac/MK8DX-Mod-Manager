@@ -293,7 +293,6 @@ function buildPartLook(name, onLook) {
 function assembleVehicleCard(ctx) {
   const { name, entry, body, mainCol, conflictBox, modCheckboxes, secondaryCard } = ctx;
   const hasMods = entry.units.length > 0;
-  const linkedKeys = state.vehicleLinks.by_item[name] || [];
   const modsCard = mainCol.querySelector(".modal-card");
   const kind = vehicleKindOf(name);
   let fit = null;          // {unit key: what is wrong} for this part's mods, once read (null: not yet)
@@ -337,7 +336,7 @@ function assembleVehicleCard(ctx) {
     modHint = cgEl("div", "cc-hint");
     hdr.after(modHint);
   }
-  if (hasMods || linkedKeys.length) modPanel.appendChild(mainCol);   // (mods filed elsewhere that ship this part ride along)
+  if (hasMods) modPanel.appendChild(mainCol);
   modPanel.appendChild(secondaryCard);
   body.appendChild(modPanel);
 
@@ -376,8 +375,8 @@ function assembleVehicleCard(ctx) {
       const row = cgEl("div", "cc-fit-row");
       const names = others.map(p => p.name);
       row.appendChild(cgEl("div", "cl-sub", others.length
-        ? `⚠ ${modName} ships ${names.join(" / ")}'s model file (${f.found.join(", ")}), not ${name}'s - ticked here it changes nothing on ${name}.`
-        : `⚠ ${modName} ships "${f.found.join(", ")}", not ${name}'s model file (${f.expected.join(", ")}) - it probably replaces a different part.`));
+        ? `⚠ ${modName} replaces ${names.join(" / ")}, not ${name}.`
+        : `⚠ ${modName} replaces something other than ${name} (its model file is "${f.found.join(", ")}").`));
       const err = cgEl("span", "gb-mod-error");
       const actions = cgEl("div", "ml-review");
       if (f.mod_id !== null && f.mod_id !== undefined) {
@@ -385,11 +384,8 @@ function assembleVehicleCard(ctx) {
           const mv = button(`Move it to ${p.name}`, "primary small", async () => {
             mv.disabled = true;
             mv.textContent = "Moving...";
-            const r = await pywebview.api.gb_move_mod(name, f.mod_id, p.name, f.record_type || "Mod");
-            if (!r.success) { mv.disabled = false; mv.textContent = `Move it to ${p.name}`; err.textContent = r.error; return; }
-            await loadMods();   // (not just refreshViewsState: the move renamed the mod's ticked-state key too)
-            openCharacterModal(p.name);
-            refreshBehindModal();
+            const r = await refileMod({ from: name, to: p.name, modId: f.mod_id, recordType: f.record_type, modName, auto: false });
+            if (!r.success) { mv.disabled = false; mv.textContent = `Move it to ${p.name}`; err.textContent = r.error; }
           });
           mv.title = `Re-file this mod (and its downloaded files) under ${p.name}`;
           actions.appendChild(mv);
@@ -414,7 +410,6 @@ function assembleVehicleCard(ctx) {
 
   function refresh() {
     const ticked = entry.units.filter(k => state.checked[k]);
-    const linkedTicked = linkedKeys.filter(k => state.checked[k]);
     const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
     // --- the mods panel
@@ -485,12 +480,11 @@ function assembleVehicleCard(ctx) {
     }
     const needing = [ns.state === "current" && "name", is_.state === "current" && "picture"].filter(Boolean);
     const where = kind ? kind + " · " : "";
-    const extra = linkedTicked.length ? ` (+ ${linkedTicked.length} linked)` : "";
     let sub;
-    if (!hasMods) sub = where + (linkedKeys.length ? `No mod filed here - ${plural(linkedKeys.length, "other mod")} also ship${linkedKeys.length === 1 ? "s" : ""} it.` : "No mod yet - find one below.");
+    if (!hasMods) sub = where + "No mod yet - find one below.";
     else if (!ticked.length) sub = where + `${plural(entry.units.length, "mod")} downloaded, none in use yet.`;
     else {
-      sub = where + `${plural(ticked.length, "mod")} in use${extra}`;
+      sub = where + `${plural(ticked.length, "mod")} in use`;
       if (wrong.length) sub += " · a mod is for a different part";
       if (!look) sub += " · reading its name and picture...";
       else if (needing.length) sub += ` · ${needing.join(" and ")} need${needing.length === 1 && needing[0] === "name" ? "s" : ""} a look`;
@@ -500,8 +494,8 @@ function assembleVehicleCard(ctx) {
 
     // --- the chip
     let chipText, chipCls = "";
-    if (!hasMods && !linkedTicked.length) chipText = "No mod yet";
-    else if (!ticked.length && !linkedTicked.length) { chipText = "Choose a mod"; chipCls = "warn"; }
+    if (!hasMods) chipText = "No mod yet";
+    else if (!ticked.length) { chipText = "Choose a mod"; chipCls = "warn"; }
     else if (ticked.length && !look) { chipText = "Reading..."; chipCls = ""; }
     else if (wrong.length || (ticked.length && !bothDone)) { chipText = "Needs a look"; chipCls = "warn"; }
     else { chipText = ticked.length ? "Done" : "In use"; chipCls = "ok"; }

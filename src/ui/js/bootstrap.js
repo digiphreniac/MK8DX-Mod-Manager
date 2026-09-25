@@ -34,6 +34,7 @@
     "js/vehicle-card.js",
     "js/item-screen.js",
     "js/item-card.js",
+    "js/refile.js",
     "js/add-mod.js",
     "js/data-and-conflicts.js",
     "js/settings-panels.js",

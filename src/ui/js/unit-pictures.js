@@ -117,7 +117,8 @@ function clKebab(label, getItems) {
       b.type = "button";
       b.setAttribute("role", "menuitem");
       if (it.title) b.title = it.title;
-      b.addEventListener("click", (ev) => { ev.stopPropagation(); closeClMenus(); it.run(); });
+      if (it.disabled) b.disabled = true;
+      b.addEventListener("click", (ev) => { ev.stopPropagation(); if (it.disabled) return; closeClMenus(); it.run(); });
       m.appendChild(b);
     }
     // fixed to the window, beside the button: opens downward, or upward when there is no room below

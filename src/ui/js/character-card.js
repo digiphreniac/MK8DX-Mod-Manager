@@ -736,6 +736,8 @@ function openCharacterModal(name) {
   t.title.textContent = isItemName(name) ? itemLabel(name) : name;
   const body = t.body;
   body.innerHTML = "";
+  const refileNote = buildCardNotice(name);   // (a mod was just moved here - see refile.js)
+  if (refileNote) body.appendChild(refileNote);
   const isCharCard = resolveItemCategory(name) === "characters";
   const isCourseCard = resolveItemCategory(name) === "courses";
   const isVehicleCard = VEHICLE_SECTION_KEYS.includes(resolveItemCategory(name));
@@ -774,7 +776,7 @@ function openCharacterModal(name) {
   // this asks about every checked mod in the app, then keeps just the clashes
   // that involve one of THIS item's mods.
   async function updateModalConflicts() {
-    const mine = new Set(entry.units.concat(state.vehicleLinks.by_item[name] || []));
+    const mine = new Set(entry.units);
     if (![...mine].some(k => state.checked[k])) {
       conflictBox.hidden = true;
       conflictBox.replaceChildren();
@@ -797,6 +799,9 @@ function openCharacterModal(name) {
   }
 
   const modCheckboxes = [];
+  // which of this card's mods came through GameBanana (only those can be moved - see Api.get_mod_ids), once read
+  let movableIds = null;
+  if (guided && entry.units.length) pywebview.api.get_mod_ids(name, entry.units).then(r => { movableIds = r || {}; }, () => { movableIds = {}; });
 
   // "Files" buttons say how many of a mod's files are currently left out.
   function refreshLeftOutBadges() {
@@ -860,16 +865,7 @@ function openCharacterModal(name) {
     const emptyNoun = emptyCategory === "characters" ? "this character"
       : emptyCategory === "courses" ? "this course"
       : itemLabel(name);
-    // Vehicle parts can have mods filed elsewhere that also ship their model
-    // file (see the "Also ships this part" card below) - "nothing downloaded"
-    // would contradict that card, so say what's actually true.
-    const linkedCount = (state.vehicleLinks.by_item[name] || []).length;
-    const linkedNote = linkedCount > 0
-      ? ` ${linkedCount === 1 ? "1 other mod that also ships" : `${linkedCount} other mods that also ship`} it ${linkedCount === 1 ? "is" : "are"} listed below.`
-      : "";
-    p.textContent = linkedCount > 0
-      ? `No mods are filed under ${name} yet.${linkedNote}`
-      : `Nothing downloaded for ${emptyNoun} yet.`;
+    p.textContent = `Nothing downloaded for ${emptyNoun} yet.`;
     modsCard.appendChild(p);
     // A download that extracted fine but has no romfs/ folder (a loose-file
     // archive, or an exefs-only patch like most Mechanics mods) is never
@@ -882,7 +878,7 @@ function openCharacterModal(name) {
       if (stuck === 0 || !p.isConnected) return;
       p.textContent = `${stuck} downloaded file${stuck === 1 ? "" : "s"} for ${emptyNoun === name ? name : emptyNoun} `
         + `can't be merged yet - no romfs folder was found in ${stuck === 1 ? "it" : "them"} `
-        + `(an unrecognized layout, or UI art). See the status under "GameBanana mods" below.` + linkedNote;
+        + `(an unrecognized layout, or UI art). See the status under "GameBanana mods" below.`;
     });
   } else {
     for (const key of entry.units) {
@@ -895,6 +891,8 @@ function openCharacterModal(name) {
       const label = document.createElement("label");
       label.textContent = isCharCard ? charModLabel(key) : key.split("/").slice(isCourseCard || isVehicleCard || isItemCard ? 2 : 1).join("/");
       if (isCharCard) label.title = modLabel(key, true);
+      const isPackRow = (entry.packUnits || []).includes(key);   // (a pack filed under another thing, listed here too)
+      if (isPackRow) label.title = `Pack - filed under ${key.split("/")[1]}`;
       cb.addEventListener("change", () => {
         state.checked[key] = cb.checked;
         row.classList.toggle("checked", cb.checked);
@@ -906,7 +904,7 @@ function openCharacterModal(name) {
       });
       row.appendChild(cb);
       row.appendChild(label);
-      const alsoBadge = buildAlsoShipsBadge(key);
+      const alsoBadge = buildPackBadge(key, name);
       if (alsoBadge) row.appendChild(alsoBadge);
       const openFolderBtn = document.createElement("button");
       openFolderBtn.className = "ghost small";
@@ -947,6 +945,19 @@ function openCharacterModal(name) {
           { label: Number(filesBtn.dataset.leftOut) ? `Edit included files \u00b7 ${filesBtn.dataset.leftOut} left out` : "Edit included files",
             title: "Choose which of this mod's files are used - leave single files out of the merge", run: () => filesBtn.click() },
           "-",
+          isPackRow ? {
+            label: "Open where it's filed",
+            title: `This pack is filed under ${key.split("/")[1]} and listed here because it replaces ${refileLabel(name)} too.`,
+            run: () => jumpToModKey(key),
+          } : (() => {
+            const tracked = movableIds && movableIds[key];
+            return {
+              label: `Move to another ${refileNoun(name)}...`,
+              title: tracked ? `This mod replaces something else than ${refileLabel(name)}? Move it there.` : "Only mods downloaded through GameBanana can be moved.",
+              disabled: !tracked,
+              run: () => openMoveDialog({ from: name, modName: label.textContent, modId: tracked.mod_id, recordType: tracked.record_type }),
+            };
+          })(),
           { label: "Remove", title: removeBtn.title, danger: true, run: () => removeBtn.click() },
         ]);
         kb.classList.add("mod-more");
@@ -1112,54 +1123,6 @@ function openCharacterModal(name) {
   // don't count toward "selected" above, and each is a whole mod - ticking one
   // enables everything in it, wherever it's filed (the checkbox shares the
   // same state as its own row).
-  const linkedKeys = state.vehicleLinks.by_item[name] || [];
-  if (linkedKeys.length > 0) {
-    const linkedCard = document.createElement("div");
-    linkedCard.className = "modal-card";
-    const linkedHeader = document.createElement("div");
-    linkedHeader.className = "modal-card-header";
-    const linkedTitle = document.createElement("span");
-    linkedTitle.className = "modal-card-title";
-    linkedTitle.textContent = "Also ships this part";
-    const linkedNote = document.createElement("span");
-    linkedNote.className = "modal-card-count";
-    linkedNote.textContent = "not counted above";
-    linkedHeader.appendChild(linkedTitle);
-    linkedHeader.appendChild(linkedNote);
-    linkedCard.appendChild(linkedHeader);
-    const hint = document.createElement("div");
-    hint.className = "settings-hint linked-card-hint";
-    hint.textContent = "These mods are filed elsewhere but include this part's model file (they may just bundle a stock copy). Each is a whole mod - ticking it turns on everything in it.";
-    linkedCard.appendChild(hint);
-    for (const key of linkedKeys) {
-      const row = document.createElement("div");
-      row.className = "mod-row";
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.checked = !!state.checked[key];
-      if (cb.checked) row.classList.add("checked");
-      const label = document.createElement("label");
-      label.textContent = key.split("/").slice(1).join("/");
-      label.title = `Filed under ${key.split("/")[0]}`;
-      cb.addEventListener("change", () => {
-        state.checked[key] = cb.checked;
-        row.classList.toggle("checked", cb.checked);
-        pywebview.api.save_checked(state.checked);
-        refreshBehindModal();
-        updateModalConflicts();
-      });
-      const openBtn = document.createElement("button");
-      openBtn.className = "ghost small";
-      openBtn.textContent = "Open mod";
-      openBtn.title = "Open this mod where it's filed";
-      openBtn.addEventListener("click", (e) => { e.stopPropagation(); jumpToModKey(key); });
-      row.appendChild(cb);
-      row.appendChild(label);
-      row.appendChild(openBtn);
-      linkedCard.appendChild(row);
-    }
-    mainCol.appendChild(linkedCard);
-  }
 
   updateModalConflicts();
 

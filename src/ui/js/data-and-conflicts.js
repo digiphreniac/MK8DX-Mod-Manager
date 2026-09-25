@@ -2,20 +2,27 @@
 // categories, vehicle parts, items) into state - used after anything that adds or
 // removes a downloaded mod.
 async function refreshViewsState() {
-  const [charResult, courseResult, simpleResult, vehicleResult, linkResult, itemResult] = await Promise.all([
+  const [charResult, courseResult, simpleResult, vehicleResult, packResult, itemResult] = await Promise.all([
     pywebview.api.get_character_view(),
     pywebview.api.get_course_view(),
     pywebview.api.get_simple_categories_view(),
     pywebview.api.get_vehicles_view(),
-    pywebview.api.get_vehicle_links(),
+    pywebview.api.get_pack_links(),
     pywebview.api.get_items_view(),
   ]);
   state.roster = charResult.roster;
   state.cups = courseResult.cups;
   state.simpleCategories = simpleResult.categories;
   state.vehicles = vehicleResult.sections;
-  state.vehicleLinks = linkResult;
   state.items = itemResult.items;
+  // A pack (a mod for more than the one thing it is filed under) is listed on every card it affects, as an ordinary row that
+  // counts: its keys join those entries' units, and `packUnits` says which of them are packs filed elsewhere.
+  state.packLinks = packResult;
+  const entries = [...state.roster, ...state.cups.flatMap(c => c.courses), ...state.vehicles.flatMap(s => s.items), ...state.items];
+  for (const e of entries) {
+    e.packUnits = packResult.by_item[e.name] || [];
+    if (e.packUnits.length) e.units = e.units.concat(e.packUnits);
+  }
 }
 
 async function loadMods() {

@@ -1,4 +1,4 @@
-let state = { categories: {}, checked: {}, roster: [], cups: [], settings: {}, simpleCategories: [], vehicles: [], items: [], vehicleLinks: { by_item: {}, by_unit: {} } };
+let state = { categories: {}, checked: {}, roster: [], cups: [], settings: {}, simpleCategories: [], vehicles: [], items: [], packLinks: { by_item: {}, by_unit: {} } };
 let viewMode = "characters";
 let openCharacter = null;
 let selectedCup = "Mushroom Cup";
@@ -326,4 +326,5 @@ const FILE_STATUS_LABEL = {
 // collapse survives that rebuild.
 const gbSectionCollapsed = new Set();
 let gbJustAdded = null;   // {item, modId, type}: the mod "Use this mod" just added - the card it lands on scrolls to it (and downloads it when there is only one file)
+let cardNotice = null;   // {item, text}: something to tell the user at the top of that part's card (a mod that was just filed there for them); kept until they close it or open another card
 

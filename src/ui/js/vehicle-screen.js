@@ -77,18 +77,7 @@ function renderVehiclesView() {
         { overlayCount: true, hideBadge: true }
       );
       tile.dataset.kind = kind;
-      // Mods filed elsewhere that also ship this part's model file. Shown as a small marker only - never added to the
-      // X/Y count, the section summary, or any footer stat, which stay about mods chosen for this part.
-      const linked = state.vehicleLinks.by_item[item.name] || [];
-      if (linked.length > 0) {
-        tile.classList.add("has-linked");
-        const mark = document.createElement("div");
-        mark.className = "char-linked-mark";
-        mark.textContent = `${linked.length} linked`;
-        mark.title = `${linked.length} linked mod${linked.length === 1 ? "" : "s"} - also ship this part's model file: ` + linked.map(k => k.split("/").slice(1).join("/")).join("; ");
-        tile.appendChild(mark);
-      }
-      const conflictPool = checkedUnits.concat(linked.filter(k => state.checked[k]));
+      const conflictPool = checkedUnits;
       if (conflictPool.length >= 2) {
         pywebview.api.check_conflicts(conflictPool).then(result => {
           if (result.conflicts && result.conflicts.length > 0) {

@@ -190,14 +190,15 @@ function openGbBrowseModal(itemName, category, onUseMod) {
     if (tagged && (rec.targets || []).length > 0) {
       const isThis = rec.targets.includes(itemName);
       const verb = rec.target_strength >= 2 ? "Replaces" : "Mentions";
-      const badge = cgEl("span", "gb-target-badge" + (isThis ? " match" : ""),
+      // green: its text says it replaces this one; amber: it only mentions it (a weaker guess); grey: it is about another one
+      const badge = cgEl("span", "gb-target-badge" + (isThis ? (rec.target_strength >= 2 ? " match" : " match weak") : ""),
         isThis ? `✓ ${verb} ${shownName}` : `${verb} ${rec.targets.slice(0, 2).join(", ")}${rec.targets.length > 2 ? "…" : ""}`);
       badge.title = rec.target_strength >= 2
         ? "Guessed from a 'goes over / replaces' phrase or a file name in the mod's description."
         : "Only mentioned in the title or description - a weaker guess.";
       pills.appendChild(badge);
     }
-    if (isCourse && rec.mentions_course) pills.appendChild(cgEl("span", "gb-target-badge match", `✓ Mentions ${S.query || shownName}`));
+    if (isCourse && rec.mentions_course) pills.appendChild(cgEl("span", "gb-target-badge match weak", `✓ Mentions ${S.query || shownName}`));
     if (pills.childElementCount) body.appendChild(pills);
 
     if (rec.description_snippet) {

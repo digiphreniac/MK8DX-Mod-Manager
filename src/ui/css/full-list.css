@@ -106,16 +106,6 @@
     cursor: pointer;
   }
   .mod-row .linked-badge { flex: 0 0 auto; }
-  .linked-card-hint { margin: 0; padding: 8px 14px 4px 14px; }
-  .char-linked-mark {
-    font-size: 10.5px;
-    font-weight: 600;
-    color: var(--accent);
-    margin-top: 4px;
-  }
-  /* A part with no mods of its own but linked ones shouldn't fade out like an
-     untouched one. */
-  .char-tile.no-mods.has-linked { opacity: 0.85; }
   .patch-badge {
     font-size: 10.5px;
     text-transform: uppercase;

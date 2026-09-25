@@ -54,10 +54,6 @@
   .vehicle-grid .char-conflict-badge { top: 3px; left: 3px; width: clamp(13px, calc(var(--vt) * 0.22), 18px); height: clamp(13px, calc(var(--vt) * 0.22), 18px); font-size: clamp(9px, calc(var(--vt) * 0.15), 12px); }
   .vehicle-grid .char-attention-dot { top: 5px; left: 5px; }
   /* "mods filed elsewhere also ship this part's model file": a small pill along the bottom */
-  .vehicle-grid .char-linked-mark {
-    position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); margin: 0; padding: 0 6px; white-space: nowrap; pointer-events: auto;
-    font-size: clamp(8px, calc(var(--vt) * 0.13), 11px); line-height: 1.5; border-radius: 9px; background: var(--panel); border: 1px solid var(--accent);
-  }
 
   /* the "have you checked it?" marker sits bottom right (the count is top right, a clash top left) */
   .vehicle-grid .tile-review-mark { top: auto; bottom: 5%; right: 5%; width: clamp(11px, calc(var(--vt) * 0.19), 16px); height: clamp(11px, calc(var(--vt) * 0.19), 16px); }

@@ -128,7 +128,7 @@ before `main.js` has registered its listener now that the scripts load one by on
 script is in.
 
 Which file holds what, roughly: `tiles-and-review.js` (character/course tiles, the "have you checked the look" review),
-`character-select-layout.js` (the docked card, hover name bar), `gamebanana.js` (the mod detail window and the GameBanana card),
+`character-select-layout.js` (the docked card, hover name bar), `gamebanana.js` (the mod detail window and the GameBanana card), `refile.js` (a mod for something other than its card: the note, Undo, "Move to..."),
 `gb-browse.js` (the Browse GameBanana window), `rich-text.js` (descriptions with links),
 `voice.js` (playback, the voice editor, the "Use my own sound" tool, the card's Voice row), `character-card.js` (the card
 itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, More, Course Select, tab switching), `vehicle-screen.js` (the Vehicles screen), `vehicle-card.js` (the vehicle card's "Right part" step), `item-screen.js` (the Items screen, its docked card and fit), `item-card.js` (the item card), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
@@ -1155,7 +1155,7 @@ wiki, mk8dxbuilder.com and real mod archives, unchanged through game 4.0.0).
 picture of it (no name on the tile), and it is sized to fit the window without scrolling. The part being viewed - the one
 whose card is (or was last) open - has the yellow corner brackets and its name on the plate along the bottom, with its kind
 small beside it ("Mach 8 (Kart)"); while the mouse is over a tile, the plate shows that one instead and a white frame follows
-the mouse. Tick counts, the red conflict "!" and the "N linked" pill are as before; a hovered tile gets only the white frame (no accent border).
+the mouse. Tick counts (a pack counts on every tile it is listed on - see "A mod for something other than its card") and the red conflict "!" are as before; a hovered tile gets only the white frame (no accent border).
 
 Fitting (`fitVehicleScreen()` in `js/vehicle-screen.js`): one tile size for all 78 parts (a 200:128 picture), found by
 trying every size from big to small and every way of laying the boards out - `a` [bodies | wheels over gliders], `b` [bodies
@@ -1175,8 +1175,8 @@ Before Setup - or if a picture is missing - the tile shows the part's name.
 
 **The card** is guided like the character and course cards: a head with the part's picture, its name, its kind and where it
 stands ("Kart · 2 mods in use"), and a chip (No mod yet / Choose a mod / Needs a look / Done); then the mods in use (the
-rest behind "Manage"), with "Find a mod" / "Add another mod" under them and any mods filed elsewhere that also ship the part
-(see "Linked mods" below); then three steps:
+rest behind "Manage"), with "Find a mod" / "Add another mod" under them (packs that replace this part are ordinary rows here);
+then three steps:
 - **Right part** - a mod is filed under a part by where it was found, but what counts is the model file it ships: a ticked
   mod whose file is for a *different* part changes nothing on this one, so the step says which part it is really for and
   offers "Move it to <part>" (`gb_move_mod()`, which takes the tick with it) or "Untick it". Worked out from the files
@@ -1215,37 +1215,18 @@ character modal / GameBanana card / conflict machinery unchanged.
   (`Kart/Body/BodyK_*.szs`, `Kart/Tire/TireK_*.szs`, `Kart/Wing/Wing_*.szs`)
   name the exact part they replace, so a download whose files don't include the
   part it was filed under gets the same "slot mismatch" warning courses do
-  (`find_vehicle_part_ids()`).
+  (`find_vehicle_part_ids()`). That includes a different *kind* of part: a tire or glider mod filed under a body, say (a mod
+  with no model file at all, such as a texture pack, is never flagged).
 - **Loose files are auto-wrapped**: about half of body mods ship
   `BodyK_Cat.szs` etc. with no folders at all; `fix_loose_kart_parts()` moves
   each into `romfs/Kart/<Body|BodyTex|Tire|Wing|WingTex|Emblem>/` by its file
   name, all-or-nothing like the loose item-file fixer.
 - The **Add a mod** flow can suggest a vehicle part from the mod's category +
   description.
-- **Linked mods** (`Api.get_vehicle_links()`): some character mods also ship a
-  vehicle part's model file (e.g. the Pomni mods include the Gold Standard
-  body; "Dr. Mario in the House" ships the GLA body, Blue Standard tires and two
-  gliders), and a body mod filed under one part can ship another's. Only the
-  real load locations count (`romfs/Kart/{Body,Tire,Wing}/`); per-character
-  paint (`BodyTex`/`WingTex`) and `Emblem` files don't, since those are a
-  character's own colors on a stock part, not a replacement of it. The part's
-  tile gets a "N linked mods" marker and its modal an "Also ships this part"
-  card; the mod's own row gets an "also ships: X" badge. This is read-only
-  attribution - a mod stays one unit filed where it was downloaded, the
-  checkbox shares the same state everywhere, and **linked mods are never
-  counted** in a tile's X/Y, a section summary, or any footer stat. They ARE
-  included in conflict checks for the part. Wording is deliberately "ships
-  files for", not "modifies": authors often bundle unchanged stock files and
-  there's no vanilla copy to compare against.
-- **Misfiled? Move it.** When a download's files don't match the part it's
-  filed under, the warning names the part(s) it really ships ("ships Sports
-  Coupe's file ... not Standard Kart's") with a **Move to <part>** button
-  (`Api.gb_move_mod()`): the tracking entry, extracted folders, archives and
-  ticked state all move together, the slot check is re-run against the new
-  home, and a failed move is rolled back with nothing recorded. It refuses if
-  the mod is already tracked under the target. Such a download's block is left
-  open (not auto-collapsed) and the mod is not auto-ticked, since it probably
-  belongs elsewhere (this also applies to a course's slot/music warning).
+- **Packs and misfiled mods** (a character mod that also ships a body, a body mod filed under the wrong part...) are handled
+  the same way for every kind of thing - see "A mod for something other than its card". Only the real load locations count
+  for a vehicle part (`romfs/Kart/{Body,Tire,Wing}/`); per-character paint (`BodyTex`/`WingTex`) and `Emblem` files don't, since
+  those are a character's own colors on a stock part, not a replacement of it.
 - **Add a mod**: a mod that's unmistakably a vehicle part but whose text names
   no part (`guess_category == "vehicle_unsorted"`, typically filed directly
   under GameBanana's Vehicles) opens with "- pick a part -" selected instead of
@@ -1309,15 +1290,18 @@ grid fits its board, over whichever number of columns gives the biggest (the cou
 (`gb_browse_item()`, reusing `match_vehicle_targets()` with the roster's names, aliases and model-folder ids; common one-word names
 like "star" or "coin" only count after a "replaces / goes over" phrase). "Add a mod" has an **Item** target, prefilled from the
 same guess; a mod naming no single item (or several: an item pack) is suggested for **Other items**. A mod that lands under the
-wrong item, or in Other items, is re-filed from the card's "Filed under the wrong item?" row (`gb_move_mod()`, which now moves
-between items as well as between vehicle parts, taking the tick and the GameBanana record with it; `get_item_mod_ids()` says which
-mods can be moved - a mod added by hand has no id). What was filed before items had a roster sits in `items/Items/` (the old
+wrong item, or in Other items, is moved from the mod's "..." menu like any other (see "A mod for something other than its card"; "Other items"
+also lists its mods with a picker each). What was filed before items had a roster sits in `items/Items/` (the old
 fixed pseudo-item): it isn't moved - the catch-all tile (name `Items`, shown as "Other items") collects it, along with anything in
 a folder that matches no item.
 
+An item mod's files say which item it replaces: the folders under `RaceCommon/Item/` (`ItemBanana`, `ItemPowerKinoko`, ...), matched to
+the roster's `internal` ids (`_item_folder_owners()`; a folder that only extends an item - `ItemKoura_FX`, `ItemBomheiBomb`, `ItemCoinB`
+- belongs to the longest id it starts with, and the Green and Red Shell share `ItemKoura`, so a mod shipping it replaces both).
+Folders the app can't place (`ItemCommon`, which every item uses) leave the mod where it is.
+
 Not done for items (unlike vehicle parts): the **Name and Icons steps** - an item's picture (`tc_Item_*`, in both `menu.sarc` and
-`race.sarc`) has no override yet, and where the game's text names the items hasn't been found - and the "wrong model file" check
-(`RaceCommon/Item/<model>/` in a mod's files would say which item it replaces).
+`race.sarc`) has no override yet, and where the game's text names the items hasn't been found.
 
 ## Vehicle parts: names and pictures in the menus
 
@@ -1349,6 +1333,46 @@ wish by name, and the text is written into every language's `message.sarc` at co
 
 Not verified in a running game: that the console shows the loose files and the new names (only the built files and text
 were decoded and compared) - try it in an emulator or on hardware.
+
+## A mod for something other than its card: one experience for every kind
+
+GameBanana files a mod where its author put it, and the files inside often say something else - a Luigi mod on Mario's page, a tire
+mod on a kart's, a course retexture on the wrong course, an item pack. This works the same for characters, courses, vehicle parts
+and items, and the app talks about what a mod *replaces* (never "slots" or "filing").
+
+**What the files say** (`_download_slot_mismatch()` -> a mismatch dict with `targets`, the things the files are for, and
+`unresolved`, how many of the files' ids the app can't place): a character's `Driver/` and `Audio/Driver*` files
+(`slot_characters()`), a course's `Course/<id>/` folder (`_course_slot_mismatch()`), a vehicle part's `Kart/{Body,Tire,Wing}/`
+model - across kinds too, so a tire mod on a kart's page counts - and an item's `RaceCommon/Item/<model>/` folder
+(`_item_slot_mismatch()`). A mod with no such file (a texture pack) says nothing and is never moved.
+
+**After a download** (`gb_download_files()` -> `_refile_mod()`): if every downloaded file's files are for something other than the
+card it came from and the app can place all of them, the mod is moved there (`gb_move_mod()`): one thing -> that thing; several
+(a pack) -> the first of them in the app's order (`_refile_rank()`), where it is filed, and it is listed on the others (below).
+The page then runs `finishRefile()` (`js/refile.js`): the destination's card opens (pop-up or docked) with a note - *"X" replaces
+Mach 8, not Standard Kart, so it is now under Mach 8* / *"X" is a pack: it replaces A and B...* - the mod is ticked when it is the
+only one that card has (the rule for any fresh download), and the note has an **Undo** (`undoRefile()`: the same move back, and it
+unticks what the app ticked). Nothing is guessed: a file that fits the card, or names something unrecognised, leaves the mod where
+it is, with a warning that names what it replaces and a "Move to X" button (`buildFileRow()`); a move that fails (the mod is
+already tracked under the target) says so on the card.
+
+**Moving one by hand**: every mod's "..." menu has "Move to another character / course / part / item..." (`openMoveDialog()`),
+enabled for mods that came through GameBanana (`get_mod_ids()`; a mod added by hand has no record to move). A mod can only move
+between things of its own kind (a character to a character, a part to a part). "Other items" - where item mods that name no
+single item pile up - also lists each of its mods with a picker.
+
+**What a move moves** (`gb_move_mod()`): the extracted folders, the archives, the tracking entry, the ticks, and everything else
+the app remembers by the mod's path - the files left out of it, the clash priorities, voice edits, look reviews and menu picture
+choices (`_rekey_unit_prefix()` rewrites those files). It returns `moved_folders`, which is how an undo finds the ticks. A failed
+move is rolled back with nothing recorded.
+
+**Packs** (`get_pack_links()`): a mod whose files replace more than one thing is listed on the card of each one. The pack stays one
+mod filed in one place (never copied); its keys join the other entries' `units` on the page (`refreshViewsState()`, `packUnits`
+marks them), so it is an ordinary row there - counted in the card and on the tile, in the footer totals (`get_stats()`), and in
+conflict checks - with a "Pack . also X" badge (`buildPackBadge()`; click it to open the next card), and its menu says "Open where
+it's filed" instead of "Move". One tick is shared everywhere, so ticking it on any card turns on everything in it, and the badge
+and note say so. Wording is deliberately "replaces", read from the files: authors sometimes bundle stock files unchanged, and there
+is no vanilla copy to compare against. This replaces the old vehicle-only, read-only "Also ships this part" card.
 
 ## Course-select icon preview & generation
 

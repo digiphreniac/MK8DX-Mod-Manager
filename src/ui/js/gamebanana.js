@@ -155,70 +155,57 @@ function buildGameBananaCard(itemName, category, opts) {
       // open on. Soft hint only: nothing is hidden or blocked.
       const warn = document.createElement("span");
       warn.className = "gb-file-warn";
-      warn.textContent = `⚠ Filename mentions "${file.other_character_hint}" - double check this file is meant for this character before downloading.`;
+      warn.textContent = `⚠ This file's name mentions "${file.other_character_hint}" - check it is for ${itemName} and not ${file.other_character_hint} before downloading.`;
       nameEl.appendChild(warn);
     }
     if (file.slot_mismatch) {
-      // The download succeeded, but the internal romfs/Course/<id>/ folder
-      // it actually wrote doesn't match roster.json's known id(s) for
-      // this course - it's a real course, just very likely not this one (see
-      // roster.json's "internal" field). Nothing is blocked; this is
-      // exactly the kind of mismatch that otherwise only shows up later as a
-      // silent commit conflict against whichever course really owns
-      // that slot.
+      // The download worked, but its own files say it replaces something else than this card's (see refile.js): a Luigi mod on
+      // Mario's page, a tire on a kart's, another course's Course/ folder. Nothing is blocked. The app moves a mod that is
+      // clearly for one other thing by itself (and never gets here); this is a mod it couldn't - a pack, or a move that failed -
+      // so it says what the mod replaces and offers to move it.
+      const sm = file.slot_mismatch;
+      const shown = refileLabel(itemName);
       const warn = document.createElement("span");
       warn.className = "gb-file-warn";
-      const foundParts = file.slot_mismatch.found_parts || [];
-      if (findVehicleItem(itemName) && foundParts.length > 0) {
-        // Name the part(s) it really ships instead of internal file ids, and
-        // offer to re-file it there in one click.
-        const names = foundParts.map(fp => fp.name);
-        warn.textContent = `⚠ This mod ships ${names.join(" / ")}'s file (${file.slot_mismatch.found.join(", ")}), not ${itemName}'s - it probably belongs under ${names.length === 1 ? "that part" : "one of those parts"} instead.`;
+      // (a download recorded before mismatches named their targets carries them under older names)
+      const targets = sm.targets
+        || (sm.found_parts || []).map(p => ({ name: p.name, category: p.section }))
+        || (sm.found_characters || []).map(n => ({ name: n, category: "characters" }));
+      if (targets.length > 0) {
+        warn.textContent = `⚠ This mod replaces ${targets.map(t => t.name).join(" / ")}, not ${shown}.`;
         nameEl.appendChild(warn);
         const moveRow = document.createElement("span");
         moveRow.className = "gb-move-row";
-        for (const fp of foundParts.slice(0, 3)) {
+        for (const t of targets.slice(0, 3)) {
           const moveBtn = document.createElement("button");
           moveBtn.className = "ghost small";
-          moveBtn.textContent = `Move to ${fp.name}`;
-          moveBtn.title = `Re-file this mod (and its downloaded files) under ${fp.name}`;
+          moveBtn.textContent = `Move to ${t.name}`;
+          moveBtn.title = `Move this mod (and its downloaded files) to ${t.name}`;
           moveBtn.addEventListener("click", async (e) => {
             e.stopPropagation();
             moveBtn.disabled = true;
             moveBtn.textContent = "Moving...";
-            const result = await pywebview.api.gb_move_mod(itemName, mod.mod_id, fp.name, mod.record_type || "Mod");
+            const result = await refileMod({ from: itemName, to: t.name, modId: mod.mod_id, recordType: mod.record_type, modName: mod.name, auto: true });
             if (!result.success) {
               moveBtn.disabled = false;
-              moveBtn.textContent = `Move to ${fp.name}`;
+              moveBtn.textContent = `Move to ${t.name}`;
               warn.textContent = `⚠ Couldn't move it: ${result.error}`;
-              return;
             }
-            await loadMods();   // (not just refreshViewsState: the move renamed the mod's ticked-state key too)
-            switchView("vehicles");
-            openCharacterModal(fp.name);
-            refreshBehindModal();
           });
           moveRow.appendChild(moveBtn);
         }
         nameEl.appendChild(moveRow);
-      } else if (file.slot_mismatch.found_characters) {
-        const who = file.slot_mismatch.found_characters;
-        warn.textContent = `⚠ This mod's driver/voice files are for ${who.join(" / ")}, not ${itemName} - it probably belongs under ${who.length === 1 ? "that character" : "one of those characters"} instead.`;
-        nameEl.appendChild(warn);
       } else {
-        warn.textContent = findVehicleItem(itemName)
-          ? `⚠ This mod ships "${file.slot_mismatch.found.join(", ")}", not this part's own file (${file.slot_mismatch.expected.join(", ")}) - it probably replaces a different part and belongs under that row instead.`
-          : `⚠ This mod writes to "${file.slot_mismatch.found.join(", ")}", not this course's known slot (${file.slot_mismatch.expected.join(", ")}) - it may belong under a different course row.`;
+        warn.textContent = `⚠ This mod's files aren't for ${shown} (they name ${sm.found.join(", ")}) - it may replace something else. Use "Move to another..." on its row if it does.`;
         nameEl.appendChild(warn);
       }
     }
     if (file.music_mismatch) {
-      // Same idea as slot_mismatch, for the bundled race music instead of
-      // the course geometry - independent signal, so this can fire even
-      // when the Course/ folder itself was correct.
+      // The same idea for the bundled race music instead of the course geometry - an independent signal, so it can fire even
+      // when the Course/ folder itself was right.
       const warn = document.createElement("span");
       warn.className = "gb-file-warn";
-      warn.textContent = `⚠ This mod's music is "${file.music_mismatch.found.join(", ")}", not this course's known music (${file.music_mismatch.expected.join(", ")}) - it may belong under a different course row.`;
+      warn.textContent = `⚠ This mod's music is for a different course than ${itemName} (${file.music_mismatch.found.join(", ")}).`;
       nameEl.appendChild(warn);
     }
     if (file.download_status === "ui_assets") {
@@ -440,6 +427,16 @@ function buildGameBananaCard(itemName, category, opts) {
           modError.hidden = false;
           await refreshAfterChange();
           return;
+        }
+        // The files are for something else than this card's: the app has already moved the mod there - go and finish the
+        // install (see refile.js)
+        if (result.moved) {
+          setSectionDisabled(false);
+          await finishRefile(result.moved, { auto: true });
+          return;
+        }
+        if (result.move_error) {   // (say so on this card, where the warning and the manual buttons are)
+          cardNotice = { item: itemName, text: `"${mod.name}" replaces something else than ${refileLabel(itemName)}, but couldn't be moved there: ${result.move_error}` };
         }
         // Clean download - tuck just this mod block away, not the whole
         // section, so any other pending companion mod stays visible. Except
