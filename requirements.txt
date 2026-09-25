@@ -1,2 +1,2 @@
-pywebview
+pywebview>=5
 Pillow

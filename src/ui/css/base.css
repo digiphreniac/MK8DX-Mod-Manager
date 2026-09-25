@@ -1,0 +1,119 @@
+  :root {
+    --bg: #f7f8fa;
+    --panel: #ffffff;
+    --panel-border: #e3e6ea;
+    --text: #20242c;
+    --text-dim: #6b7280;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-soft: #eef3ff;
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+    --ok: #16a34a;
+    --ok-soft: #f0fdf4;
+    --warn: #b45309;
+    --warn-soft: #fffbeb;
+    --mono: "Cascadia Code", "Consolas", monospace;
+    --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    /* Recurring neutral surfaces that used to be hardcoded hex literals
+       scattered through the file - pulled into tokens so dark mode can
+       redefine them all in one place below instead of chasing every
+       occurrence. */
+    --bg-soft: #fafbfc;
+    --thumb-bg: #eef1f5;
+    --divider: #f0f1f3;
+    --hover-bg: #f4f6f8;
+    --hover-border: #c7ccd4;
+    --mark-bg: #fef3c7;
+    --log-text: #374151;
+    --log-conflict-text: #7f1d1d;
+    --log-ok-text: #14532d;
+    /* Footer is deliberately NOT redefined in dark mode below - it stays
+       this same dark color in both themes (explicit user request). */
+    --footer-bg: #1b1f27;
+    --footer-text: #aab1bd;
+    --footer-text-strong: #f3f4f6;
+    /* Faint checkerboard texture on the page background - see body's
+       background-image below for how this is turned into actual squares. */
+    --checker-tint: rgba(0, 0, 0, 0.028);
+    /* Backdrop behind a character tile's name, so it stays legible over
+       that character's own corner-gradient background (see
+       buildCornerGradient() and #char-grid .char-name below). */
+    --tile-label-bg: rgba(255, 255, 255, 0.8);
+    /* The scrollbars (see the ::-webkit-scrollbar rules below) */
+    /* Tooltips: dark in both themes, like the footer */
+    --tip-bg: #1b1f27;
+    --tip-text: #e5e7eb;
+    --tip-label: #9dbdff;
+    --tip-border: rgba(255, 255, 255, 0.14);
+    --scroll-thumb: rgba(107, 114, 128, 0.4);
+    --scroll-thumb-hover: rgba(107, 114, 128, 0.68);
+    /* The widest the app's content gets: on a wider window the extra space goes to the sides, and the
+       header, tabs, pages and footer stay lined up with each other (see the last rule in this sheet). */
+    --app-max: 1800px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181d;
+      --panel: #1e2128;
+      --panel-border: #33373f;
+      --text: #e5e7eb;
+      --text-dim: #9299a6;
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --accent-soft: #1e2c4d;
+      --danger: #f87171;
+      --danger-soft: #3a1d1d;
+      --ok: #4ade80;
+      --ok-soft: #16301f;
+      --warn: #fbbf24;
+      --warn-soft: #3a2f0f;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      --bg-soft: #23262e;
+      --thumb-bg: #2a2e37;
+      --divider: #2a2e37;
+      --hover-bg: #262a32;
+      --hover-border: #454a54;
+      --mark-bg: #57530a;
+      --log-text: #d1d5db;
+      --log-conflict-text: #fca5a5;
+      --log-ok-text: #86efac;
+      --checker-tint: rgba(255, 255, 255, 0.05);
+      --tile-label-bg: rgba(10, 11, 14, 0.72);
+      --tip-bg: #2b3039;
+      --tip-border: rgba(255, 255, 255, 0.18);
+      --scroll-thumb: rgba(146, 153, 166, 0.34);
+      --scroll-thumb-hover: rgba(146, 153, 166, 0.62);
+    }
+  }
+  * { box-sizing: border-box; }
+  /* Scrollbars in the app's colours: a slim rounded thumb on a see-through track (the 3px transparent border
+     is what makes the thumb slimmer than its track), lighter when the mouse is over it, the accent colour
+     while it is dragged. */
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); background-clip: padding-box; border: 3px solid transparent; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:active { background: var(--accent); background-clip: padding-box; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+  @supports not selector(::-webkit-scrollbar) { * { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; } }
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    /* Classic 4-layer checkerboard trick: two diagonal gradients laid at an
+       offset from two more of the same, so the tinted triangles pair up
+       into alternating squares. --checker-tint is the only thing that
+       differs between light/dark mode. */
+    background-image:
+      linear-gradient(45deg, var(--checker-tint) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--checker-tint) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--checker-tint) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--checker-tint) 75%);
+    background-size: 48px 48px;
+    background-position: 0 0, 0 24px, 24px -24px, -24px 0px;
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }

@@ -1,0 +1,85 @@
+  /* Character Select, wide window: the grid on the left, the picked character's card on the right
+     (the same content the pop-up shows). Below DOCK_MIN_WIDTH nothing here applies and the card is a
+     pop-up as before. The grid keeps its 8 columns (the in-game arrangement); its tiles just get smaller. */
+  #char-detail, #char-namebar { display: none; }
+  /* the view itself becomes a column: [grid | card] filling the height, then the name row. Both
+     columns scroll on their own, so they are always the same height and end above the name row. */
+  #view-characters.docked:not([hidden]) { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+  #view-characters.docked #char-layout { flex: 1 1 auto; min-height: 0; display: flex; align-items: stretch; gap: 16px; }
+  /* Fixed proportions at any window size: the grid's column is 55% of the width and the card 45%
+     (the 16px between them is split off both). The grid always shows every tile: the tile size is worked out
+     in JS (fitCharacterGrid) from the column's width AND height, so a wide-but-short window gets smaller
+     tiles rather than a taller grid, and the whole grid is centred in its column. Its gaps and type scale
+     with the tile, so it looks the same at every size. */
+  #char-layout.docked #char-grid-col { flex: 0 0 calc(55% - 8px); min-width: 0; overflow-x: hidden; overflow-y: auto; display: flex;
+    align-self: center; max-height: 100%; }   /* the board is as tall as its grid (not stretched), centred vertically like the grid was */
+  #char-layout.docked #char-grid {
+    display: grid; grid-template-columns: repeat(8, var(--tile, 70px)); grid-auto-rows: var(--tile, 70px);
+    gap: calc(var(--tile, 70px) * 0.12); width: max-content; max-width: none;
+    margin: auto;   /* centred vertically and horizontally in the board (and safe if it ever overflows) */
+  }
+  #char-layout.docked #char-detail {
+    display: flex; flex-direction: column;
+    flex: 0 0 calc(45% - 8px);
+    min-height: 0;
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 14px; box-shadow: var(--shadow);
+  }
+  #view-characters.docked #char-namebar { display: flex; flex: 0 0 auto; height: 76px; align-items: center; justify-content: center; }
+  #char-name-plate, #course-name-plate, #vehicle-name-plate, #item-name-plate {
+    width: 48%; min-width: 300px; max-width: 640px; box-sizing: border-box;
+    padding: 9px 56px; text-align: center; color: #fff; font-size: 22px; font-weight: 700; letter-spacing: 0.02em; line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+    background: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.62) 22%, rgba(0,0,0,0.62) 78%, rgba(0,0,0,0) 100%);
+    opacity: 0; transition: opacity 0.12s;
+  }
+  #char-name-plate.show, #course-name-plate.show, #vehicle-name-plate.show, #item-name-plate.show { opacity: 1; }
+  #char-name-plate .np-base, #course-name-plate .np-base, #vehicle-name-plate .np-base, #item-name-plate .np-base { font-size: 0.62em; font-weight: 500; letter-spacing: 0; margin-left: 0.55em; color: rgba(255, 255, 255, 0.62); }
+  #char-layout.docked #char-detail-header { display: none; }   /* the name lives on the plate below; the pop-up keeps its title */
+  #char-detail-header { padding: 14px 16px; border-bottom: 1px solid var(--panel-border); display: flex; align-items: center; gap: 8px; }
+  #char-detail-header h2 { margin: 0; font-size: 16px; flex: 1; }
+  #char-detail-body { padding: 14px 16px 16px 16px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+  /* type, count bubble and padding follow the tile size */
+  #char-layout.docked #char-grid .char-name { font-size: clamp(9.5px, calc(var(--tile, 70px) * 0.14), 15px); padding: 1px 4px; }
+  #char-layout.docked #char-grid .tile-count-bubble {
+    top: calc(var(--tile, 70px) * 0.04); right: calc(var(--tile, 70px) * 0.04);
+    min-width: clamp(19px, calc(var(--tile, 70px) * 0.27), 30px); height: clamp(19px, calc(var(--tile, 70px) * 0.27), 30px);
+    padding: 0 5px; font-size: clamp(10.5px, calc(var(--tile, 70px) * 0.15), 15px);
+  }
+  #char-layout.docked #char-grid .char-tile { padding: calc(var(--tile, 70px) * 0.07) calc(var(--tile, 70px) * 0.05); }
+  /* A modded tile shows its icon alone in the wide layout: the name lives on the plate below (which follows
+     the mouse), so the label would only be a second copy. Tiles without an icon keep their name. */
+  #char-layout.docked #char-grid .char-tile.has-icon .char-name { display: none; }
+  /* The tile's "have you checked the look?" marker (top right, beside the count badge if that is on):
+     an amber dot = mods ticked, look not checked yet; a green tick = checked. */
+  .tile-review-mark {
+    position: absolute; top: 6%; right: 6%; box-sizing: border-box; pointer-events: none;
+    width: clamp(10px, calc(var(--tile, 70px) * 0.17), 15px); height: clamp(10px, calc(var(--tile, 70px) * 0.17), 15px);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center; line-height: 1;
+    font-size: clamp(8px, calc(var(--tile, 70px) * 0.12), 11px); font-weight: 800; color: #fff;
+  }
+  .tile-review-mark.todo { background: var(--warn); box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.35); }
+  .tile-review-mark.done { background: var(--ok); box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.35); }
+  .tile-count-bubble ~ .tile-review-mark { right: 34px; }
+  /* "a ticked mod ships voice files for this character": a small speaker, top left (the review dot is top right) */
+  .tile-voice-mark {
+    position: absolute; top: 6%; left: 6%; box-sizing: border-box; pointer-events: none;
+    width: clamp(15px, calc(var(--tile, 70px) * 0.24), 24px); height: clamp(15px, calc(var(--tile, 70px) * 0.24), 24px);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: rgba(20, 22, 28, 0.78); color: #fff; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.55);
+  }
+  .tile-voice-mark svg, .part-badge.voice svg { width: 62%; height: 62%; display: block; }
+  .speaker-cone { fill: currentColor; }
+  .speaker-wave { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+  /* While a tile's select sound plays its speaker lights up and the two waves pulse, one after the other */
+  .tile-voice-mark { transition: background 0.15s; }
+  .tile-voice-mark.speaking { background: var(--accent); }
+  .tile-voice-mark.speaking .speaker-wave.w1 { animation: speaker-talk 0.7s ease-in-out infinite; }
+  .tile-voice-mark.speaking .speaker-wave.w2 { animation: speaker-talk 0.7s ease-in-out 0.25s infinite; }
+  @keyframes speaker-talk { 0%, 100% { opacity: 0.2; } 45% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .tile-voice-mark.speaking .speaker-wave { animation: none; } }
+  .ml-review { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .ml-checked { color: var(--ok); font-weight: 600; font-size: 13px; }
+  /* in the card, the check-it row stays in view while the Look step is scrolled */
+  .cl-look .ml-review { position: sticky; bottom: 0; z-index: 1; background: var(--panel); margin-top: 4px; padding: 8px 0 4px 0; border-top: 1px solid var(--divider); }

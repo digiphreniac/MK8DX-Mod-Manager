@@ -1,0 +1,38 @@
+<div id="icon-gen-modal-backdrop" hidden>
+  <div id="icon-gen-modal">
+    <div id="icon-gen-modal-header">
+      <h2 id="icon-gen-title">Generate Course Icon</h2>
+      <button class="ghost" id="btn-icon-gen-modal-close">Close</button>
+    </div>
+    <div id="icon-gen-modal-body">
+      <div id="icon-gen-step-pick">
+        <div class="settings-hint" id="icon-gen-pick-hint">
+          Pick one of this mod's own GameBanana screenshots to use as the course-select picture. Nothing this mod doesn't already show off gets used.
+        </div>
+        <div id="icon-gen-mod-icons-box" hidden>
+          <div class="icon-gen-section-title">Icons from the mod</div>
+          <div id="icon-gen-mod-icons"></div>
+          <div class="icon-gen-section-title" id="icon-gen-other-title" hidden>Named for another character</div>
+          <div id="icon-gen-mod-icons-other"></div>
+          <div id="icon-gen-mod-error" class="gb-mod-error" hidden></div>
+        </div>
+        <div class="icon-gen-section-title" id="icon-gen-shots-title" hidden>Screenshots and your own pictures</div>
+        <div id="icon-gen-screenshot-grid"></div>
+      </div>
+      <div id="icon-gen-step-crop" hidden>
+        <div class="settings-hint" id="icon-gen-crop-hint">
+          Drag the box to choose what shows - this exact area becomes the in-game picture.
+        </div>
+        <div id="icon-gen-crop-stage">
+          <img id="icon-gen-crop-image" alt="">
+          <div id="icon-gen-crop-box"></div>
+        </div>
+        <div id="icon-gen-error" class="gb-mod-error" hidden></div>
+        <div id="icon-gen-crop-actions">
+          <button class="ghost small" id="btn-icon-gen-back">Back</button>
+          <button class="primary small" id="btn-icon-gen-confirm">Use this crop</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

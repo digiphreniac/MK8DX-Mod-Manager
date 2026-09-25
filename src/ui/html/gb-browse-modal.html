@@ -1,0 +1,25 @@
+<div id="gb-browse-modal-backdrop" hidden>
+  <div id="gb-browse-modal">
+    <div id="gb-browse-modal-header">
+      <h2 id="gb-browse-modal-title">Browse GameBanana</h2>
+      <div id="gb-browse-modal-searchbox" class="gb-searchbox">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5 14 14"/></svg>
+        <input id="gb-browse-modal-search" type="text" placeholder="Search GameBanana..." aria-label="Search GameBanana" autocomplete="off" spellcheck="false">
+        <button type="button" id="gb-browse-modal-search-clear" class="gb-search-clear" title="Clear the search" aria-label="Clear the search" hidden>✕</button>
+      </div>
+      <select id="gb-browse-modal-sort" class="gb-sort-select" aria-label="Sort"></select>
+      <div id="gb-browse-modal-view" class="gb-view-toggle" role="group" aria-label="Layout">
+        <button type="button" data-view="grid" title="Grid: big pictures" aria-pressed="true">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="1.8" y="1.8" width="5" height="5" rx="1"/><rect x="9.2" y="1.8" width="5" height="5" rx="1"/><rect x="1.8" y="9.2" width="5" height="5" rx="1"/><rect x="9.2" y="9.2" width="5" height="5" rx="1"/></svg>
+        </button>
+        <button type="button" data-view="list" title="List: small pictures, more to read" aria-pressed="false">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5.5 3.5h9M5.5 8h9M5.5 12.5h9"/><circle cx="2" cy="3.5" r=".6"/><circle cx="2" cy="8" r=".6"/><circle cx="2" cy="12.5" r=".6"/></svg>
+        </button>
+      </div>
+      <button class="ghost" id="btn-gb-browse-modal-close">Close</button>
+    </div>
+    <div id="gb-browse-modal-body">
+      <div id="gb-browse-modal-results"></div>
+    </div>
+  </div>
+</div>

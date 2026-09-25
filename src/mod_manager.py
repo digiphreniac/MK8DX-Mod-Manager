@@ -18,6 +18,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import types
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
@@ -28,17 +29,21 @@ import webview
 
 import bntx_decode
 import bntx_encode
+import cup_icons
+import item_icons
+import vehicle_icons
 import gamebanana_api
 import ui_setup
 import voice_audio
 import voice_edit
 import game_files
-from voice_api import VoiceEditMixin
+from voice_api import VoiceEditMixin, VOICE_EDITS_FILENAME
 
 TITLE_ID = "0100152000022000"  # Mario Kart 8 Deluxe
 STATE_FILENAME = "mod-manager-state.json"
 ROSTER_FILENAME = "roster.json"
 GB_CATEGORIES_CACHE_FILENAME = "gamebanana-categories-cache.json"
+DLC_FIRST_CUP = "Golden Dash Cup"   # the first Booster Course Pass cup (its courses' pictures are DLC01..DLC48)
 GB_MODS_FILENAME = "gamebanana-mods.json"
 CONFLICT_RESOLUTIONS_FILENAME = "conflict-resolutions.json"
 # Files a mod must NOT contribute to the merge ("leave this file out of this
@@ -64,6 +69,8 @@ EXTRACTED_DIRNAME = "extracted"
 # separate from it so app-generated files never mix with the user's own
 # hand-curated ui-icons/ content.
 COURSE_ICONS_DIRNAME = "course-icons"
+# The same for the user's own pictures for vehicle parts that are loose files (see ui_setup.build_part_pictures()).
+PART_ICONS_DIRNAME = "part-icons"
 # MK8DX's own CoursePict template convention, measured directly across four
 # different real mod-provided ym_CoursePict.bntx files (different courses,
 # different authors) - all landed within 1px of each other: the visible
@@ -101,8 +108,27 @@ VEHICLES_CATEGORY_ID = 10530  # parent of the vehicle-part section categories, s
 SIMPLE_MOD_CATEGORIES = {
     "mechanics": {"label": "Mechanics", "gb_category_id": 5088},
     "ui": {"label": "UI", "gb_category_id": 2162},
-    "items": {"label": "Items", "gb_category_id": 10579},
+    # Code patches (exefs .ips files) have a GameBanana category of their own besides Mechanics
+    "code_patches": {"label": "Code patches", "gb_category_id": 26513},
+    # A pack has no one card: it is listed on every card of what it replaces too (see get_pack_links)
+    "modpacks": {"label": "Modpacks", "gb_category_id": 16881},
+    # Custom battle courses replace battle arenas, which the course roster has no cards for - subcategory of Courses
+    "battle_courses": {"label": "Battle courses", "gb_category_id": 31808},
 }
+# GameBanana's Skins > Packs and Skins > Other/Misc subcategories: mods of a character / vehicle / item kind that no single
+# roster entry names. A search from a card of those kinds lists them too (see _search_kind).
+SKINS_PACKS_CATEGORY_ID = 10562
+SKINS_MISC_CATEGORY_ID = 10528
+# Items got their own screen and a fixed per-item roster (roster.json's "items": Banana, Green Shell, Super Horn ...) like
+# vehicle parts. GameBanana has one flat "Items" category (no subcategory per item), so - as with tires and gliders - it lists
+# every item mod and each is annotated with the item its text says it replaces (see match_vehicle_targets, which reads the
+# roster's names / aliases / model-folder ids). Mods are filed under mods/extracted/items/<item name>/. Anything filed before
+# items had a roster sits in items/Items/ (the one fixed pseudo-item they used to be): it stays where it is, and shows as the
+# last tile, "Other items" - the place for a mod that fits none of the listed items too (or several of them: an item pack).
+ITEMS_CATEGORY = "items"
+ITEMS_GB_CATEGORY_ID = 10579
+ITEMS_OTHER = "Items"          # the catch-all's name (its folder, its download records); shown as ITEMS_OTHER_LABEL
+ITEMS_OTHER_LABEL = "Other items"
 # Vehicle parts get their own tab and a fixed per-item roster (roster.json:
 # 41 bodies, 22 tires, 15 gliders) instead of a single pseudo-item. GameBanana
 # has no per-part subcategory, only these section categories under Vehicles
@@ -138,6 +164,10 @@ DEFAULT_SETTINGS = {
     # Character Select: show the "1/4" (ticked / downloaded) badge on every character tile. Off by
     # default - the header, the card and the tile's tooltip already carry the numbers.
     "show_tile_counts": False,
+    # Browse GameBanana: how the mods are listed ("grid" or "list") and how they are sorted - the last ones chosen, so the
+    # window opens the way the user left it. "" = not chosen yet (each kind of mod then has its own starting sort).
+    "gb_browse_view": "grid",
+    "gb_browse_sort": "",
     # Character Select: play a character's select sound (the voice the game plays when it is picked, from its ticked
     # mods) when its mod is finished and each time its tile is clicked afterwards - see Api.get_select_voice().
     "play_select_voice": True,
@@ -170,13 +200,13 @@ DEFAULT_SETTINGS = {
 # strictly user data (downloads, checked/desired-mod state, caches) - it does
 # NOT include roster.json, which is a static app resource (the fixed
 # roster/cup/vehicle-part definitions) shipped next to the script and
-# always read from there, the same as webui.html - a "start fresh" master
+# always read from there, the same as the UI's files in ui/ - a "start fresh" master
 # directory must never leave the app without a roster to render. Same reason
 # KNOWN_SHARED_FILES_FILENAME isn't here either.
 MASTER_DIR_ITEMS = [
     STATE_FILENAME,
     GB_CATEGORIES_CACHE_FILENAME, GB_MODS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME,
-    EXCLUDED_FILES_FILENAME, SETTINGS_FILENAME, MODS_DIRNAME, "ui-icons", COURSE_ICONS_DIRNAME,
+    EXCLUDED_FILES_FILENAME, SETTINGS_FILENAME, MODS_DIRNAME, "ui-icons", COURSE_ICONS_DIRNAME, PART_ICONS_DIRNAME,
     "ui-icons-backups", "ui-setup-cache.json",
     ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME,
 ]
@@ -200,6 +230,24 @@ def load_master_dir_pointer():
 def save_master_dir_pointer(path: Path):
     config_path = APP_ROOT / APP_CONFIG_FILENAME
     config_path.write_text(json.dumps({"master_dir": str(path)}, indent=2))
+
+
+def show_in_file_manager(path: Path, select: bool = False):
+    """Opens the system file manager at a folder, or (select=True) on a file with
+    it highlighted. Finder on macOS, Explorer on Windows and under WSL, the desktop's
+    default handler elsewhere. Raises OSError if it couldn't be launched."""
+    if sys.platform == "darwin":
+        subprocess.run(["open", "-R", str(path)] if select else ["open", str(path)], check=True)
+    elif sys.platform == "win32" or (hasattr(os, "uname") and "microsoft" in os.uname().release.lower()):
+        # explorer.exe's /select switch needs quotes around just the path,
+        # not the whole "/select,path" argument (which is what Python's
+        # normal list-based quoting produces) - so build the command line
+        # ourselves and pass it as a single string.
+        # It's also well known to return a non-zero exit code even on
+        # success, so we only treat "couldn't launch it at all" as failure.
+        subprocess.run(f'explorer.exe /select,"{path}"' if select else f'explorer.exe "{path}"')
+    else:
+        subprocess.run(["xdg-open", str(path.parent if select else path)], check=True)
 
 
 def normalize_char_name(name: str) -> str:
@@ -473,8 +521,8 @@ def mod_label(key: str, full: bool = False) -> str:
 
 # A name a mod could give its character, cleaned out of the mod's (or its folder's) name:
 # "Sandy Cheeks in Mario Kart 8 Deluxe" -> "Sandy Cheeks", "Freddy Fazbear over King Boo" ->
-# "Freddy Fazbear", "Wreck-it-Ralph Mod For DK" -> "Wreck-it-Ralph". Mirrors suggestNameFromMod()
-# in webui.html (which offers the same as a button).
+# "Freddy Fazbear", "Wreck-it-Ralph Mod For DK" -> "Wreck-it-Ralph". Used by sync_auto_names() for
+# characters and by get_course_look() for the name suggested on a course card.
 _NAME_SPLIT_RE = re.compile(r"\s+(?:over|in|for|with|from|w/)\s+|\s+[|:]\s+|\s+-\s+", re.IGNORECASE)
 _NAME_NOISE_RE = re.compile(r"\b(mod|mk8d?x?|deluxe|port|edit|updated|improved|version|v\d[\d.]*)\b", re.IGNORECASE)
 # folder names that say nothing about who the character is
@@ -992,6 +1040,8 @@ _GENERIC_PART_WORDS = {
     "standard", "monster", "roller", "slim", "slick", "metal", "button", "sponge", "wood",
     "cushion", "leaf", "leaf tires", "ancient", "gold", "comet", "parachute", "parasol",
     "triforce",
+    # items (roster.json's "items"): single words that turn up in any description
+    "star", "bell", "coin", "killer", "bomb", "ghost", "squid", "bullet",
 }
 _OVER_PREFIX = (
     r"(?:\bover\b|\breplaces\b|\breplace\b|\breplacing\b|\binstead of\b|\bin place of\b|"
@@ -1364,8 +1414,8 @@ def _name_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", (name or "").lower())
 
 
-def _ci_child(parent: Path, name: str):
-    if not parent.is_dir():
+def _ci_child(parent, name: str):
+    if parent is None or not parent.is_dir():
         return None
     return next((c for c in parent.iterdir() if c.name.lower() == name.lower()), None)
 
@@ -1408,7 +1458,7 @@ class Api(VoiceEditMixin):
         # get_AllowExternalDrop(), get_CanGoBack(), get_ZoomFactor(), ...) -
         # exactly the exception signature from the earlier freeze debugging.
         self._window = None  # set by main() right after webview.create_window()
-        self._vehicle_desc_cache = {}  # mod id -> description, for gb_browse_vehicle()
+        self._gb_desc_cache = {}  # mod id -> description, for the browse lists that read the text (vehicles, items, courses)
         self._configure_root(mod_root)
 
     def _configure_root(self, mod_root: Path | None):
@@ -1418,7 +1468,7 @@ class Api(VoiceEditMixin):
 
         The roster file is the exception - it's a static app resource (not
         user data), always read from next to the script regardless of the
-        configured master directory, same as webui.html."""
+        configured master directory, same as the UI files in ui/."""
         self.roster_path = SCRIPT_DIR / ROSTER_FILENAME
         self.known_shared_files_path = SCRIPT_DIR / KNOWN_SHARED_FILES_FILENAME
 
@@ -1563,7 +1613,7 @@ class Api(VoiceEditMixin):
         the window isn't ready yet or the user cancelled."""
         if self._window is None:
             return None
-        result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
+        result = self._window.create_file_dialog(webview.FileDialog.FOLDER)
         return result[0] if result else None
 
     def set_master_dir(self, new_path_str, move_existing):
@@ -1641,6 +1691,10 @@ class Api(VoiceEditMixin):
         data = self._load_roster_data()
         return {key: list(data.get(key, [])) for key in VEHICLE_SECTIONS}
 
+    def _load_item_roster(self):
+        """roster.json's items: [{name, icon, internal, aliases}] (the icon and internal id are optional)."""
+        return list(self._load_roster_data().get("items", []))
+
     def _vehicle_item(self, item_name):
         """(section key, roster item) for a vehicle-part name, or (None, None)."""
         for section, items in self._load_vehicle_roster().items():
@@ -1697,39 +1751,65 @@ class Api(VoiceEditMixin):
                         parts.add(key_map[key])
         return parts
 
-    def get_vehicle_links(self):
-        """Which downloaded mods ship model files for a vehicle part they
-        weren't filed under - e.g. a character mod that also replaces the Gold
-        Standard body, or a body mod filed under one part that actually ships
-        another's file. {"by_item": {part name: [unit keys]}, "by_unit":
-        {unit key: [part names]}}.
+    def _unit_replaces(self, key, key_map, characters, course_owners, item_owners):
+        """The names of everything a mod's files replace - the characters whose driver / voice files it ships, the courses whose
+        Course/ slot it writes, the vehicle parts and the items whose model files it ships - as one set (they are all different names). What
+        makes a mod a "pack" is that this has more than one in it."""
+        unit = self._unit_dir(key)
+        if not unit.is_dir():
+            return set()
+        names = {name for _section, name in self._unit_vehicle_parts(key, key_map)}
+        names |= {characters[_name_key(c)] for c in slot_characters(unit) if _name_key(c) in characters}
+        course_dir = _ci_child(_ci_child(unit, "romfs") or unit / "romfs", "course")
+        if course_dir is not None:
+            names |= {course_owners[d.name] for d in course_dir.iterdir() if d.is_dir() and d.name in course_owners}
+        item_dir = _ci_child(_ci_child(_ci_child(unit, "romfs"), "racecommon"), "item")   # (the exact place only - this runs for every mod)
+        if item_dir is not None:
+            for d in item_dir.iterdir():
+                if d.is_dir():
+                    names.update(self._items_of_folder(d.name, item_owners))
+        return names
 
-        "Ships files for" is deliberately all this claims: authors often
-        bundle unchanged stock files, and there's no vanilla copy to compare
-        against, so this can't tell a replaced part from a bundled one.
-        A mod's home (where it was downloaded) never changes and it stays a
-        single unit - these links are read-only attribution, never a second
-        copy of the mod, and are kept out of every count."""
+    def _home_names(self):
+        """{(category, normalized item folder name): item name} - to tell which thing a mod is filed under."""
+        homes = {}
+        def add(category, names):
+            for n in names:
+                homes[(category, normalize_char_name(sanitize_filename(n)))] = n
+        add("characters", self._load_roster())
+        add("courses", [c["name"] for cup in self._load_course_roster() for c in cup["courses"]])
+        for section, items in self._load_vehicle_roster().items():
+            add(section, [i["name"] for i in items])
+        add(ITEMS_CATEGORY, [i["name"] for i in self._load_item_roster()] + [ITEMS_OTHER])
+        return homes
+
+    def get_pack_links(self):
+        """Which mods are for more than the one thing they are filed under - a pack. {"by_item": {name: [unit keys]}, "by_unit":
+        {unit key: [every name it replaces]}}: `by_item` lists, for each character / course / part, the packs filed under
+        something else that replace it too - the card shows them as ordinary rows (and they count), so a pack is listed on every
+        card it affects; `by_unit` is every pack, with all the names it replaces, for its badge.
+
+        "Replaces" is read from the files (see _unit_replaces) and is deliberately all this claims: authors sometimes bundle
+        stock files unchanged, and there is no vanilla copy to compare against. A mod stays a single unit filed in one place -
+        these are listings of it, never copies - and ticking it turns on everything in it."""
         key_map = self._vehicle_key_map()
-        norm_to_name = {
-            section: {normalize_char_name(sanitize_filename(i["name"])): i["name"] for i in items}
-            for section, items in self._load_vehicle_roster().items()
-        }
+        characters = {_name_key(n): n for n in self._load_roster()}
+        course_owners = self._course_names_by_internal()
+        item_owners = self._item_folder_owners()
+        homes = self._home_names()
         by_item, by_unit = {}, {}
         for category, units in discover_mods(self.mod_root).items():
             for unit in units:
                 key = f"{category}/{unit.as_posix()}"
-                parts = self._unit_vehicle_parts(key, key_map)
-                if not parts:
+                names = self._unit_replaces(key, key_map, characters, course_owners, item_owners)
+                if not names:
                     continue
-                if category in VEHICLE_SECTIONS:  # filed under one part already
-                    home = norm_to_name[category].get(normalize_char_name(unit.parts[0]))
-                    parts.discard((category, home))
-                if not parts:
-                    continue
-                by_unit[key] = sorted(name for _section, name in parts)
-                for _section, name in parts:
+                first = unit.parts[0]   # (the item's folder; an older layout named it "<item> - <mod>")
+                home = homes.get((category, normalize_char_name(first))) or homes.get((category, normalize_char_name(first.split(" - ", 1)[0].strip())))
+                for name in names - {home}:
                     by_item.setdefault(name, []).append(key)
+                if len(names) >= 2:
+                    by_unit[key] = sorted(names)
         for keys in by_item.values():
             keys.sort()
         return {"by_item": by_item, "by_unit": by_unit}
@@ -1789,7 +1869,88 @@ class Api(VoiceEditMixin):
         chars = slot_characters(folder)
         if not chars or any(_name_key(c) == _name_key(item_name) for c in chars):
             return None
-        return {"expected": [item_name], "found": sorted(chars), "found_characters": sorted(chars)}
+        roster = {_name_key(n): n for n in self._load_roster()}
+        targets = sorted({roster[_name_key(c)] for c in chars if _name_key(c) in roster})
+        return {"expected": [item_name], "found": sorted(chars), "found_characters": sorted(chars),
+                "targets": [{"name": n, "category": "characters"} for n in targets],
+                "unresolved": sum(1 for c in chars if _name_key(c) not in roster)}
+
+    # Model folders under RaceCommon/Item/ that two items share (the Green and Red Shell are both ItemKoura), or that the roster
+    # holds no "internal" id for - {folder name (lower case): [item names]}
+    _SHARED_ITEM_FOLDERS = {"itemkoura": ["Green Shell", "Red Shell"]}
+
+    def _item_folder_owners(self):
+        """{model folder (lower case): [item names]} for RaceCommon/Item/ - roster.json's "internal" ids plus the shared ones."""
+        owners = {i["internal"].lower(): [i["name"]] for i in self._load_item_roster() if i.get("internal")}
+        owners.update(self._SHARED_ITEM_FOLDERS)
+        return owners
+
+    def _items_of_folder(self, folder_name, owners):
+        """The item(s) a RaceCommon/Item/<folder_name> model folder belongs to: its own id, or - for the extras an item brings
+        (ItemKoura_FX, ItemBomheiBomb, ItemCoinB) - the longest id it starts with. [] for one the app can't place
+        (ItemCommon, which every item shares, say)."""
+        low = folder_name.lower()
+        best = max((k for k in owners if low.startswith(k)), key=len, default=None)
+        return owners[best] if best else []
+
+    def _unit_item_folders(self, unit):
+        """The names of the model folders a mod folder ships under romfs/RaceCommon/Item/ (anywhere in it)."""
+        found = set()
+        for dirpath, dirnames, _files in os.walk(unit):
+            if Path(dirpath).name.lower() == "item" and Path(dirpath).parent.name.lower() == "racecommon":
+                found.update(dirnames)
+                dirnames[:] = []
+        return found
+
+    def _item_slot_mismatch(self, item_name, folder):
+        """None when a download's item model folders include one of `item_name`'s (or it ships none - a texture-only mod says
+        nothing), else {"expected", "found", "targets": [{name, category}], "unresolved"}: what its folders say it replaces.
+        For the "Other items" catch-all nothing fits, so a mod whose models the app can place is sorted into its item."""
+        found = self._unit_item_folders(folder)
+        if not found:
+            return None
+        owners = self._item_folder_owners()
+        names, unresolved = set(), 0
+        for f in found:
+            owner = self._items_of_folder(f, owners)
+            names.update(owner)
+            unresolved += 0 if owner else 1
+        if item_name in names:
+            return None
+        return {"expected": [item_name], "found": sorted(found),
+                "targets": [{"name": n, "category": ITEMS_CATEGORY} for n in sorted(names)], "unresolved": unresolved}
+
+    def _course_names_by_internal(self):
+        """{internal Course/-slot id: course name} for every course roster.json knows an id for."""
+        return {i: c["name"] for cup in self._load_course_roster() for c in cup["courses"] for i in c.get("internal") or []}
+
+    def _course_slot_mismatch(self, item_name, folder):
+        """None unless the Course/ slot(s) a download writes to are all somebody else's than this course's (a course with
+        no known id, or a download with no Course/ folder, isn't checked): {"expected", "found", "targets": [{name,
+        category}], "unresolved"} - `targets` are the courses those slots belong to."""
+        expected = self._course_internal_names(item_name)
+        if not expected:
+            return None
+        actual = find_course_slot_names(folder)
+        if not actual or actual & expected:
+            return None
+        owners = self._course_names_by_internal()
+        return {"expected": sorted(expected), "found": sorted(actual),
+                "targets": [{"name": n, "category": "courses"} for n in sorted({owners[i] for i in actual if i in owners})],
+                "unresolved": sum(1 for i in actual if i not in owners)}
+
+    def _download_slot_mismatch(self, category, item_name, folder):
+        """What a download's own files say about where it belongs (see the three checks above): None when they agree with
+        `item_name` (or say nothing), else the mismatch dict, whose `targets` name what the files are for."""
+        if category == "courses":
+            return self._course_slot_mismatch(item_name, folder)
+        if category == "characters":
+            return self._character_slot_mismatch(item_name, folder)
+        if category in VEHICLE_SECTIONS:
+            return self._vehicle_slot_mismatch(item_name, folder)
+        if category == ITEMS_CATEGORY:
+            return self._item_slot_mismatch(item_name, folder)
+        return None
 
     def _slot_mismatch(self, unit_key) -> bool:
         """True when this unit's driver/voice files are all for OTHER characters than the
@@ -2092,31 +2253,129 @@ class Api(VoiceEditMixin):
         if item is None or not item.get("internal"):
             return None
         kind = {"vehicles": "Body", "wheels": "Tire", "gliders": "Wing"}[section]
-        actual = find_vehicle_part_ids(folder)[kind]
+        found = find_vehicle_part_ids(folder)
+        actual = found[kind]
         expected_key = self._vehicle_expected_key(section, item)
-        if not actual or expected_key in actual:
+        if expected_key in actual:
             return None
+        if not actual:
+            # Ships no file of this part's kind - fine (a texture pack, say) - unless it ships another kind of part's file:
+            # a tire mod filed under a body, a glider under a wheel.
+            actual = set().union(*found.values())
+            if not actual:
+                return None
         key_map = self._vehicle_key_map()
+        parts = [{"name": key_map[k][1], "section": key_map[k][0]} for k in sorted(actual) if k in key_map]
         return {
             "expected": [expected_key],
             "found": sorted(actual),
-            "found_parts": [
-                {"name": key_map[k][1], "section": key_map[k][0]} for k in sorted(actual) if k in key_map
-            ],
+            "found_parts": parts,
+            "targets": [{"name": p["name"], "category": p["section"]} for p in parts],
+            "unresolved": len(actual) - len(parts),
         }
 
+    def get_vehicle_fit(self, part_name, unit_keys):
+        """For the vehicle card's "Right part" step: of these downloaded mods (unit keys filed under `part_name`), the ones
+        whose model files are for a different part - {unit key: {"expected": [...], "found": [...], "found_parts": [{name,
+        section}], "mod_id", "record_type"}} (mod_id is None when the download isn't tracked, so it can't be moved). A mod
+        that ships this part's file, or none of that kind at all, isn't listed."""
+        if self.mod_root is None or self._vehicle_item(part_name)[1] is None:
+            return {}
+        tracked = self._load_gb_mods().get(part_name, [])
+        out = {}
+        for key in unit_keys or []:
+            unit = self._unit_dir(key)
+            if not unit.is_dir():
+                continue
+            mismatch = self._vehicle_slot_mismatch(part_name, unit)
+            if not mismatch:
+                continue
+            mod = next((m for m in tracked for f in m.get("files", [])
+                        if f.get("downloaded_to") and (Path(f["downloaded_to"]) == unit or Path(f["downloaded_to"]) in unit.parents)), None)
+            out[key] = {**mismatch, "mod_id": mod["mod_id"] if mod else None,
+                        "record_type": (mod or {}).get("record_type", "Mod")}
+        return out
+
+    def get_mod_ids(self, item_name, unit_keys):
+        """For a "Move to..." on a mod: {unit key: {"mod_id", "record_type"}} of these downloaded mods (unit keys filed under
+        `item_name`, whatever kind of thing it is) that are tracked from GameBanana - a mod added by hand has no id, so it
+        can't be moved (it is left out)."""
+        if self.mod_root is None or self._movable_item(item_name)[1] is None:
+            return {}
+        tracked = self._load_gb_mods().get(item_name, [])
+        out = {}
+        for key in unit_keys or []:
+            unit = self._unit_dir(key)
+            if not unit.is_dir():
+                continue
+            mod = next((m for m in tracked for f in m.get("files", [])
+                        if f.get("downloaded_to") and (Path(f["downloaded_to"]) == unit or Path(f["downloaded_to"]) in unit.parents)), None)
+            if mod:
+                out[key] = {"mod_id": mod["mod_id"], "record_type": mod.get("record_type", "Mod")}
+        return out
+
+    def _rekey_unit_prefix(self, old_rel, new_rel):
+        """Everything the app remembers about a mod is keyed by its path ("category/item/mod"): the ticks, the files left
+        out, the clash priorities, the voice edits, the look reviews, the menu picture choices. After its folder moves, this
+        rewrites each of those from `old_rel` to `new_rel` (the mod's folder and anything beneath it) so none is orphaned.
+        The ticks are the caller's (they live in one file it already holds)."""
+        def fix(text):
+            return new_rel + text[len(old_rel):] if text == old_rel or text.startswith(old_rel + "/") else text
+
+        def walk(v):
+            if isinstance(v, dict):
+                return {fix(k) if isinstance(k, str) else k: walk(x) for k, x in v.items()}
+            if isinstance(v, list):
+                return [walk(x) for x in v]
+            return fix(v) if isinstance(v, str) else v
+
+        stores = [self.excluded_files_path, self.conflict_resolutions_path, self.settings_path,
+                  self.mod_root / VOICE_EDITS_FILENAME, self.mod_root / LOOK_REVIEWS_FILENAME,
+                  self.mod_root / ui_setup.OVERRIDES_FILENAME]
+        for path in stores:
+            if path is None or not path.is_file():
+                continue
+            data = self._load_json(path, None)
+            if data is None:
+                continue
+            new = walk(data)
+            if new != data:
+                path.write_text(json.dumps(new, indent=2, sort_keys=True), encoding="utf-8")
+
+    def _movable_item(self, name):
+        """(folder under mods/extracted/ it is filed in, roster entry) of anything a mod can be moved between - a vehicle
+        part, an item (the "Other items" catch-all too), a character or a course - or (None, None). No two of these share a
+        name."""
+        section, part = self._vehicle_item(name)
+        if part is not None:
+            return section, part
+        if name == ITEMS_OTHER or any(i["name"] == name for i in self._load_item_roster()):
+            return ITEMS_CATEGORY, {"name": name}
+        if name in self._load_roster():
+            return "characters", {"name": name}
+        if any(c["name"] == name for cup in self._load_course_roster() for c in cup["courses"]):
+            return "courses", {"name": name}
+        return None, None
+
+    @staticmethod
+    def _move_family(section):
+        """What a mod can be moved between: parts to parts (across bodies, tires and gliders), items to items, and so on."""
+        return "vehicle parts" if section in VEHICLE_SECTIONS else section
+
     def gb_move_mod(self, from_item, mod_id, to_item, record_type="Mod"):
-        """Re-files a tracked vehicle-part mod under a different part - what
-        the "ships X's file, not this part's" warning offers - without a
-        remove-and-re-add: its tracking entry, extracted folders, archives and
-        ticked state all move together, and each moved file's slot check is
-        re-run against its new home. Refuses if the mod is already tracked
-        under the target (two entries for one mod would need merging) or the
-        move would touch anything but vehicle parts."""
-        from_section, from_part = self._vehicle_item(from_item)
-        to_section, to_part = self._vehicle_item(to_item)
+        """Re-files a tracked mod under another character / course / vehicle part / item - what a download's files
+        say it replaces (see _refile_mod), what "Move to..." on a mod asks for, and how a mod filed under "Other items" gets its
+        item - without a remove-and-re-add: its tracking entry, extracted folders, archives, ticked state and everything else
+        remembered about its path (see _rekey_unit_prefix) move together, and each moved file's slot check is re-run against its
+        new home. Refuses if the mod is already tracked under the target (two entries for one mod would need merging) or the
+        move would go between different kinds of thing (a character to a course...). Returns the moved folders' new
+        paths as `moved_folders`, which is what an undo needs."""
+        from_section, from_part = self._movable_item(from_item)
+        to_section, to_part = self._movable_item(to_item)
         if from_part is None or to_part is None:
-            return {"success": False, "error": "Only vehicle parts can be moved this way."}
+            return {"success": False, "error": "That isn't something a mod can be moved between."}
+        if self._move_family(from_section) != self._move_family(to_section):
+            return {"success": False, "error": f"A mod can only be moved to another one of the same kind - not from {self._move_family(from_section)} to {self._move_family(to_section)}."}
         if from_item == to_item:
             return {"success": False, "error": "That's already where it is."}
         gb_mods = self._load_gb_mods()
@@ -2136,6 +2395,7 @@ class Api(VoiceEditMixin):
         to_dir = sanitize_filename(to_item)
         state = self._load_state()
         done = []  # (new path, old path) of every completed move, for rollback
+        moved_folders, renames = [], []
         try:
             for f in mod.get("files", []):
                 old_folder = f.get("downloaded_to")
@@ -2151,7 +2411,9 @@ class Api(VoiceEditMixin):
                     new_rel = new.relative_to(extracted_root).as_posix()
                     for key in [k for k in state if k == old_rel or k.startswith(old_rel + "/")]:
                         state[new_rel + key[len(old_rel):]] = state.pop(key)
-                    f["slot_mismatch"] = self._vehicle_slot_mismatch(to_item, new)
+                    f["slot_mismatch"] = self._download_slot_mismatch(to_section, to_item, new)
+                    moved_folders.append(new_rel)
+                    renames.append((old_rel, new_rel))
                 old_archive = f.get("archive_path")
                 if old_archive and Path(old_archive).is_file():
                     archive_parent = downloads_root / to_section / to_dir
@@ -2176,12 +2438,15 @@ class Api(VoiceEditMixin):
         gb_mods.setdefault(to_item, []).append(mod)
         self._save_gb_mods(gb_mods)
         self.state_path.write_text(json.dumps(state, indent=2, sort_keys=True))
+        for old_rel, new_rel in renames:
+            self._rekey_unit_prefix(old_rel, new_rel)
         for _new, old in done:  # tidy now-empty item folders
             try:
                 old.parent.rmdir()
             except OSError:
                 pass
-        return {"success": True, "to_item": to_item, "to_section": to_section}
+        return {"success": True, "from_item": from_item, "to_item": to_item, "to_section": to_section,
+                "moved_folders": moved_folders}
 
     def get_vehicles_view(self):
         """Same idea as get_character_view(), for the three vehicle-part
@@ -2213,6 +2478,31 @@ class Api(VoiceEditMixin):
                 ],
             })
         return {"sections": sections, "checked": self._load_state()}
+
+    def get_items_view(self):
+        """Same idea as get_vehicles_view(), for the Items screen: every roster item always shows up (even with nothing
+        downloaded yet) with its discovered mod units grouped by the item folder they were downloaded into, and a last
+        catch-all ("Items": the folder everything filed before items had a roster is in) for what fits none of them."""
+        categories = discover_mods(self.mod_root)
+        gb_attempted = self._gb_attempted_names()
+        roster = self._load_item_roster()
+        norm_to_name = {normalize_char_name(sanitize_filename(i["name"])): i["name"] for i in roster}
+        grouped = {i["name"]: [] for i in roster}
+        grouped[ITEMS_OTHER] = []
+        for unit in categories.get(ITEMS_CATEGORY, []):
+            canonical = norm_to_name.get(normalize_char_name(unit.parts[0]), ITEMS_OTHER)
+            grouped[canonical].append(f"{ITEMS_CATEGORY}/{unit.as_posix()}")
+        items = [{
+            "name": i["name"],
+            "internal": i.get("internal"),
+            "units": sorted(grouped[i["name"]]),
+            "gb_attempted": i["name"] in gb_attempted,
+        } for i in roster]
+        items.append({
+            "name": ITEMS_OTHER, "label": ITEMS_OTHER_LABEL, "internal": None, "catch_all": True,
+            "units": sorted(grouped[ITEMS_OTHER]), "gb_attempted": ITEMS_OTHER in gb_attempted,
+        })
+        return {"key": ITEMS_CATEGORY, "label": "Items", "items": items, "checked": self._load_state()}
 
     def _course_internal_names(self, course_name):
         """Looks up the known internal romfs Course/-slot id(s) for a course
@@ -2525,11 +2815,12 @@ class Api(VoiceEditMixin):
 
     def _review_data(self):
         """{"characters": {name: [signatures whose look was checked]}, "names": {name: [signatures whose
-        guessed NAME was confirmed]}} - "Looks right" confirms both; the guessed-names review only confirms the name."""
+        guessed NAME was confirmed]}} - "Looks right" confirms both; the guessed-names review only confirms the name.
+        "course_names" / "course_icons" are the same two records for courses (see get_course_look())."""
         data = self._load_json(self.mod_root / LOOK_REVIEWS_FILENAME, {})
         if not isinstance(data, dict):
             data = {}
-        for bucket in ("characters", "names"):
+        for bucket in ("characters", "names", "course_names", "course_icons", "part_names", "part_icons"):
             if not isinstance(data.get(bucket), dict):
                 data[bucket] = {}
         return data
@@ -2540,7 +2831,7 @@ class Api(VoiceEditMixin):
         changed, or a model-swap mod needs a glance even though nothing in the menu icons themselves
         did). {"name_applicable", "name_done", "icons_applicable", "icons_done"} - confirming one
         never marks the other; a character with ticked mods but neither applicable has nothing to
-        check at all. A UI combines them however it likes (webui.html's reviewFinished())."""
+        check at all. A UI combines them however it likes (reviewFinished() in ui/js/tiles-and-review.js)."""
         model = any(unit_has_driver_model(self._unit_dir(k)) and not self._slot_mismatch(k) for k in keys)
         data = self._review_data()
         sig = self._review_sig(keys)
@@ -2554,7 +2845,11 @@ class Api(VoiceEditMixin):
         look-reviews.json bucket - "names" for the Name task, "characters" for the Icons one. Each
         is its own independent record; this never touches the other bucket."""
         canon = self._canon_char(item_name)
-        keys = self._ticked_by_char().get(canon)
+        return self._store_signature(bucket, canon, self._ticked_by_char().get(canon), undo)
+
+    def _store_signature(self, bucket, canon, keys, undo=False):
+        """The write behind _mark_signature() / _mark_course(): the signature of `keys` (the ticked mods)
+        goes into, or (undo) comes out of, look-reviews.json's `bucket` for `canon`."""
         if not keys:
             return False
         data = self._review_data()
@@ -2567,6 +2862,343 @@ class Api(VoiceEditMixin):
         del sigs[:-30]
         (self.mod_root / LOOK_REVIEWS_FILENAME).write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
         return True
+
+    # --- the same two review tasks for a course --------------------------------------------------
+    # A course with ticked mods has a Name task (something wants it called other than the game's own
+    # name - the mod's own text, a name you typed, or a guess from the mod's name that you haven't
+    # confirmed yet) and an Icons task (the picture on the course-select screen: a mod that ships its
+    # own needs no check; otherwise the game's own shows, or one made from a screenshot - either way
+    # the user says so once). Like a character's, each is confirmed for the SET of ticked mods.
+
+    def _ticked_by_course(self, state=None):
+        state = state if state is not None else self._load_state()
+        out = {}
+        for k, v in state.items():
+            if v and k.startswith("courses/") and k.count("/") >= 2:
+                out.setdefault(k.split("/")[1], []).append(k)
+        return {c: sorted(v) for c, v in out.items()}
+
+    def _mark_course(self, bucket, course, undo=False):
+        return self._store_signature(bucket, course, self._ticked_by_course().get(course), undo)
+
+    def _course_picture(self, course, keys):
+        """{"state": "mod" | "you" | "vanilla", "mod", "preview", "default"} - where the course-select picture comes from:
+        a ticked mod's own CoursePict, else one made from a screenshot (course-icons/), else the game's own ("default" is
+        the game's own picture, for showing what the course has without the mod)."""
+        default = self.get_course_default_pictures([course]).get(course)
+        bundled = next((k for k in keys if self._find_course_pict_file(k)), None)
+        if bundled:
+            return {"state": "mod", "mod": bundled.split("/")[2], "preview": self.get_course_icon_preview(bundled), "default": default}
+        made = self._generated_course_pict_path(course)
+        if made is not None and made.is_file():
+            return {"state": "you", "mod": None, "preview": self.get_course_icon_preview(keys[0]), "default": default}
+        return {"state": "vanilla", "mod": None, "preview": None, "default": default}
+
+    def get_course_look(self, course, _ctx=None):
+        """What a course card needs: {"course", "ticked": [unit keys], "name": {...get_menu_look()'s name..., "suggestion"},
+        "picture": _course_picture(), "review": {"name_applicable", "name_done", "icons_applicable", "icons_done"}}
+        - "review" is None when nothing is ticked for the course, and {"error"} comes back when the menu files can't be read."""
+        keys = self._ticked_by_course().get(course, [])
+        if not keys:
+            return {"course": course, "ticked": [], "name": None, "picture": None, "review": None}
+        base = self.get_menu_look(course, "courses", _ctx)
+        if base.get("error"):
+            return {"error": base["error"]}
+        nm = dict(base.get("name") or {})
+        suggestion = None
+        if nm.get("state") == "vanilla":
+            gb_names = self._gb_mod_names()
+            for key in keys:
+                parts = key.split("/")
+                for text, source in ((gb_names.get("/".join(parts[:3]).lower()), "the mod's name"), (parts[2], "the mod's folder name")):
+                    guess = suggest_name_from_mod(text, nm.get("vanilla") or course, max_len=32) if text else None
+                    if guess:
+                        suggestion = {"text": guess, "source": source, "mod": parts[2]}
+                        break
+                if suggestion:
+                    break
+        nm["suggestion"] = suggestion
+        picture = self._course_picture(course, keys)
+        data = self._review_data()
+        sig = self._review_sig(keys)
+        review = {
+            "name_applicable": nm.get("state", "vanilla") != "vanilla" or suggestion is not None,
+            "name_done": sig in data["course_names"].get(course, []),
+            "icons_applicable": picture["state"] != "mod",
+            "icons_done": sig in data["course_icons"].get(course, []),
+        }
+        return {"course": course, "ticked": keys, "name": nm, "picture": picture, "review": review}
+
+    def get_course_tile_view(self, course_names):
+        """{name: {"applicable", "finished"}} for the courses (of those asked about) that have ticked mods - what
+        the tile's small "have you checked it?" marker needs. One menu-look context is shared by all of them."""
+        ticked = self._ticked_by_course()
+        wanted = [c for c in course_names if c in ticked]
+        if not wanted:
+            return {}
+        ctx = self._menu_look_ctx()
+        out = {}
+        for c in wanted:
+            look = self.get_course_look(c, ctx)
+            r = look.get("review")
+            if not r:
+                continue
+            applicable = r["name_applicable"] or r["icons_applicable"]
+            nm = look.get("name") or {}
+            out[c] = {"applicable": applicable,
+                      "finished": (not r["name_applicable"] or r["name_done"]) and (not r["icons_applicable"] or r["icons_done"]),
+                      "shown": nm.get("text") if nm.get("state") in ("mod", "you") else None}
+        return out
+
+    def confirm_course_name(self, course):
+        """The course's Name task: the name as it is now (typed, the mod's, or the game's) is right."""
+        return {"success": self._mark_course("course_names", course)}
+
+    def mark_course_icon_reviewed(self, course):
+        """The course's Icons task: the course-select picture is settled (the game's own, or the one made)."""
+        return {"success": self._mark_course("course_icons", course)}
+
+    def unmark_course_icon_reviewed(self, course):
+        return {"success": self._mark_course("course_icons", course, undo=True)}
+
+    # --- the same two review tasks for a vehicle part --------------------------------------------
+    # A part with ticked mods has a Name task (the game's text can name it differently: the mod's own text, a name you
+    # typed, or a guess from the mod's name) and an Icons task (its picture in the parts menu: a mod that ships its own
+    # needs no check; otherwise the game's own shows, or one you chose - either way you say so once). Each is confirmed for
+    # the SET of ticked mods, exactly like a course's. The picture is one texture in menu.sarc for most parts, or a set of
+    # loose files for the sixteen that come in outfits (ui_setup.part_item(), vehicle_icons.py).
+
+    def _part_folder_map(self):
+        """{(section, normalized folder name): part name} - which part a mods/extracted/<section>/<folder> belongs to."""
+        return {(section, normalize_char_name(sanitize_filename(i["name"]))): i["name"]
+                for section, items in self._load_vehicle_roster().items() for i in items}
+
+    def _ticked_by_part(self, state=None):
+        state = state if state is not None else self._load_state()
+        fmap = self._part_folder_map()
+        out = {}
+        for k, v in state.items():
+            parts = k.split("/")
+            if v and len(parts) >= 3 and parts[0] in ui_setup.PART_KINDS:
+                name = fmap.get((parts[0], normalize_char_name(parts[1])))
+                if name:
+                    out.setdefault(name, []).append(k)
+        return {n: sorted(v) for n, v in out.items()}
+
+    def _mark_part(self, bucket, part, undo=False):
+        return self._store_signature(bucket, part, self._ticked_by_part().get(part), undo)
+
+    def _unit_loose_part_files(self, key):
+        """The loose part-picture files (UI/cmn/menu/tc_KP_*.bntx) a mod unit ships in its romfs."""
+        unit = self._unit_dir(key)
+        menu = ui_setup._child(ui_setup._child(ui_setup._child(ui_setup._child(unit, "romfs"), "UI"), "cmn"), "menu")
+        if menu is None or not menu.is_dir():
+            return []
+        return [f for f in sorted(menu.iterdir()) if f.is_file() and vehicle_icons.loose_family(f.name)]
+
+    @staticmethod
+    def _packed_winner(plan, choices, archive_id, iid):
+        """(variant, change) when a ticked mod's own packed archive decides this texture, else None."""
+        analysis = (plan or {}).get(archive_id)
+        if not analysis:
+            return None
+        idx = ui_setup._winners(analysis, choices).get(iid)
+        if idx is None:
+            return None
+        v = analysis["variants"][idx]
+        if v.get("is_override"):
+            return None
+        return v, next(c for c in v["changes"] if ui_setup.item_id(c) == iid)
+
+    def _part_picture(self, part, section, item, keys, ctx):
+        """{"state": "you" | "mod" | "vanilla", "mod", "preview", "default", "editable"} - where the part's picture in the
+        parts menu comes from: one the user chose (ui-overrides), a ticked mod's own (a texture in its menu.sarc, or its
+        loose files), else the game's own ("default" is the game's own, to show what the part has without the mod)."""
+        default = self.get_vehicle_icons().get(part)
+        iid = ui_setup.part_item(section, item.get("internal"))
+        base = {"state": "vanilla", "mod": None, "preview": None, "default": default, "editable": iid is not None}
+        if iid is None:
+            return base
+        o = ctx["ov"]["textures"].get(iid)
+        if o:
+            left = 0
+            if ui_setup.is_loose_item(iid):   # outfit pictures a ticked mod filed elsewhere supplies stay that mod's
+                fam = iid.split("|", 1)[1]
+                left = sum(1 for n in self._part_pictures_left_to_mods() if vehicle_icons.loose_family(n) == fam)
+            return {**base, "state": "you", "preview": self._thumb_uri(self.mod_root / o["png"], 260), "left_to_mods": left}
+        if ui_setup.is_loose_item(iid):
+            fam = iid.split("|", 1)[1]
+            for k in keys:
+                mine = [f for f in self._unit_loose_part_files(k) if vehicle_icons.loose_family(f.name) == fam]
+                if mine:
+                    try:
+                        png = bntx_decode.decode_to_png(mine[0])
+                        preview = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+                    except (bntx_decode.UnsupportedBNTXError, OSError):
+                        preview = None
+                    return {**base, "state": "mod", "mod": k.split("/")[2], "preview": preview}
+        else:
+            won = self._packed_winner(ctx["plan"], ctx["choices"], "menu", iid)
+            if won:
+                return {**base, "state": "mod", "mod": (won[0]["labels"] or ["a mod"])[0], "preview": won[1].get("preview")}
+        return base
+
+    def get_part_look(self, part, _ctx=None):
+        """What a vehicle part's card needs - the same shape as get_course_look(): {"part", "ticked", "name", "picture",
+        "review"}; "review" is None when nothing is ticked for the part, and {"error"} comes back when the menu files can't be read."""
+        section, item = self._vehicle_item(part)
+        if item is None:
+            return {"error": f"{part} isn't a vehicle part."}
+        self._top_up_pictures_once()
+        keys = self._ticked_by_part().get(part, [])
+        if not keys:
+            return {"part": part, "ticked": [], "name": None, "picture": None, "review": None}
+        ctx = _ctx or self._menu_look_ctx()
+        base = self.get_menu_look(part, section, ctx)
+        if base.get("error"):
+            return {"error": base["error"]}
+        nm = dict(base.get("name") or {})
+        suggestion = None
+        if nm.get("state") == "vanilla":
+            gb_names = self._gb_mod_names()
+            for key in keys:
+                parts = key.split("/")
+                for text, source in ((gb_names.get("/".join(parts[:3]).lower()), "the mod's name"), (parts[2], "the mod's folder name")):
+                    guess = suggest_name_from_mod(text, nm.get("vanilla") or part, max_len=32) if text else None
+                    if guess:
+                        suggestion = {"text": guess, "source": source, "mod": parts[2]}
+                        break
+                if suggestion:
+                    break
+        nm["suggestion"] = suggestion
+        picture = self._part_picture(part, section, item, keys, ctx)
+        data = self._review_data()
+        sig = self._review_sig(keys)
+        review = {
+            "name_applicable": nm.get("state", "vanilla") != "vanilla" or suggestion is not None,
+            "name_done": sig in data["part_names"].get(part, []),
+            "icons_applicable": picture["state"] != "mod" and picture["editable"],
+            "icons_done": sig in data["part_icons"].get(part, []),
+        }
+        return {"part": part, "ticked": keys, "name": nm, "picture": picture, "review": review, "section": section}
+
+    def get_part_tile_view(self, part_names):
+        """{name: {"applicable", "finished", "shown", "icon"}} for the parts (of those asked about) that have ticked mods -
+        the tile's "have you checked it?" marker, the name the menus will show, and the picture that will show when it is not
+        the game's own. One menu-look context is shared by all of them."""
+        ticked = self._ticked_by_part()
+        wanted = [c for c in part_names if c in ticked]
+        if not wanted:
+            return {}
+        ctx = self._menu_look_ctx()
+        out = {}
+        for c in wanted:
+            look = self.get_part_look(c, ctx)
+            r = look.get("review")
+            if not r:
+                continue
+            nm = look.get("name") or {}
+            pic = look.get("picture") or {}
+            out[c] = {"applicable": r["name_applicable"] or r["icons_applicable"],
+                      "finished": (not r["name_applicable"] or r["name_done"]) and (not r["icons_applicable"] or r["icons_done"]),
+                      "shown": nm.get("text") if nm.get("state") in ("mod", "you") else None,
+                      "icon": pic.get("preview") if pic.get("state") != "vanilla" else None}
+        return out
+
+    def confirm_part_name(self, part):
+        """The part's Name task: the name as it is now (typed, the mod's, or the game's) is right."""
+        return {"success": self._mark_part("part_names", part)}
+
+    def mark_part_icon_reviewed(self, part):
+        """The part's Icons task: its picture in the parts menu is settled (the game's own, or the one chosen)."""
+        return {"success": self._mark_part("part_icons", part)}
+
+    def unmark_part_icon_reviewed(self, part):
+        return {"success": self._mark_part("part_icons", part, undo=True)}
+
+    def _part_pictures_left_to_mods(self):
+        """File names (lower-case) of loose part pictures a ticked mod supplies for a part it is NOT filed under - a character
+        mod's per-outfit Standard Kart picture, say. A picture you chose for the part is not written over those: they stay
+        the character mod's. (A mod filed under the part itself is what your choice replaces.)"""
+        fmap = self._part_folder_map()
+        names = vehicle_icons.key_names()
+        left = set()
+        for key, on in self._load_state().items():
+            if not on or key.count("/") < 2:
+                continue
+            files = self._unit_loose_part_files(key)
+            if not files:
+                continue
+            cat, folder = key.split("/")[:2]
+            unit_part = fmap.get((cat, normalize_char_name(folder))) if cat in ui_setup.PART_KINDS else None
+            for f in files:
+                if unit_part is None or names.get(vehicle_icons.loose_family(f.name)) != unit_part:
+                    left.add(f.name.lower())
+        return left
+
+    def sync_part_pictures(self):
+        """Brings part-icons/ (always merged in) in line with the pictures the user chose for parts that are loose files: every
+        variant file written, files no longer wanted removed. Cheap when there is nothing chosen. Returns build_part_pictures()'s
+        report ({"written", "left_to_mods", "problems"})."""
+        if self.mod_root is None:
+            return {"written": [], "left_to_mods": [], "problems": []}
+        out_dir = self.mod_root / PART_ICONS_DIRNAME / "romfs" / "UI" / "cmn" / "menu"
+        ov = ui_setup.load_overrides(self.mod_root)
+        if not any(ui_setup.is_loose_item(i) for i in ov["textures"]) and not out_dir.is_dir():
+            return {"written": [], "left_to_mods": [], "problems": []}
+        return ui_setup.build_part_pictures(self.mod_root, game_files.current_vehicle_picts(self.mod_root), out_dir,
+                                            self._part_pictures_left_to_mods())
+
+    def _set_part_icon(self, part, png_bytes):
+        section, item = self._vehicle_item(part)
+        iid = ui_setup.part_item(section, item.get("internal")) if item else None
+        if iid is None:
+            return {"success": False, "error": f"Don't know the game's picture for {part}."}
+        try:
+            rel = ui_setup.store_icon_picture(self.mod_root, png_bytes, square=False)
+        except Exception as e:  # PIL raises a variety
+            return {"success": False, "error": f"Couldn't use that picture: {e}"}
+        ov = ui_setup.load_overrides(self.mod_root)
+        ov["textures"][iid] = {"png": rel, "who": part}
+        ui_setup.save_overrides(self.mod_root, ov)
+        report = self.sync_part_pictures()
+        if report["problems"]:
+            return {"success": False, "error": "Couldn't write the picture into the game's files: " + "; ".join(report["problems"][:2])}
+        return {"success": True, "left_to_mods": len(report["left_to_mods"])}
+
+    def set_part_icon_from_url(self, part, image_url, crop_x, crop_y, crop_w, crop_h):
+        """Uses (a crop of) an image from the web - one of a mod's own GameBanana screenshots - as a part's picture."""
+        try:
+            image_bytes = gamebanana_api.fetch_bytes(image_url)
+            from PIL import Image
+            src = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+            cropped = src.crop((crop_x, crop_y, crop_x + crop_w, crop_y + crop_h))
+            buf = io.BytesIO()
+            cropped.save(buf, format="PNG")
+        except gamebanana_api.GameBananaError as e:
+            return {"success": False, "error": str(e)}
+        except Exception as e:
+            return {"success": False, "error": f"Couldn't process that image: {e}"}
+        return self._set_part_icon(part, buf.getvalue())
+
+    def set_part_icon_from_data(self, part, data_url):
+        """Same, for a picture the user chose from their own computer (already cropped in the page, sent as a data: URL)."""
+        try:
+            png = base64.b64decode(data_url.split(",", 1)[1])
+        except (IndexError, ValueError):
+            return {"success": False, "error": "That picture couldn't be read."}
+        return self._set_part_icon(part, png)
+
+    def clear_part_icon(self, part):
+        """Back to the game's own picture (or the ticked mod's, if it brings one)."""
+        section, item = self._vehicle_item(part)
+        iid = ui_setup.part_item(section, item.get("internal")) if item else None
+        ov = ui_setup.load_overrides(self.mod_root)
+        if iid and ov["textures"].pop(iid, None) is not None:
+            ui_setup.save_overrides(self.mod_root, ov)
+        self.sync_part_pictures()
+        self._mark_part("part_icons", part, undo=True)
+        return {"success": True}
 
     def _guessed_names(self):
         """The names the app guessed (see sync_auto_names) that the user hasn't confirmed yet - the Commit
@@ -2718,23 +3350,17 @@ class Api(VoiceEditMixin):
         return str(icon_path) if icon_path else None
 
     def reveal_icon(self, unit_key):
-        """Opens Windows Explorer with this mod's first icon file selected, so
+        """Opens the file manager with this mod's first icon file selected, so
         the user can look at it themselves - the app never displays it.
-        Requires WSL's Windows-interop feature to be working."""
+        (Under WSL this needs its Windows-interop feature to be working.)"""
         icon_path = self._find_icon_file(unit_key)
         if icon_path is None:
             return {"success": False, "error": "No icon file found for this mod."}
         try:
-            # explorer.exe's /select switch needs quotes around just the path,
-            # not the whole "/select,path" argument (which is what Python's
-            # normal list-based quoting produces) - so build the command line
-            # ourselves and pass it as a single string.
-            # It's also well known to return a non-zero exit code even on
-            # success, so we only treat "couldn't launch it at all" as failure.
-            subprocess.run(f'explorer.exe /select,"{icon_path}"')
+            show_in_file_manager(icon_path, select=True)
             return {"success": True}
-        except OSError as e:
-            return {"success": False, "error": f"Couldn't launch Windows Explorer. Details: {e}"}
+        except (OSError, subprocess.SubprocessError) as e:
+            return {"success": False, "error": f"Couldn't open the file manager. Details: {e}"}
 
     def _find_course_pict_file(self, unit_key):
         """Returns the Path to this course unit's own select-screen thumbnail
@@ -2867,7 +3493,7 @@ class Api(VoiceEditMixin):
         return {"success": True}
 
     def reveal_path(self, path_str):
-        """Opens Windows Explorer at an arbitrary already-known folder path
+        """Opens the file manager at an arbitrary already-known folder path
         (e.g. a GameBanana download that needs manual structure fixes) -
         unlike reveal_icon, this takes a full path directly rather than
         looking one up from a unit key."""
@@ -2875,13 +3501,13 @@ class Api(VoiceEditMixin):
         if not path.is_dir():
             return {"success": False, "error": "That folder no longer exists."}
         try:
-            subprocess.run(f'explorer.exe "{path}"')
+            show_in_file_manager(path)
             return {"success": True}
-        except OSError as e:
-            return {"success": False, "error": f"Couldn't launch Windows Explorer. Details: {e}"}
+        except (OSError, subprocess.SubprocessError) as e:
+            return {"success": False, "error": f"Couldn't open the file manager. Details: {e}"}
 
     def reveal_mod_folder(self, unit_key):
-        """Opens Windows Explorer at a "Mods to merge" entry's actual mod
+        """Opens the file manager at a "Mods to merge" entry's actual mod
         folder - previously the only way to look at a downloaded mod's files
         from the app was the icon-reveal badge, which only appears when the
         mod happens to have a loose image file GameBanana's own file listing
@@ -2997,6 +3623,8 @@ class Api(VoiceEditMixin):
         # download that's really just UI art, say) get their own label.
         simple_labels = {info["label"]: info["label"] for info in SIMPLE_MOD_CATEGORIES.values()}
         simple_labels["UI"] = "UI mods"
+        simple_labels.update({i["name"]: i["name"] for i in self._load_item_roster()})
+        simple_labels[ITEMS_OTHER] = ITEMS_OTHER_LABEL
         entries = []
         for item_name, mods in gb_mods.items():
             if item_name not in roster and item_name not in simple_labels:
@@ -3062,7 +3690,7 @@ class Api(VoiceEditMixin):
         than a roster of many, since there's nothing further to group units
         by - every mod downloaded into one of these categories always nests
         under that same fixed item name (see gb_download_files() callers in
-        webui.html), so unlike get_character_view()'s folder-name parsing
+        ui/js/add-mod.js and gamebanana.js), so unlike get_character_view()'s folder-name parsing
         this can just take every discovered unit under the category as-is."""
         categories = discover_mods(self.mod_root)
         gb_attempted = self._gb_attempted_names()
@@ -3099,6 +3727,9 @@ class Api(VoiceEditMixin):
         char_view = self.get_character_view()["roster"]
         course_view = self.get_course_view()["cups"]
         course_entries = [c for cup in course_view for c in cup["courses"]]
+        packs = self.get_pack_links()["by_item"]   # (a pack counts on every card it is listed on)
+        for entry in char_view + course_entries:
+            entry["units"] = list(entry["units"]) + packs.get(entry["name"], [])
 
         return {
             "characters": modded_fraction(char_view),
@@ -3148,14 +3779,105 @@ class Api(VoiceEditMixin):
     def gb_browse_course(self, course_name, page=1):
         """Courses have no per-item GameBanana subcategory the way characters
         do, so this searches by the base course name instead (stripped of any
-        platform prefix) and filters to the course-editing subcategories."""
+        platform prefix) and filters to the course-editing subcategories.
+        Each call reads a few search pages at once (see search_course_mods) and
+        gives the one to ask for next as `next_page`; every mod comes with a
+        snippet of its description (around the course's name where it has it)
+        and whether the course is named in its title or description."""
         query = strip_course_prefix(course_name)
         try:
-            result = gamebanana_api.search_mods_with_descriptions(query, page=page)
+            result = gamebanana_api.search_course_mods(query, first_page=page)
         except gamebanana_api.GameBananaError as e:
-            return {"error": str(e), "records": [], "total": 0, "is_complete": True, "page": page, "query": query}
+            return {"error": str(e), "records": [], "total": 0, "done": True, "page": page, "query": query}
+        records = result["records"]
         if not self._load_settings().get("show_nsfw", False):
-            result["records"] = [r for r in result["records"] if not r.get("has_content_ratings")]
+            records = [r for r in records if not r.get("has_content_ratings")]
+        descriptions = self._descriptions(records, workers=4)
+        needle = query.lower()
+        for rec in records:
+            desc = descriptions[rec["mod_id"]]
+            rec["described"] = desc is not None
+            rec["description_snippet"] = gamebanana_api.snippet_around(desc or "", query)
+            rec["mentions_course"] = bool(needle) and needle in f"{rec['name']} {desc or ''}".lower()
+        result["records"] = records
+        result["error"] = None
+        result["query"] = query
+        return result
+
+    def _search_kind(self, rec, characters):
+        """What kind of mod a search result is, from the GameBanana category it is filed in: ("characters", the character's
+        roster name), ("courses"|"vehicles"|"items"|<a simple category's key>, None), ("skin_packs"|"skin_misc", None) for
+        Skins' Packs / Other/Misc, or ("other", None). Only the author's own filing - the files can still say otherwise, which the download checks (see _refile_mod)."""
+        sub_id, root_id = rec.get("subcategory_id"), rec.get("root_category_id")
+        if sub_id is not None and (sub_id in VEHICLE_BODY_CATEGORY_IDS.values() or sub_id == VEHICLES_CATEGORY_ID or any(
+                info.get("gb_category_id") == sub_id for info in VEHICLE_SECTIONS.values())):
+            return "vehicles", None
+        if sub_id == ITEMS_GB_CATEGORY_ID:
+            return "items", None
+        if rec.get("subcategory") in gamebanana_api.COURSE_SEARCH_SUBCATEGORIES:
+            return "courses", None
+        for key, info in SIMPLE_MOD_CATEGORIES.items():
+            if info["gb_category_id"] in (sub_id, root_id):
+                return key, None
+        if sub_id == SKINS_PACKS_CATEGORY_ID:
+            return "skin_packs", None
+        if sub_id == SKINS_MISC_CATEGORY_ID:
+            return "skin_misc", None
+        if rec.get("subcategory"):
+            wanted = normalize_char_name(rec["subcategory"])
+            match = next((name for name in characters if normalize_char_name(name) == wanted), None)
+            if match:
+                return "characters", match
+        return "other", None
+
+    def gb_search(self, category, query, page=1):
+        """Searches GameBanana (all of Mario Kart 8 Deluxe) for `query` from the Browse window of a card of `category`
+        (characters / courses / a vehicle section / items / a simple category). Only the kind of mod that card is for is
+        kept - a search for "odyssey" from a character's card lists character mods (of any character: the mod is moved
+        to the right one when it is downloaded, see _refile_mod). Like gb_browse_course, one call reads a few search pages at once and gives the one to ask for next as
+        `next_page`. Each mod comes with the kind it is filed as (`kind`, and `character` for a character), a snippet of its
+        description around the query, and - for vehicle parts and items - the parts / items it looks like it replaces."""
+        query = (query or "").strip()
+        if not query:
+            return {"error": None, "records": [], "total": 0, "done": True, "page": page, "query": query}
+        wanted = "vehicles" if category in VEHICLE_SECTIONS else category
+        # the kinds a card's search keeps: its own, plus Skins' packs and misc for the kinds those can be for
+        accepted = {wanted} | ({"skin_packs", "skin_misc"} if wanted in ("characters", "vehicles", "items") else {"skin_packs"} if wanted == "modpacks" else set())
+        characters = self._load_roster()
+        kinds = {}
+
+        def keep(rec):
+            kinds[rec["mod_id"]] = self._search_kind(rec, characters)
+            return kinds[rec["mod_id"]][0] in accepted
+
+        try:
+            result = gamebanana_api.search_filtered(query, keep, first_page=page)
+        except gamebanana_api.GameBananaError as e:
+            return {"error": str(e), "records": [], "total": 0, "done": True, "page": page, "query": query}
+        records = result["records"]
+        if not self._load_settings().get("show_nsfw", False):
+            records = [r for r in records if not r.get("has_content_ratings")]
+        for rec in records:
+            rec["kind"], rec["character"] = kinds[rec["mod_id"]]
+        # vehicle parts and items are tagged with what they look like they replace, by the roster of the mod's own kind
+        # (a tire mod found from a kart's card is read against the tires)
+        vehicles = self._load_vehicle_roster()
+        groups = {}
+        for rec in records:
+            if rec["kind"] == "vehicles":
+                sub_id = rec.get("subcategory_id")
+                section = next((k for k, info in VEHICLE_SECTIONS.items() if sub_id and info.get("gb_category_id") == sub_id), "vehicles")
+                groups.setdefault(section, (vehicles[section], []))[1].append(rec)
+            elif rec["kind"] == "items":
+                groups.setdefault(ITEMS_CATEGORY, (self._load_item_roster(), []))[1].append(rec)
+        for section, (roster, recs) in groups.items():
+            self._annotate_targets(section, roster, recs)
+        descriptions = self._descriptions(records, workers=4)
+        for rec in records:
+            desc = descriptions[rec["mod_id"]]
+            rec["described"] = desc is not None
+            rec["description_snippet"] = gamebanana_api.snippet_around(desc or "", query)
+        result["records"] = records
         result["error"] = None
         result["query"] = query
         return result
@@ -3210,7 +3932,7 @@ class Api(VoiceEditMixin):
     def gb_identify_mod(self, mod_id_or_url):
         """Fetches a mod's metadata and makes a best-effort guess at what to
         track it as - the first step of the "Add a mod" flow (see
-        webui.html's #add-mod-modal), reachable from the Full List tab for
+        #add-mod-modal in ui/html/add-mod-modal.html and ui/js/add-mod.js), reachable from the Full List tab for
         mods that don't obviously belong to a specific character/course grid
         tile. Unlike gb_fetch_mod(), this doesn't persist anything; it's a
         read-only lookup the frontend uses to propose a target before the
@@ -3243,6 +3965,7 @@ class Api(VoiceEditMixin):
              if info["gb_category_id"] in (cat_id, super_cat_id)),
             None,
         )
+        is_item_mod = ITEMS_GB_CATEGORY_ID in (cat_id, super_cat_id)
         if super_cat_id == CHARACTERS_CATEGORY_ID and cat_name:
             match = next(
                 (name for name in roster if normalize_char_name(name) == normalize_char_name(cat_name)),
@@ -3277,6 +4000,12 @@ class Api(VoiceEditMixin):
             # its generic "couldn't tell what this is" message.
             guess_category = best[1] if best else (section or "vehicle_unsorted")
             guess_target = best[2] if best else None
+        elif is_item_mod:
+            # An item mod: the category is the one flat "Items" category, so which item is read from the text (a suggestion
+            # only, like a vehicle part's); the catch-all when nothing names one - or several do (an item pack).
+            matches = match_vehicle_targets("items", self._load_item_roster(), detail["name"], detail["description"])
+            guess_category = ITEMS_CATEGORY
+            guess_target = matches[0][0] if len(matches) == 1 else ITEMS_OTHER
         elif simple_key is not None:
             # Some of these (Mechanics, Items) file mods directly at the
             # category itself (category_id matches), others (UI) have real
@@ -3294,6 +4023,7 @@ class Api(VoiceEditMixin):
             "course_candidates": course_candidates,
             "all_characters": roster,
             "all_courses": [c["name"] for cup in self._load_course_roster() for c in cup["courses"]],
+            "all_items": [i["name"] for i in self._load_item_roster()] + [ITEMS_OTHER],
             "all_vehicle_parts": [
                 {"section": key, "label": VEHICLE_SECTIONS[key]["label"], "items": [i["name"] for i in items]}
                 for key, items in self._load_vehicle_roster().items()
@@ -3364,9 +4094,38 @@ class Api(VoiceEditMixin):
         result["target_name"] = item_name
         return result
 
+    def gb_browse_item(self, item_name, page=1, sort="most_viewed"):
+        """Browses GameBanana's one flat Items category for an item's card. Like a vehicle part's browse, every item mod is
+        listed and each is annotated with the item(s) its text says it replaces (`targets`), so the card can mark the likely
+        matches. The catch-all ("Other items") is any item mod at all."""
+        try:
+            result = gamebanana_api.browse_category(ITEMS_GB_CATEGORY_ID, page=page, sort=sort)
+        except gamebanana_api.GameBananaError as e:
+            return {"error": str(e), "records": [], "total": 0, "is_complete": True, "page": page,
+                    "per_page": 15, "subcategory_id": ITEMS_GB_CATEGORY_ID}
+        seen = set()
+        records = []
+        for rec in result["records"]:  # GameBanana can repeat a mod within a listing
+            if rec["mod_id"] not in seen:
+                seen.add(rec["mod_id"])
+                records.append(rec)
+        if not self._load_settings().get("show_nsfw", False):
+            records = [r for r in records if not r.get("has_content_ratings")]
+        self._annotate_targets("items", self._load_item_roster(), records)
+        result["records"] = records
+        result["error"] = None
+        result["subcategory_id"] = ITEMS_GB_CATEGORY_ID
+        result["target_name"] = item_name
+        return result
+
     def _annotate_vehicle_targets(self, section, records):
-        items = self._load_vehicle_roster()[section]
-        cache = self._vehicle_desc_cache
+        self._annotate_targets(section, self._load_vehicle_roster()[section], records)
+
+    def _descriptions(self, records, workers=3):
+        """{mod id: description text, or None if it couldn't be fetched} for a list of browse records. A browse list has no
+        descriptions, so each costs one GameBanana request - only the ones not seen before are fetched, a few at a time
+        (GameBanana rate-limits bursts with HTTP 429)."""
+        cache = self._gb_desc_cache
         todo = [r for r in records if r["mod_id"] not in cache]
 
         def fetch(rec):
@@ -3376,16 +4135,21 @@ class Api(VoiceEditMixin):
                 return rec["mod_id"], None
 
         if todo:
-            with ThreadPoolExecutor(max_workers=3) as pool:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
                 for mod_id, desc in pool.map(fetch, todo):
                     if desc is not None:
                         cache[mod_id] = desc
+        return {r["mod_id"]: cache.get(r["mod_id"]) for r in records}
+
+    def _annotate_targets(self, section, items, records):
+        descriptions = self._descriptions(records)
         for rec in records:
-            desc = cache.get(rec["mod_id"])
+            desc = descriptions[rec["mod_id"]]
             matches = match_vehicle_targets(section, items, rec["name"], desc or "")
             rec["targets"] = [name for name, _score in matches]
             rec["target_strength"] = matches[0][1] if matches else 0
             rec["described"] = desc is not None
+            rec["description_snippet"] = gamebanana_api.snippet_around(desc or "", "")
 
     def gb_fetch_mod(self, character_name, mod_id_or_url):
         """Fetches (or re-fetches) a mod's metadata from GameBanana and stores
@@ -3434,6 +4198,7 @@ class Api(VoiceEditMixin):
             "record_type": record_type,
             "name": detail["name"],
             "description": detail["description"],
+            "description_runs": detail.get("description_runs", []),
             "profile_url": detail["profile_url"],
             "thumbnail_url": detail["thumbnail_url"],
             "thumbnail_url_large": detail.get("thumbnail_url_large"),
@@ -3486,6 +4251,18 @@ class Api(VoiceEditMixin):
         clicking a mod name doesn't navigate this app's own window away."""
         if not re.match(r"^https?://(www\.)?gamebanana\.com/", url):
             return {"success": False, "error": "Refusing to open a non-GameBanana URL."}
+        try:
+            webbrowser.open(url)
+            return {"success": True}
+        except OSError as e:
+            return {"success": False, "error": f"Couldn't open a browser. Details: {e}"}
+
+    def open_external_url(self, url):
+        """Opens a link from a mod's description (a video, a Discord invite, the author's page...) in the user's default
+        browser. Any http(s) address - the user clicked it, and it is shown to them (as the link's tooltip) first - but
+        nothing else (no file:, no javascript:)."""
+        if not isinstance(url, str) or len(url) > 2000 or not re.match(r"^https?://[^\s]+$", url, re.IGNORECASE):
+            return {"success": False, "error": "Refusing to open that link."}
         try:
             webbrowser.open(url)
             return {"success": True}
@@ -3627,11 +4404,7 @@ class Api(VoiceEditMixin):
             # simply isn't checked - this only ever flags a definite,
             # verifiable disagreement, never a guess.
             if units and category == "courses":
-                expected = self._course_internal_names(item_name)
-                if expected:
-                    actual = find_course_slot_names(dest_folder)
-                    if actual and not (actual & expected):
-                        slot_mismatch = {"expected": sorted(expected), "found": sorted(actual)}
+                slot_mismatch = self._course_slot_mismatch(item_name, dest_folder)
                 # Same idea, independently, for bundled race music - a mod
                 # can get its Course/ folder right and still ship someone
                 # else's BGM (or vice versa), so this isn't gated on
@@ -3649,6 +4422,8 @@ class Api(VoiceEditMixin):
                 # they replace; a download whose files are all for OTHER characters is
                 # flagged (one that includes this character's own among others isn't).
                 slot_mismatch = self._character_slot_mismatch(item_name, dest_folder)
+            elif units and category == ITEMS_CATEGORY:
+                slot_mismatch = self._item_slot_mismatch(item_name, dest_folder)
             elif units and category in VEHICLE_SECTIONS:
                 # Same idea for vehicle parts: the model files a mod actually
                 # ships (BodyK_Cat.szs, Wing_Pap.szs, TireK_Zst.szs) name the
@@ -3785,7 +4560,54 @@ class Api(VoiceEditMixin):
 
         shutil.rmtree(prefetch_dir, ignore_errors=True)
         self._save_gb_mods(gb_mods)
-        return {"success": True, "results": results}
+        response = {"success": True, "results": results}
+        if (category in VEHICLE_SECTIONS or category in ("characters", "courses", ITEMS_CATEGORY)) and not any(r.get("status") == "error" for r in results):
+            response.update(self._refile_mod(character_name, record))
+        return response
+
+    def _refile_rank(self, name):
+        """Where a name comes in the app's own order (characters, courses, vehicle parts, items) - which of a pack's things it
+        is filed under."""
+        order = (list(self._load_roster()) + [c["name"] for cup in self._load_course_roster() for c in cup["courses"]]
+                 + [i["name"] for items in self._load_vehicle_roster().values() for i in items]
+                 + [i["name"] for i in self._load_item_roster()])
+        return order.index(name) if name in order else len(order)
+
+    def _refile_target(self, item_name, record):
+        """(the thing to file a tracked mod under, every thing it replaces) when its downloaded files say it isn't for `item_name`
+        - else (None, []). Every file that has been downloaded must say something the app can place (nothing unrecognised in
+        it) and none may fit `item_name`: moving a mod moves the whole record, so a file that fits, or says nothing, rules it out.
+        One thing replaced -> that thing; several (a pack) -> the first of them in the app's order, which the pack is then filed
+        under and listed on every card of the others (see get_pack_links)."""
+        replaced = set()
+        for f in record.get("files", []):
+            if f.get("download_status") != "downloaded" or not f.get("downloaded_to"):
+                continue   # (not downloaded: nothing to say about it)
+            mismatch = f.get("slot_mismatch")
+            targets = (mismatch or {}).get("targets") or []
+            if not mismatch or not targets or mismatch.get("unresolved"):
+                return None, []
+            replaced |= {t["name"] for t in targets}
+        if not replaced or item_name in replaced:
+            return None, []
+        names = sorted(replaced, key=self._refile_rank)
+        return names[0], names
+
+    def _refile_mod(self, item_name, record):
+        """After a download: if the files are for something else than the card it came from, file the mod there now (see
+        gb_move_mod) rather than leave it where it was found. {"moved": {...}} when it did (with what the UI needs to say
+        so, open that card and undo it; `pack` names everything a pack replaces), {"move_error": text} when it should have but
+        couldn't, {} otherwise."""
+        target, replaced = self._refile_target(item_name, record)
+        if target is None:
+            return {}
+        result = self.gb_move_mod(item_name, record["mod_id"], target, record.get("record_type", "Mod"))
+        if not result.get("success"):
+            return {"move_error": result["error"]}
+        return {"moved": {"from_item": item_name, "to_item": target, "to_section": result["to_section"],
+                          "mod_id": record["mod_id"], "record_type": record.get("record_type", "Mod"),
+                          "mod_name": record["name"], "moved_folders": result["moved_folders"],
+                          "pack": replaced if len(replaced) > 1 else []}}
 
     def _compute_claims(self, checked_keys, include_ui_icons=True):
         """Walks every checked mod's romfs tree and figures out which mod claims
@@ -3942,10 +4764,25 @@ class Api(VoiceEditMixin):
                         }
                         course_icons_files += 1
 
+        # ...and for the user's own vehicle-part pictures that are loose files (see sync_part_pictures()).
+        part_icons_files = 0
+        if include_ui_icons:
+            part_icons_romfs = self.mod_root / PART_ICONS_DIRNAME / "romfs"
+            if part_icons_romfs.is_dir():
+                for filepath in part_icons_romfs.rglob("*"):
+                    if filepath.is_file():
+                        rel = filepath.relative_to(part_icons_romfs)
+                        claims[rel.as_posix().lower()] = {
+                            "mod": "part-icons (your vehicle part pictures)",
+                            "src": filepath,
+                            "rel": rel,
+                        }
+                        part_icons_files += 1
+
         return types.SimpleNamespace(
             claims=claims, conflicts=conflicts, mods_processed=mods_processed, missing=missing,
             ui_icons_files=ui_icons_files, bgm_bars_skipped=bgm_bars_skipped, resolved=resolved,
-            ui_archives_skipped=ui_archives_skipped, course_icons_files=course_icons_files,
+            ui_archives_skipped=ui_archives_skipped, course_icons_files=course_icons_files, part_icons_files=part_icons_files,
             conflict_paths=conflict_paths, claimants=claimants, file_counts=file_counts,
             excluded_counts=excluded_counts,
         )
@@ -4309,6 +5146,7 @@ class Api(VoiceEditMixin):
         counts = {
             "mods": len(res.mods_processed), "files": len(res.claims), "left_out": left_out_total,
             "code_patches": len(exefs_keys), "ui_files": res.ui_icons_files, "course_icons": res.course_icons_files,
+            "part_icons": res.part_icons_files,
         }
         return counts, warnings
 
@@ -4332,6 +5170,7 @@ class Api(VoiceEditMixin):
 
     def merge(self, checked_keys):
         self.sync_voice_edits()
+        self.sync_part_pictures()   # (what a ticked mod supplies itself may have changed since the picture was set)
         lines = []
         staging_root = self.mod_root.parent / "sd-card-staging"
         out_romfs = staging_root / "atmosphere" / "contents" / TITLE_ID / "romfs"
@@ -4480,6 +5319,11 @@ class Api(VoiceEditMixin):
         if course_icons_files:
             lines.append(
                 f"  (includes {course_icons_files} generated course-select icon(s) from course-icons/, "
+                "always merged in)"
+            )
+        if res.part_icons_files:
+            lines.append(
+                f"  (includes {res.part_icons_files} vehicle part picture file(s) from part-icons/, "
                 "always merged in)"
             )
         if staged_patches:
@@ -4638,7 +5482,7 @@ class Api(VoiceEditMixin):
 
     def open_staging_folder(self):
         """Opens the sd-card-staging folder Api.merge() writes into (next to
-        the master directory) in Windows Explorer, so the user never has to
+        the master directory) in the file manager, so the user never has to
         hunt for it."""
         return self.reveal_path(str(self.mod_root.parent / "sd-card-staging"))
 
@@ -5180,6 +6024,132 @@ class Api(VoiceEditMixin):
     def _game_files(self):
         return game_files.find_current(self.mod_root)
 
+    def get_cup_icons(self):
+        """{cup name: PNG data URI} - the game's own Grand Prix medallions for the Courses screen, decoded from the app's
+        copy of menu.sarc (see cup_icons.py). {} when that copy isn't there (before Setup) or can't be read; the screen
+        then keeps its plain tiles. Decoded once per copy: the answer is remembered until menu.sarc changes."""
+        if self.mod_root is None:
+            return {}
+        menu = self._game_files().get("menu")
+        if menu is None:
+            return {}
+        try:
+            stamp = (str(menu), menu.stat().st_mtime_ns, menu.stat().st_size)
+        except OSError:
+            return {}
+        cached = getattr(self, "_cup_icon_cache", None)
+        if cached is None or cached[0] != stamp:
+            icons = {cup: "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+                     for cup, png in cup_icons.load(menu).items()}
+            self._cup_icon_cache = cached = (stamp, icons)
+        return cached[1]
+
+    # --- the game's own course-select pictures ---------------------------------------------------
+    # The base game copy holds each course's own picture (UI/cmn/menu/ym_CoursePict_<id>_00^u.bntx - see game_files.py).
+    # Base-game courses are named by their internal id (Gu_FirstCircuit; Animal Crossing's four seasons share Du_Animal);
+    # the Booster Course Pass's 48 are DLC01..DLC48 in the pass's order (checked against the pictures), while their internal
+    # ids are Cnsw_NN.
+
+    def _course_pict_ids(self, course_name):
+        """Candidate picture ids for a course, best first."""
+        ids = []
+        for i in sorted(self._course_internal_names(course_name) or []):
+            ids.append(i)
+            plain = re.sub(r"_(Spring|Summer|Autumn|Winter)$", "", i)
+            if plain != i:
+                ids.append(plain)
+        n, started = 0, False
+        for cup in self._load_course_roster():
+            started = started or cup["cup"] == DLC_FIRST_CUP
+            for c in cup["courses"]:
+                if started:
+                    n += 1
+                    if c["name"] == course_name:
+                        ids.append(f"DLC{n:02d}")
+        return ids
+
+    def _default_course_pict(self, course_name):
+        """PNG data URI of the game's own picture for a course (cropped to its visible window, like a mod's), or None."""
+        if self.mod_root is None:
+            return None
+        for pid in self._course_pict_ids(course_name):
+            path = game_files.find_current_course_pict(self.mod_root, pid)
+            if path is None:
+                continue
+            cache = self.__dict__.setdefault("_default_pict_cache", {})
+            stamp = (str(path), path.stat().st_mtime_ns)
+            if cache.get(pid, (None,))[0] != stamp:
+                try:
+                    png = bntx_decode.decode_to_png(path, crop_box=_COURSE_PICT_CROP_BOX)
+                    cache[pid] = (stamp, "data:image/png;base64," + base64.b64encode(png).decode("ascii"))
+                except (bntx_decode.UnsupportedBNTXError, OSError):
+                    cache[pid] = (stamp, None)
+            if cache[pid][1]:
+                return cache[pid][1]
+        return None
+
+    def get_course_default_pictures(self, course_names):
+        """{course name: PNG data URI} - the game's own course-select picture for each course asked about that has one.
+        A base-game copy made before pictures were part of it gets them added from the folder it was made from, if that is
+        still there (once per run - see game_files.top_up_pictures())."""
+        if self.mod_root is None:
+            return {}
+        self._top_up_pictures_once()
+        return {n: uri for n in course_names for uri in [self._default_course_pict(n)] if uri}
+
+    def _top_up_pictures_once(self):
+        if self.__dict__.get("_picture_topup_done"):
+            return
+        self._picture_topup_done = True
+        try:
+            game_files.top_up_pictures(self.mod_root)
+        except OSError:
+            pass
+
+    def get_vehicle_icons(self):
+        """{part name: PNG data URI} - the game's own picture of every vehicle part (body, tire, glider) that has one, for
+        the Vehicles screen (see vehicle_icons.py). {} before Setup or when the copy can't be read; the tiles then keep
+        their plain names. Decoded once per copy: remembered until menu.sarc changes."""
+        if self.mod_root is None:
+            return {}
+        menu = self._game_files().get("menu")
+        if menu is None:
+            return {}
+        self._top_up_pictures_once()
+        try:
+            stamp = (str(menu), menu.stat().st_mtime_ns, menu.stat().st_size,
+                     len([f for f in vehicle_icons.LOOSE_FILENAMES if game_files.find_current_vehicle_pict(self.mod_root, f)]))
+        except OSError:
+            return {}
+        cached = getattr(self, "_vehicle_icon_cache", None)
+        if cached is None or cached[0] != stamp:
+            parts = [(section, item["name"], item.get("internal"))
+                     for section, items in self._load_vehicle_roster().items() for item in items]
+            pngs = vehicle_icons.load(menu, parts, lambda f: game_files.find_current_vehicle_pict(self.mod_root, f))
+            icons = {n: "data:image/png;base64," + base64.b64encode(png).decode("ascii") for n, png in pngs.items()}
+            self._vehicle_icon_cache = cached = (stamp, icons)
+        return cached[1]
+
+    def get_item_icons(self):
+        """{item name: PNG data URI} - the game's own picture of every item that has one, for the Items screen (see
+        item_icons.py). {} before Setup or when the copy can't be read; the tiles then keep their plain names. Decoded once per
+        copy: remembered until menu.sarc changes."""
+        if self.mod_root is None:
+            return {}
+        menu = self._game_files().get("menu")
+        if menu is None:
+            return {}
+        try:
+            stamp = (str(menu), menu.stat().st_mtime_ns, menu.stat().st_size)
+        except OSError:
+            return {}
+        cached = getattr(self, "_item_icon_cache", None)
+        if cached is None or cached[0] != stamp:
+            pngs = item_icons.load(menu, self._load_item_roster())
+            icons = {n: "data:image/png;base64," + base64.b64encode(png).decode("ascii") for n, png in pngs.items()}
+            self._item_icon_cache = cached = (stamp, icons)
+        return cached[1]
+
     def get_base_files_status(self):
         """{"done", "source" (shown for reference only - it doesn't need to still exist), "copied_at", "icons",
         "locales", "voice_found", "voice_total", "problems"} - the app's own local copy of the base game's files
@@ -5603,6 +6573,10 @@ class Api(VoiceEditMixin):
         ui_setup.save_overrides(self.mod_root, ov)
         if kind == "characters" and mark_reviewed:
             self._mark_signature("names", item_name)   # typing a name confirms the Name task (not Icons)
+        elif kind == "courses" and mark_reviewed:
+            self._mark_course("course_names", item_name)
+        elif kind in ui_setup.PART_KINDS and mark_reviewed:
+            self._mark_part("part_names", item_name)
         return {"success": True}
 
     def clear_item_name(self, item_name, kind, mark_reviewed=True):
@@ -5614,6 +6588,10 @@ class Api(VoiceEditMixin):
         ui_setup.save_overrides(self.mod_root, ov)
         if kind == "characters" and mark_reviewed:
             self._mark_signature("names", item_name)   # choosing "back to normal" confirms the Name task
+        elif kind == "courses" and mark_reviewed:
+            self._mark_course("course_names", item_name)
+        elif kind in ui_setup.PART_KINDS and mark_reviewed:
+            self._mark_part("part_names", item_name)
         return {"success": True}
 
     def open_ui_setup_folder(self):
@@ -5644,7 +6622,7 @@ if __name__ == "__main__":
     window_w, window_h = default_window_size()
     window = webview.create_window(
         "Mario Kart 8 Mod Manager",
-        str(SCRIPT_DIR / "webui.html"),
+        str(SCRIPT_DIR / "ui" / "index.html"),
         js_api=api,
         width=window_w,
         height=window_h,

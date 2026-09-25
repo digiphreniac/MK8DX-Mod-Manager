@@ -1,0 +1,208 @@
+  /* "Add a mod" - reachable from the Full List tab (see #btn-add-mod-fab
+     below) for a mod that isn't obviously a specific character/course grid
+     tile. Same modal shell pattern as #settings-modal above. */
+  #btn-add-mod-fab {
+    position: fixed;
+    right: 28px;
+    bottom: 28px;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+    z-index: 5;
+  }
+  #add-mod-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 22, 28, 0.4);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 20px 20px 20px;
+    z-index: 20;
+    animation: fadeIn 0.14s ease-out;
+  }
+  #add-mod-modal {
+    background: var(--panel);
+    border-radius: 14px;
+    width: 520px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 68px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    animation: popIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  #add-mod-modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+  }
+  #add-mod-modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
+  #add-mod-modal-body { padding: 18px 20px 20px 20px; overflow-y: auto; }
+  #add-mod-intro { margin-bottom: 10px; }
+  #add-mod-modal-body .gb-fetch-row { margin: 0 0 10px 0; }
+  #add-mod-summary {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 14px 0 10px 0;
+  }
+  #add-mod-thumb {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: var(--thumb-bg);
+    flex: 0 0 auto;
+  }
+  #add-mod-summary-text { min-width: 0; }
+  #add-mod-name { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #add-mod-author { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
+  #add-mod-guess-note { margin-bottom: 12px; }
+  #add-mod-files-panel {
+    margin: 4px 0 10px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    background: var(--bg-soft);
+  }
+  .add-mod-perfile-toggle { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  #add-mod-files-hint { margin: 4px 0 6px 0; }
+  .add-mod-file-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 42%);
+    gap: 4px 10px;
+    align-items: center;
+    padding: 6px 0;
+    border-top: 1px solid var(--divider);
+  }
+  .add-mod-file-row label { display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; cursor: pointer; min-width: 0; }
+  .amf-text { min-width: 0; overflow-wrap: anywhere; }
+  .amf-meta { color: var(--text-dim); font-size: 11px; }
+  .add-mod-file-row select { width: 100%; }
+  #add-mod-files-panel.off .add-mod-file-row { opacity: 0.45; pointer-events: none; }
+  #add-mod-result.summary-mode > .add-mod-choice-row,
+  #add-mod-result.summary-mode > #add-mod-files-panel,
+  #add-mod-result.summary-mode > #btn-add-mod-confirm,
+  #add-mod-result.summary-mode > #add-mod-guess-note,
+  #add-mod-result.summary-mode > #add-mod-game-warning,
+  #add-mod-result.summary-mode > #add-mod-confirm-error { display: none; }
+  #add-mod-summary-panel { margin-top: 6px; }
+  .add-mod-summary-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .add-mod-summary-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: center;
+    padding: 6px 0;
+    border-top: 1px solid var(--divider);
+    font-size: 12.5px;
+  }
+  .add-mod-summary-line.ok { color: var(--ok); }
+  .add-mod-summary-line.warn { color: var(--warn); }
+  .add-mod-summary-line.err { color: var(--danger); }
+  .add-mod-summary-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .add-mod-choice-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .add-mod-choice-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    flex: 0 0 118px;
+    white-space: nowrap;
+  }
+  .add-mod-choice-label input { cursor: pointer; accent-color: var(--accent); }
+  .add-mod-choice-row select,
+  .add-mod-choice-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12.5px;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--panel);
+  }
+  .add-mod-other-controls {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  #btn-add-mod-confirm { margin-top: 6px; width: 100%; }
+  .settings-body { padding: 12px 14px 14px 14px; }
+  .settings-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .settings-checkbox-label input {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .settings-hint { font-size: 11.5px; color: var(--text-dim); margin-top: 6px; line-height: 1.4; }
+  .settings-text-input {
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px 8px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    box-sizing: border-box;
+  }
+  .clear-all-warning { font-size: 13px; line-height: 1.5; margin: 0 0 12px 0; }
+  .clear-all-result { font-size: 12px; margin-top: 10px; }
+  .clear-all-result.ok { color: var(--ok); }
+  .clear-all-result.err { color: var(--danger); }
+  #ui-icon-worklist-body { margin-top: 10px; }
+  .ui-icon-worklist-group { margin-bottom: 14px; }
+  .ui-icon-worklist-group:last-child { margin-bottom: 0; }
+  .ui-icon-worklist-char { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .ui-icon-worklist-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0; border-bottom: 1px solid var(--panel-border); font-size: 12.5px;
+  }
+  .ui-icon-worklist-row:last-child { border-bottom: none; }
+  .ui-icon-worklist-name { flex: 1 1 auto; min-width: 0; }
+  .ui-icon-worklist-path {
+    color: var(--text-dim); font-size: 11px; word-break: break-all; margin-top: 2px;
+  }
+  .ui-icon-worklist-empty { font-size: 12.5px; color: var(--text-dim); }
+  #conflicts-body { margin-top: 10px; }
+  .conflict-group { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--panel-border); }
+  .conflict-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .conflict-path-label { font-family: monospace; font-size: 12px; margin-bottom: 4px; word-break: break-all; }
+  .conflict-known-note { font-size: 11.5px; color: var(--text-dim); margin-bottom: 8px; line-height: 1.4; }
+  .conflict-option-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0; font-size: 12.5px;
+  }
+  .conflict-option-row button { flex-shrink: 0; }
+  .conflict-resolved-tag { color: var(--ok); font-size: 12.5px; }
+  .conflicts-empty { font-size: 12.5px; color: var(--text-dim); }
+

@@ -1,0 +1,115 @@
+  /* Icon generator modal - same treatment as #help-modal, own ids so it can
+     stack above the character/course modal it's opened from. */
+  #icon-gen-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 22, 28, 0.4);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 20px 20px 20px;
+    z-index: 20;
+    animation: fadeIn 0.14s ease-out;
+  }
+  #icon-gen-modal {
+    background: var(--panel);
+    border-radius: 14px;
+    width: 640px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 68px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    animation: popIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  #icon-gen-modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+  }
+  #icon-gen-modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
+  #icon-gen-modal-body { padding: 18px 20px 20px 20px; overflow-y: auto; }
+  #icon-gen-screenshot-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+  #icon-gen-screenshot-grid img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    display: block;
+  }
+  #icon-gen-screenshot-grid img:hover { border-color: var(--accent); }
+  /* "Choose a picture from your computer..." fills a whole tile, the size of the screenshots */
+  #icon-gen-screenshot-grid .ml-upload { display: flex; width: 100%; height: auto; aspect-ratio: 16 / 9; box-sizing: border-box; padding: 8px; border-radius: 6px; }
+  .icon-gen-section-title { margin: 14px 0 0 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+  #icon-gen-mod-icons, #icon-gen-mod-icons-other { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+  .icon-gen-icon { display: flex; flex-direction: column; gap: 4px; padding: 0; background: none; border: none; box-shadow: none; text-align: left; cursor: pointer; }
+  .icon-gen-icon-img { width: 100%; aspect-ratio: 16 / 9; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: var(--thumb-bg); border: 2px solid transparent; border-radius: 6px; overflow: hidden; }
+  .icon-gen-icon-img img { height: 100%; width: auto; max-width: 100%; object-fit: contain; display: block; }
+  .icon-gen-icon:hover .icon-gen-icon-img, .icon-gen-icon:focus-visible .icon-gen-icon-img { border-color: var(--accent); }
+  .icon-gen-icon:focus-visible { outline: none; }
+  .icon-gen-icon-cap { font-size: 11.5px; line-height: 1.3; color: var(--text-dim); }
+  .icon-gen-icon-cap b { display: block; font-weight: 600; color: var(--text); }
+  #icon-gen-crop-stage {
+    position: relative;
+    margin-top: 12px;
+    line-height: 0;
+    user-select: none;
+    background: #111;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  #icon-gen-crop-image { width: 100%; height: auto; display: block; }
+  #icon-gen-crop-box {
+    position: absolute;
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 0 2000px rgba(0,0,0,0.55);
+    cursor: grab;
+  }
+  #icon-gen-crop-box.dragging { cursor: grabbing; }
+  #icon-gen-crop-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 12px;
+  }
+
+  /* Guessed-names review modal - same treatment as #help-modal, own ids so it can
+     stack above the page (or another modal) it's opened from. */
+  #guessed-names-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 22, 28, 0.4);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 20px 20px 20px;
+    z-index: 20;
+    animation: fadeIn 0.14s ease-out;
+  }
+  #guessed-names-modal {
+    background: var(--panel);
+    border-radius: 14px;
+    width: 640px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 68px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    animation: popIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  #guessed-names-modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+  }
+  #guessed-names-modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
+  #guessed-names-modal-body { padding: 18px 20px 20px 20px; overflow-y: auto; }
+

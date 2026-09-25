@@ -1,0 +1,22 @@
+  /* The tooltip (see the tooltip code at the end of the script): one element, moved to whatever the mouse is over.
+     It replaces the browser's own title tooltip. */
+  #app-tip {
+    position: fixed; left: 0; top: 0; z-index: 20000; max-width: min(340px, calc(100vw - 16px)); pointer-events: none;
+    padding: 8px 11px; border-radius: 8px; background: var(--tip-bg); color: var(--tip-text);
+    border: 1px solid var(--tip-border); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+    font-size: 12.5px; line-height: 1.45; font-weight: 400; text-align: left; overflow-wrap: anywhere;
+    opacity: 0; visibility: hidden; transform: translateY(3px);
+    transition: opacity 0.1s ease, transform 0.1s ease, visibility 0s linear 0.1s;
+  }
+  #app-tip[data-side="above"] { transform: translateY(-3px); }
+  #app-tip.show { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+  #app-tip .tip-line + .tip-line { margin-top: 3px; }
+  #app-tip .tip-line b { font-weight: 600; color: var(--tip-label); }
+  #app-tip .tip-arrow {
+    position: absolute; width: 9px; height: 9px; background: var(--tip-bg); border: 1px solid var(--tip-border);
+    transform: translateX(-50%) rotate(45deg);
+  }
+  #app-tip[data-side="below"] .tip-arrow { top: -5px; border-right: none; border-bottom: none; }
+  #app-tip[data-side="above"] .tip-arrow { bottom: -5px; border-left: none; border-top: none; }
+  @media (prefers-reduced-motion: reduce) { #app-tip { transition: none; transform: none; } }
+

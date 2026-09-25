@@ -1,0 +1,176 @@
+  /* Full list (existing) */
+  #checklist {
+    max-width: 1220px;
+    margin: 0 auto;
+  }
+  .category {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .category h2 {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-dim);
+    font-weight: 600;
+    margin: 0;
+    padding: 10px 14px;
+    background: var(--bg-soft);
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .category h2.category-header-with-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  .category h2 button {
+    text-transform: none;
+    letter-spacing: normal;
+  }
+  .mod-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 8px 14px;
+    font-size: 13.5px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--divider);
+  }
+  .mod-row:last-child { border-bottom: none; }
+  .mod-row:hover { background: var(--accent-soft); }
+
+  /* "More" tab - a tile per flat mod category (Mechanics, UI, Code patches...; see SIMPLE_CATEGORIES and renderMoreList): what it is
+     for, how far along it is, and a button into GameBanana. A tile opens the same card characters and courses use. */
+  /* on a panel of its own: text set straight on the checkered background is hard to read */
+  #more-intro { max-width: 980px; margin: 0 auto 14px auto; padding: 12px 16px; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; box-shadow: var(--shadow); }
+  #more-intro-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  #more-intro-text { margin-top: 2px; font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
+  #more-list { max-width: 980px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .more-tile {
+    display: flex; flex-direction: column; gap: 10px; padding: 16px;
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; box-shadow: var(--shadow);
+    cursor: pointer; transition: border-color 0.12s, background 0.12s;
+  }
+  .more-tile:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .more-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .more-tile.has-selected { border-color: var(--accent); }
+  .more-tile.needs-attention { border-color: var(--danger); }
+  .more-tile-head { display: flex; align-items: center; gap: 12px; }
+  .more-icon { flex: none; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); }
+  .more-tile:hover .more-icon { background: var(--panel); }
+  .more-name { font-size: 15px; font-weight: 600; }
+  .more-blurb { font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
+  .more-status { margin-top: auto; font-size: 12px; color: var(--text-dim); }   /* (status and button sit at the tile's foot, so they line up across a row) */
+  .more-status.attention { color: var(--danger); font-weight: 600; }
+  .more-status-text { margin-bottom: 5px; }
+  .more-bar { height: 5px; border-radius: 3px; background: var(--divider); overflow: hidden; }
+  .more-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+  .more-actions { display: flex; }
+  .mod-row input {
+    cursor: pointer;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+  }
+  .mod-row label { cursor: pointer; flex: 1 1 12em; min-width: 8em; overflow-wrap: anywhere; }
+  /* A "UI icons only" companion download: no romfs, so no checkbox - shown so its
+     existence (and the icon(s) it's currently supplying, if any) isn't a surprise. */
+  .icon-only-row { cursor: default; }
+  .icon-only-row .icon-only-mark { flex: 0 0 auto; font-size: 14px; }
+  .icon-only-row .icon-only-label { flex: 1 1 12em; min-width: 8em; overflow-wrap: anywhere; }
+  .icon-only-row .icon-only-note { flex: 1 1 100%; font-size: 12px; color: var(--text-dim); }
+  .mod-row .patch-badge, .mod-row .packed-badge { flex: 0 0 auto; }
+  .packed-badge {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    color: var(--warn);
+    background: var(--warn-soft);
+    border-radius: 10px;
+    padding: 2px 8px;
+    white-space: nowrap;
+    cursor: help;
+  }
+  .linked-badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    background: transparent;
+    border: 1px dashed var(--accent);
+    border-radius: 10px;
+    padding: 1px 8px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .mod-row .linked-badge { flex: 0 0 auto; }
+  .patch-badge {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 1px 8px;
+    white-space: nowrap;
+    cursor: help;
+  }
+  .icon-badge {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    box-shadow: none;
+    border-radius: 6px;
+    padding: 2px 7px;
+    margin-right: 6px;
+    cursor: pointer;
+  }
+  .icon-badge:hover, .icon-badge:focus-visible { background: var(--accent); color: white; }
+  .reveal-error {
+    flex-basis: 100%;
+    font-size: 11.5px;
+    color: var(--danger);
+    margin-top: 4px;
+  }
+  .icon-path {
+    flex-basis: 100%;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 3px;
+    word-break: break-all;
+  }
+  .remove-mod-btn {
+    font-size: 10.5px;
+    padding: 3px 8px;
+    box-shadow: none;
+    color: var(--danger);
+    border-color: transparent;
+    background: transparent;
+    margin-left: auto;
+  }
+  .remove-mod-btn:hover { background: var(--danger-soft); border-color: var(--danger); }
+
+  .log-mod-link { color: inherit; text-decoration: underline; cursor: pointer; }
+  .log-mod-link:hover { color: var(--accent); }
+  #empty-msg {
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 20px;
+  }
+

@@ -1,0 +1,297 @@
+  /* The board the character grid sits on (both layouts): a light translucent panel with slightly
+     rounded corners and a ridge border. The padding leaves room for the corner brackets. */
+  #char-grid-col, #cup-board, #item-grid-col {
+    position: relative; box-sizing: border-box; padding: 10px;
+    background: rgba(219, 219, 219, 0.25);
+    background-clip: padding-box;   /* so the border isn't drawn over the panel's own fill (that would double its opacity) */
+    border: 5px ridge rgba(219, 219, 219, 0.25);   /* same colour and opacity as the fill */
+    border-radius: 10px;
+  }
+  /* The white corner frame that follows the mouse over a tile grid (see makeHoverFrame): one element per
+     screen that slides from tile to tile. Same shape as the yellow "viewing" brackets. */
+  .hover-frame {
+    position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; opacity: 0; border-radius: 10px;
+    --corner-color: #ffffff; --corner-len: 16px; --corner-thick: 3px;
+    background:
+      linear-gradient(var(--corner-color), var(--corner-color)) top left / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top left / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top right / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top right / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom left / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom left / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom right / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom right / var(--corner-thick) var(--corner-len) no-repeat;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6));   /* white on a light board needs an edge */
+    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.3, 1), width 0.18s cubic-bezier(0.2, 0.8, 0.3, 1),
+                height 0.18s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.14s;
+  }
+  .hover-frame.show { opacity: 0.5; }   /* half strength: a hint of where the mouse is, not a second selection */
+  .char-tile.active::after, .cup-tile.active::after { z-index: 3; }   /* the yellow brackets stay above the white ones */
+  /* Course Select: same hover as the character grid - no lift, the white frame marks the tile instead */
+  #view-courses .cup-tile:hover, #view-courses .char-tile:hover { transform: none; }
+  #view-courses { position: relative; }
+
+  /* Character grid - fixed 8 columns to match the in-game select screen */
+  #char-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 10px;
+    /* Tiles stop growing past this width instead of ballooning on a wide
+       window. */
+    max-width: 1230px;
+    margin: 0 auto;
+  }
+  @media (max-width: 760px) {
+    #char-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+  .char-grid-other-heading {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-dim);
+    font-weight: 700;
+    margin: 8px 0 2px 0;
+  }
+  /* Villager and Inkling: one slot in-game, two characters here. The card opens straight on one of them, with this
+     switch at the top to move to the other; each side shows its own picture, mod name and review state. */
+  .variant-switch { display: flex; gap: 6px; padding: 4px; margin-bottom: 12px; background: var(--thumb-bg); border-radius: 12px; }
+  button.variant-opt {
+    flex: 1 1 0; min-width: 0; position: relative; display: flex; align-items: center; gap: 9px; padding: 6px 12px 6px 8px;
+    background: transparent; border: 1px solid transparent; border-radius: 9px; box-shadow: none; color: var(--text-dim); text-align: left;
+  }
+  button.variant-opt:hover { background: var(--hover-bg); border-color: transparent; color: var(--text); }
+  button.variant-opt.on { background: var(--panel); border-color: var(--accent); color: var(--text); box-shadow: var(--shadow); cursor: default; }
+  .variant-thumb { width: 38px; height: 38px; flex: none; border-radius: 50%; object-fit: contain; background: var(--panel); }
+  .variant-thumb.ph { border: 2px dashed var(--panel-border); box-sizing: border-box; }
+  .variant-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+  .variant-text b { font-size: 14px; font-weight: 600; }
+  .variant-text small { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .variant-text small.attention { color: var(--danger); font-weight: 600; }
+  .variant-mark { position: absolute; top: 6px; right: 8px; width: 9px; height: 9px; border-radius: 50%; }
+  .variant-mark.todo { background: var(--warn); }
+  .variant-mark.done { background: var(--ok); width: 12px; height: 12px; top: 5px; right: 7px; color: #fff; font-size: 8.5px; font-weight: 800; line-height: 12px; text-align: center; }
+  .char-tile {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--panel);
+    border: 1.5px solid var(--panel-border);
+    border-radius: 50%;
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    position: relative;
+    transition: border-color 0.12s, transform 0.08s;
+  }
+  .char-tile:hover { border-color: var(--accent); transform: translateY(-1px); }
+  #char-grid .char-tile:hover { transform: none; }   /* the character grid's tiles stay put - the white corner frame marks the hover */
+  .char-tile.has-selected { border-color: var(--accent); background: var(--accent-soft); }
+  /* Course Select tiles reuse .char-tile but shouldn't be forced into the
+     same 1:1 square as character/cup tiles - their content is a wide 16:9
+     picture (or a short badge/name/count fallback when there's no icon),
+     so the square + centered-content rules above just left a lot of empty
+     vertical padding above/below. Let height follow content instead, and
+     cut the tile's own padding down since the picture (course-pict-wrap)
+     already sits flush inside it. */
+  #course-strip .char-tile {
+    aspect-ratio: auto;
+    display: block;
+    padding: 6px;
+  }
+  /* Course Select: the four course tiles are rectangles with angled (chamfered) corners rather than the
+     character grid's circles, and sit in one large container with a white-to-grey gradient. The angled
+     outline is built in two layers (a clip-path can't carry a border): the tile is clipped to the outer
+     shape and filled with the border colour, and ::before is the inset, slightly smaller fill on top. */
+  #course-strip {
+    padding: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #d4d4d4 100%);
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  }
+  #course-strip .char-tile {
+    --ct-cut: 14px;
+    --ct-border: var(--panel-border);
+    --ct-fill: var(--panel);
+    isolation: isolate;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--ct-border);
+    clip-path: polygon(var(--ct-cut) 0, calc(100% - var(--ct-cut)) 0, 100% var(--ct-cut), 100% calc(100% - var(--ct-cut)),
+                       calc(100% - var(--ct-cut)) 100%, var(--ct-cut) 100%, 0 calc(100% - var(--ct-cut)), 0 var(--ct-cut));
+  }
+  #course-strip .char-tile::before {
+    content: ""; position: absolute; inset: 1.5px; z-index: -1; background: var(--ct-fill);
+    clip-path: polygon(calc(var(--ct-cut) - 1px) 0, calc(100% - var(--ct-cut) + 1px) 0, 100% calc(var(--ct-cut) - 1px), 100% calc(100% - var(--ct-cut) + 1px),
+                       calc(100% - var(--ct-cut) + 1px) 100%, calc(var(--ct-cut) - 1px) 100%, 0 calc(100% - var(--ct-cut) + 1px), 0 calc(var(--ct-cut) - 1px));
+  }
+  #course-strip .char-tile:hover { --ct-border: var(--accent); }
+  #course-strip .char-tile.has-selected { --ct-border: var(--accent); --ct-fill: var(--accent-soft); }
+  #course-strip .char-tile.has-conflict { --ct-border: var(--danger); }
+  /* the picture (and its white name banner) gets the matching angled corners, inset by the tile's padding */
+  #course-strip .course-pict-wrap {
+    border-radius: 0;
+    clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px),
+                       calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+  }
+  /* white brackets on a white container need a firmer edge */
+  #view-courses .hover-frame { filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.85)); }
+  .char-tile.no-mods { opacity: 0.55; }
+  /* A tile whose look (icon / name from its ticked mods) is still being read: it breathes until the answer is in */
+  @keyframes tile-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+  .char-tile.looks-loading { animation: tile-pulse 1.2s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .char-tile.looks-loading { animation: none; opacity: 0.7; } }
+  /* A tile needing attention should stand out, not blend into the same faded
+     treatment as one nobody has touched yet - opacity on the tile dims its
+     whole subtree (including the dot/text below), so it has to be undone
+     with a higher-specificity override rather than just styling the dot. */
+  .char-tile.no-mods.needs-attention { opacity: 0.9; }
+  .char-count.count-attention { color: var(--danger); font-weight: 600; }
+  .char-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--thumb-bg);
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 15px;
+    margin: 0 auto 8px auto;
+  }
+  .char-tile.has-selected .char-badge { background: var(--accent); color: white; }
+  .char-name { font-size: 12.5px; font-weight: 500; line-height: 1.25; }
+  /* Character grid tiles get a colorful corner-gradient background (see
+     buildCornerGradient()) - a translucent backdrop keeps the name legible
+     over it regardless of which colors land underneath. Harmless on a tile
+     with no gradient too (an unnoticeable tint over the plain panel bg). */
+  #char-grid .char-name {
+    background: var(--tile-label-bg);
+    border-radius: 5px;
+    padding: 2px 6px;
+  }
+  .char-count { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+  .char-tile.has-selected .char-count { color: var(--accent); font-weight: 600; }
+  /* A modded character: the mod's own icon fills the tile and the name is the modded one
+     (see applyCharacterLook). The corner gradient describes the game's character, so it goes. */
+  .char-tile.has-icon { background-image: none !important; background-color: transparent; }
+  /* on the character grid a tile with mod data is just its icon: no fill, no shadow, no coloured ring */
+  #char-grid .char-tile.has-icon { box-shadow: none; }
+  #char-grid .char-tile.has-icon { border-color: transparent; }
+  /* a tile without an icon keeps a grey border (ticked or not); a conflict still shows its red one */
+  #char-grid .char-tile:not(.has-icon) { border: 2px solid rgba(160, 165, 175, 0.8); }
+  #char-grid .char-tile.has-conflict { border-color: var(--danger); }
+  .char-tile .char-icon {
+    position: absolute; left: 50%; top: 46%; width: 88%; height: 88%;
+    transform: translate(-50%, -50%); object-fit: contain; pointer-events: none;
+  }
+  /* the wide layout shows no name over the icon, so the icon can fill nearly the whole tile */
+  #char-layout.docked #char-grid .char-tile .char-icon { top: 50%; width: 96%; height: 96%; }
+  #char-grid .char-tile.has-icon .char-name {
+    position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%);
+    width: max-content; max-width: 90%; font-size: 11.5px; line-height: 1.15; padding: 2px 5px;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere;
+  }
+  #char-grid .char-tile.has-icon .char-count { display: none; }
+  /* A tile for two characters (Villager, Inkling) with a mod picture on either: both variants, two smaller pictures on
+     the diagonal (first option top left, second bottom right); a variant with no picture is a dashed placeholder with its
+     label. Each one opens its own character. */
+  .char-tile .char-icon.variant, .char-tile .variant-ph { width: 62%; height: 62%; transform: none; pointer-events: auto; cursor: pointer; }
+  .char-tile .char-icon.variant.tl, .char-tile .variant-ph.tl { left: 4%; top: 4%; right: auto; bottom: auto; }
+  .char-tile .char-icon.variant.br, .char-tile .variant-ph.br { right: 4%; bottom: 4%; left: auto; top: auto; }
+  #char-layout.docked #char-grid .char-tile .char-icon.variant, #char-layout.docked #char-grid .char-tile .variant-ph { width: 62%; height: 62%; }
+  #char-layout.docked #char-grid .char-tile .char-icon.variant.tl, #char-layout.docked #char-grid .char-tile .variant-ph.tl { left: 4%; top: 4%; }
+  #char-layout.docked #char-grid .char-tile .char-icon.variant.br, #char-layout.docked #char-grid .char-tile .variant-ph.br { right: 4%; bottom: 4%; top: auto; left: auto; }
+  .char-tile .variant-ph {
+    position: absolute; box-sizing: border-box; border-radius: 50%; border: 2px dashed var(--hover-border); background: var(--tile-label-bg);
+    display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-weight: 600;
+    font-size: clamp(9px, calc(var(--tile, 70px) * 0.13), 14px);
+  }
+  .char-attention-dot {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--danger);
+  }
+  /* Wraps the cropped course-select picture plus its title banner - the
+     rounded corners + overflow:hidden live here rather than on the <img>
+     itself so the banner's corners get clipped the same way at the bottom. */
+  .course-pict-wrap {
+    position: relative;
+    border-radius: 7px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    background: var(--thumb-bg);
+  }
+  .course-pict-preview {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: 300px;
+    object-fit: cover;
+    display: block;
+    background: var(--thumb-bg);
+  }
+  /* Mimics the in-game course-select screen's own white name banner over
+     the bottom of the picture - see SCREENSHOTS/5_course_selection.jpg.
+     Deliberately fixed white/black rather than theme tokens, since this is
+     reproducing the game's own fixed UI chrome, not app chrome. */
+  .course-pict-title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #ffffff;
+    color: #14161a;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    padding: 5px 6px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tile-count-bubble {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    min-width: 27px;
+    height: 27px;
+    padding: 0 7px;
+    border-radius: 14px;
+    background: var(--accent);
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  }
+  .char-conflict-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--danger);
+    color: white;
+    font-size: 12px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .char-tile.has-conflict { border-color: var(--danger); }
+

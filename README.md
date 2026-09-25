@@ -28,7 +28,7 @@ Given a character or a course, it can:
 
 - `src/mod_manager.py` - backend (a pywebview JS-API bridge; almost all of the
   actual logic lives here)
-- `src/webui.html` - the frontend
+- `src/ui/` - the frontend (plain HTML, CSS and JS; no build step) - see "Frontend file layout" below
 - `src/voice_audio.py` / `voice_edit.py` / `voice_dsp.py` / `voice_api.py` - character voices. `voice_audio.py` reads a voice archive
   (`.bars`) and decodes its sounds so the app can play them; `voice_edit.py` rewrites an archive with some sounds swapped
   (and knows what each voice line is called); `voice_dsp.py` turns audio into the game's sound format; `voice_api.py` is the
@@ -41,6 +41,11 @@ Given a character or a course, it can:
   required Setup step; `original/` is never touched again after it's written, `current/` is what every other part of
   the app reads.
 - `src/gamebanana_api.py` - the GameBanana API client
+- `src/cup_icons.py` - reads the game's own Grand Prix medallions out of the app's copy of `menu.sarc` for Course Select -
+  see "Course Select" below.
+- `src/vehicle_icons.py` - the same for the game's own pictures of every vehicle part, for the Vehicles screen - see "Vehicle
+  parts" below.
+- `src/item_icons.py` - and for the game's own pictures of every item, for the Items screen - see "Items" below.
 - `src/bntx_decode.py` - decodes a course mod's own `ym_CoursePict_*.bntx`
   select-screen thumbnail (a Switch BC7 or RGBA8 texture) to PNG, for the
   inline preview in Course Select - see its own docstring for exactly what
@@ -52,7 +57,7 @@ Given a character or a course, it can:
   generation" below.
 - `src/roster.json` - the full roster: every character and course (courses
   grouped into their 24 cups) plus every vehicle part (bodies, wheels,
-  gliders - see "Vehicle parts" below), used so every item shows up in the
+  gliders - see "Vehicle parts" below) and every item (see "Items" below), used so every one shows up in the
   app even before anything's downloaded for it. Each course entry also
   carries its real internal `romfs/Course/<id>/` folder name (see below).
 - `gamebanana-mods.json` / `mod-manager-state.json` - your tracked downloads
@@ -88,6 +93,8 @@ Given a character or a course, it can:
   a character/course popup's "Menu look" card - see "Menu look" below
 - `look-reviews.json` - which characters' looks you have confirmed with "Looks right" (see "Checking a
   character's look" below)
+- `part-icons/` - the user's own pictures for vehicle parts that are loose files (see "Vehicle parts: names and pictures in
+  the menus"); the same idea, always merged in.
 - `course-icons/` - app-generated course-select icons (see "Course-select
   icon preview & generation" below) - always merged in, same idea as
   `ui-icons/` but kept separate so generated files never mix with your own
@@ -96,7 +103,159 @@ Given a character or a course, it can:
 For the day-to-day usage guide, see the app's own **Help** panel (top
 right) - it covers the five-step flow, Menu Look, voice editing, conflicts,
 the file-status glossary and known issues, and stays current with the UI
-since it lives in `webui.html` itself rather than a separate doc.
+since it lives in the UI itself (`src/ui/html/help-modal.html`) rather than a separate doc.
+
+## Frontend file layout
+
+The UI is plain HTML, CSS and JavaScript under `src/ui/` - no build step, no bundler, no modules. pywebview serves that folder
+over its built-in local HTTP server (which is why relative links and `fetch()` work), so everything the page loads must live
+under `src/ui/`.
+
+- `index.html` - the page frame only: the header, tabs, the main views, the footer, and one `<link>` per stylesheet.
+- `html/*.html` - one file per modal / overlay (`help-modal`, `settings-modal`, `add-mod-modal`, `gb-browse-modal`,
+  `gb-detail-modal`, `icon-gen-modal`, `guessed-names-modal`, `character-modal`, `setup-overlay`). `js/bootstrap.js` fetches
+  them and adds them after the frame, in the order it lists them (the order is their stacking order).
+- `css/*.css` - the styles, split along the old file's section comments. **Order matters**: later rules override earlier ones,
+  so the `<link>` order in `index.html` is the cascade. Add a stylesheet after whatever it needs to override.
+- `js/*.js` - the app. These are ordinary (non-module) scripts that share **one global scope**, run one after another in the
+  order `SCRIPTS` lists in `js/bootstrap.js`: state and helpers first, then tiles, the character card, the views, add-a-mod,
+  settings, the guided flow, and `main.js` (the `pywebviewready` handler that starts the app) near the end. Top-level code in a
+  file may use anything an *earlier* file declared, but not a later one (a function declaration is only hoisted within its own
+  file), so a new file goes where its dependencies are already loaded.
+
+`bootstrap.js` also covers one timing trap: pywebview fires `pywebviewready` once, as soon as the page has loaded, which can be
+before `main.js` has registered its listener now that the scripts load one by one. It notes the event and replays it once every
+script is in.
+
+Which file holds what, roughly: `tiles-and-review.js` (character/course tiles, the "have you checked the look" review),
+`character-select-layout.js` (the docked card, hover name bar), `gamebanana.js` (the mod detail window and the GameBanana card), `refile.js` (a mod for something other than its card: the note, Undo, "Move to..."),
+`gb-browse.js` (the Browse GameBanana window), `rich-text.js` (descriptions with links),
+`voice.js` (playback, the voice editor, the "Use my own sound" tool, the card's Voice row), `character-card.js` (the card
+itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, More, Course Select, tab switching), `vehicle-screen.js` (the Vehicles screen), `vehicle-card.js` (the vehicle card's "Right part" step), `item-screen.js` (the Items screen, its docked card and fit), `item-card.js` (the item card), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
+`settings-panels.js` (master directory, UI setup card), `menu-icons-text.js` / `menu-look.js` (the base-file copy and the
+Menu Look cards), `flow.js` (step bar, Commit, Copy to Switch), `setup-wizard.js`, `tooltips.js`.
+
+## Browsing GameBanana: one window for every kind of mod
+
+"Browse GameBanana" (`js/gb-browse.js`, markup in `html/gb-browse-modal.html`, styles in `css/gb-browse.css`) is the same window
+whatever card opens it - a character, a course, a vehicle part, an item, or one of the plain categories. Only where the list
+comes from differs (`fetchPage()`): `gb_browse` (a character's subcategory), `gb_browse_simple`, `gb_browse_vehicle`,
+`gb_browse_item` - all sortable categories - or `gb_browse_course`, a search - and `gb_search` when the user has typed one.
+
+- **The list loads as you scroll** (no pages). `checkFill()` asks for the next batch whenever the end of the list is within
+  `GB_LOOKAHEAD` (500 px) of the window's bottom edge - after each batch, on scroll, on resize, and when the layout changes - so a
+  tall window fills itself and a short one loads on demand, and a row is never left half-empty until the very end. Every backend
+  browse call returns `{records, total, done, next_page}`; the window asks for `next_page` (a course search advances by three
+  search pages per call), drops mods it already has (GameBanana repeats a few across pages in its Most Liked order), and ignores a
+  reply that arrives after the sort changed or the window closed (`S.gen`).
+- **Grid or list**: one set of tiles, with `.as-list` on the container switching to small pictures beside the text (plus the
+  author and date). Under the "looks like it replaces X" filter, batches that add nothing stop the automatic loading after
+  `GB_EMPTY_RUN_LIMIT` (2), because each batch costs a GameBanana request per mod.
+- **Remembered**: the layout and the sort are settings (`gb_browse_view`, `gb_browse_sort` in `settings.json`, saved when the user
+  changes them). Before any choice, vehicle parts and items start on Most Viewed, the rest on Most Liked. A course has no sort:
+  GameBanana's search endpoint ignores every sort parameter (tried several spellings), so its results are always best match first
+  and the sort box says so.
+- **Courses** have no category per course, so they search by the base course name (`search_course_mods()`: three search pages at
+  once, kept to the Course Edits / Course Retextures / Custom Race Courses subcategories - most results are something else).
+  Each mod comes with a snippet of its description around the course's name and `mentions_course` (named in its title or
+  description), shown as a badge like the "Replaces X" ones on vehicles and items; an "only mods that name this course" filter
+  is there too, off by default. Descriptions are fetched through `_descriptions()` and cached (`_gb_desc_cache`), shared with the
+  vehicle and item lists, which now show a snippet too.
+- **Search** (the box in the window's header): searches all of Mario Kart 8 Deluxe through the same full-text search the course
+  list uses (`gb_search(category, query, page)` -> `search_filtered()`), then keeps the kind of mod the card is for. The kind is
+  read from the GameBanana category each result is filed in (`_search_kind()`: the vehicle-part and item category ids, the course
+  subcategories, a subcategory named after a roster character, or a plain category) - so a search from a character's card lists
+  character mods of *any* character (each tile says which one it is filed under; green when it is this card's own - the download
+  moves it to the right card if its files say otherwise, see below), and one from a tire card lists any vehicle part, with the
+  usual "Replaces / Mentions" badges read against the roster of the result's own section. Results are best match first (no sort),
+  are shown with a snippet around the words searched for, and load as you scroll like everything else; a batch that has none of the
+  kind wanted counts towards a pause after `GB_SEARCH_EMPTY_RUN_LIMIT` (4). Emptying the box (the x, or Esc - a second Esc closes
+  the window) goes back to browsing with the remembered sort. A search with nothing found offers to search gamebanana.com itself.
+  The card's paste field is the shortcut into it: a link or id is fetched as before (`looksLikeModRef()`), anything else opens this
+  window already searching for it - the field's button changes from "Fetch" to "Search" as you type.
+- **The More tab's categories** (`SIMPLE_MOD_CATEGORIES`, mirrored by `SIMPLE_CATEGORIES` in `state-and-helpers.js`): Mechanics, UI,
+  Code patches (GameBanana's own category for exefs `.ips` mods), Modpacks and Battle courses (the Custom Battle Courses
+  subcategory - the course roster has no cards for battle arenas, so those mods get one place of their own instead of showing up in
+  a race course's search). Each is one fixed pseudo-item that browses, searches and adds links like any card. A modpack stays filed
+  under Modpacks, but `get_pack_links()` lists it (with its "Pack" badge) on every character / course / part / item card it
+  replaces - the same mechanism as any other pack. Adding one of these needs an entry in both lists and an `<option>` in
+  `add-mod-modal.html`. The tab (`renderMoreList()` in `views.js`, styles in `full-list.css`) is a responsive grid of tiles - one per
+  category: a line icon (`MORE_ICONS`), its name, a one-line `blurb` (in `SIMPLE_CATEGORIES`), how many mods it holds and how many are
+  ticked (with a bar), and a "Browse GameBanana" button that opens the category's card and its GameBanana window in one go
+  (`openMoreCard()`; primary while the category is empty). A category whose download left nothing usable is outlined in red with a
+  sentence saying so. A new category needs an icon in `MORE_ICONS` and a blurb.
+- **What a card's search keeps** (`_search_kind()`): its own kind; for characters, vehicle parts and items also GameBanana's
+  Skins > Packs and Skins > Other/Misc (mods of those kinds that no single roster entry names); for Modpacks also Skins > Packs.
+  Custom Lighting counts as a course kind (`COURSE_SEARCH_SUBCATEGORIES`). The search endpoint also returns WIPs, questions and
+  requests, which `search_mods()` drops - none can be downloaded.
+- **Tags**: a mod's own page gives tags as `{"_sTitle", "_sValue"}` objects (the list gives strings) - `tag_names()` turns both
+  into "Title: Value" strings.
+- **Links in descriptions**: `gamebanana_api.html_to_runs()` turns a description's HTML into runs (`{text}` / `{text, href}`;
+  http(s) and GameBanana-relative links only, everything else is plain text) and the record keeps them as `description_runs`
+  beside the plain `description` that the guessing uses. `renderRichText()` builds the text nodes and `<a class="gb-link">` itself
+  (never markup from the mod); a click calls `open_external_url()`, which opens http(s) addresses only, and the tooltip shows where
+  it goes. A mod saved before runs existed, or text with no link markup, still gets bare `https://...` addresses linked.
+
+## Course Select: the game's Prix, sized to fit
+
+The Courses tab shows the 24 Grand Prix as the game's own medallions on a board (like Character Select's), the selected
+Prix's four courses under it, and a name plate along the bottom.
+
+- **The medallions** come from the base game files (no mod needed): `menu.sarc` -> `mn_L_CupSlctBtn_00.szs` -> one 200x200
+  `ym_CupIcon<Name>^h` texture per cup. They are 16-bit blue-green-red 5-6-5 with no alpha - a round medallion on a square
+  backdrop - so `cup_icons.py` unpacks them, swaps red and blue, and cuts the circle. `Api.get_cup_icons()` returns
+  `{cup name: PNG data URI}` (decoded once, about a second, and remembered until `menu.sarc` changes). The base game's
+  cups are named after their emblem (Mushroom ... Thunder) or, for the four DLC-wave cups, `DLC02`..`DLC05`; the Booster
+  Course Pass cups are `Charger00`..`Charger11`, in the pass's order - `cup_icons.CUP_TEXTURES` is that mapping, checked
+  against the decoded pictures. Before Setup has copied the game's files there is no artwork, and the tiles keep the old
+  gold-rimmed emoji look until there is.
+- **The name plate** is Character Select's (same look): the selected Prix, or - after you click a course - that course
+  with its Prix small and dim beside it; while the mouse is over a tile it shows that tile's cup or course instead, and
+  goes back when the mouse leaves. Choosing another Prix (or clicking the selected one again) drops the course selection.
+  Course tiles keep their yellow brackets while selected; the white hover frame works as on the character grid.
+- **Two pages, nothing scrolls.** The 24 cups are on two pages - the game's 12 and the Booster Course Pass's 12 - with an
+  arrow beside the board to turn between them and a small caption ("Mario Kart 8 Deluxe - 1 of 2"). A dot on the arrow says
+  the page it leads to has modded courses. Selecting a cup on the other page (or jumping to a course from a conflict) turns
+  to its page. `fitCourseScreen()` (`views.js`) sizes everything from the room there is: cups per row (`--cols`; it tries
+  6, 4, 12 and 3), a cup (`--cup`) and a course tile (`--course-w`, 16:9 pictures), keeping the layout where the smaller of
+  "cup size" and "course tile size", each against a comfortable reference, is biggest. It re-runs when the window resizes
+  and whenever the tab is shown. A cup with no modded course is faded (like an untouched character); a bubble shows how many
+  of its courses are modded. All of it is in `css/course-screen.css`, which comes last so it overrides the shared tile
+  rules. (An earlier version showed all 24 at once, four rows of six, when the window was big enough; two pages at every
+  size won out: bigger cups and course tiles, and one layout to reason about.)
+- **The game's own course pictures.** A course tile with no picture from a mod shows the game's own course-select picture (from
+  the base game copy - `Api.get_course_default_pictures()`, decoded like a mod's and cropped to the same visible window, under
+  the same white name banner), faded like any untouched tile; a ticked mod that ships its own picture replaces it. Base-game
+  courses are found by their internal id (`Gu_FirstCircuit`; Animal Crossing's four seasons share `Du_Animal`); the Booster
+  Course Pass's 48 are `DLC01`..`DLC48` in the pass's order (their internal ids, `Cnsw_NN`, are in a different order - the
+  mapping was checked against the pictures). The course card's Icons step shows the same picture when the mod brings none.
+
+### The course card
+
+Clicking a course opens the same kind of guided card as a character (`course-card.js`; the mods list, "Find a mod" /
+"Add another mod" and conflicts are built by `openCharacterModal()` for both): a head with the course's (modded) name, its
+Prix and a status chip, the mods in use with **Manage**, then two steps.
+
+- **Name** - asked when something wants the course called other than the game's own name: the mod's own text, a name you
+  typed, or a guess from the mod's name or folder (`get_course_look()` -> `name.suggestion`; you use it, change it, or keep
+  the game's). Nothing to check otherwise.
+- **Icons** - the course-select picture. A ticked mod that bundles its own `ym_CoursePict_*.bntx` needs no check; otherwise the
+  game's own shows, or a picture you make from one of the mod's saved screenshots (the existing crop tool,
+  `generate_course_icon()`), and you settle it once ("Keep the game's picture" / "Use this picture").
+
+Each is confirmed for the SET of ticked mods and remembered in `look-reviews.json` (`course_names`, `course_icons`, next to the
+characters' two records - `_ticked_by_course()`, `_mark_course()`, `confirm_course_name()`,
+`mark_course_icon_reviewed()`); typing or clearing a name confirms the Name step. `get_course_tile_view()` gives the course
+tiles their marker (amber = something needs a look, green = done - `refreshCourseReview()` / `applyCourseMarkers()` in
+`views.js`, cached in `courseReview`).
+
+**Unfinished courses count like unfinished characters.** A course with ticked mods is unfinished until its Name and Icons steps
+are *explicitly* confirmed (where they apply - see above). They feed the same three things: the step bar's "N to finish", the
+Next button's hint, and the prompt when leaving Choose mods ("2 characters and 1 course aren't finished" - `freshUnfinished()`,
+`showUnfinishedGate()` in `tiles-and-review.js`). "Review them" is one guided pass over both kinds (`reviewQueue.items` are
+`{kind, name}`): characters first, then courses; a course opens with its Prix and the course selected (`openCourseCard()`), the
+bar on top says "Reviewing unfinished courses (or characters, or characters and courses) - 2 of 3", and finishing a card moves
+on after a moment (`onItemFinished()`).
 
 ## Base game files: a required local copy
 
@@ -105,7 +264,17 @@ character's own default voice archives. It can't ship them itself (they're Ninte
 (`game_files.py`) asks for the folder the user extracted from their own game and copies what it needs from it - not
 the whole extraction, just `UI/cmn/common.sarc`, `UI/cmn/menu.sarc`, `UI/<locale>/message.sarc` for every locale
 found, and `Audio/Driver/Driver_<slot>.bars` + `Audio/DriverMenu/MenuDriver_<slot>.bars` for every character in
-`DRIVER_SLOTS` (real sizes measured: the whole copy runs well under 300 MB, nowhere near a full RomFS dump).
+`DRIVER_SLOTS`, plus every course's own select-screen picture (`UI/cmn/menu/ym_CoursePict_<id>_00^u.bntx`, about 105 files,
+9 MB) and the 351 loose vehicle-part pictures that aren't inside `menu.sarc` (`UI/cmn/menu/tc_KP_*`, 38 MB - see "Vehicle parts"); both
+kinds are optional: a dump without them, or a copy made before they were added, still counts as done. Real sizes measured: the
+whole copy runs well under 300 MB, nowhere near a full RomFS dump.
+
+**Adding the pictures to an older copy.** A copy made before the course pictures (or the vehicle pictures) were part of it has
+no `course_pictures` (`vehicle_pictures_all`) in its manifest (a copy from when only 16 of the vehicle pictures were kept has `vehicle_pictures` but not `vehicle_pictures_all`, and gets the rest). The first time Course Select or the Vehicles screen asks for a
+picture, `top_up_pictures()` fetches what is missing from the folder the copy was made from - if that still exists - into
+BOTH `original/` and `current/` (adding files only; nothing already there is touched) and records the count, so each is
+tried once. If the source folder is gone, the pictures come with the next "Update from a new dump" (Settings), and the
+screens simply show their plain tiles meanwhile.
 
 **Two copies**, both under `<master root>/game-files/`:
 - `original/` - written once (`copy_both()`), never touched again except by "Update from a new dump" (which replaces
@@ -129,8 +298,9 @@ still be connected, and *muting or replacing a character's default voice needed 
 optional folder was never set (true of most installs). Requiring the copy up front removes both: `_game_files()` and
 `_voice_game_file()` now always resolve to the app's own copy, so every roster character
 (all 50 have a `DRIVER_SLOTS` code, plus Gold Mario's own separate voice archive - 51 in total, verified byte-for-byte
-against a real dump; see the comment above `DRIVER_SLOTS`) can be muted or have a line replaced with no voice mod
-ticked at all, and UI icons/text work with nothing ticked either. `get_flow_status()`'s `setup.done` requires the copy
+against a real dump; see the comment above `DRIVER_SLOTS`) has a base voice to start from with no voice mod
+ticked at all, and UI icons/text work with nothing ticked either. (The card's Voice row still shows only "Comes after you pick a mod" until the
+character has a ticked mod - see "Voice editing" below - but that is a UI choice, not a missing base file.) `get_flow_status()`'s `setup.done` requires the copy
 to exist (`game_files.status(mod_root).done`), so an install that's missing it is sent back to Setup rather than
 silently degrading somewhere else in the app.
 
@@ -262,7 +432,7 @@ dedicated section competing for space on Commit every single time; the warning's
 button (`"action": "settings"`) is there for the rare time someone does want to change it.
 
 Everything about menu icons & text that isn't "just commit" lives in Settings' **"UI icons & text"**
-card (`renderUiSetupSettingsCard()` in `webui.html`) instead:
+card (`renderUiSetupSettingsCard()` in `src/ui/js/settings-panels.js`) instead:
 - **Language** (`ui_setup_locale`; `message.sarc` is per language, icons are not) and an optional
   "also build the other English" box (`ui_setup_extra_english`) - both persisted settings, read by
   `merge()` at commit time.
@@ -475,7 +645,7 @@ courses 1400-1599 - the short and cup-line variants), from an English message
 archive of the plan. Building needs the game's own menu files (see above) or, failing that, a ticked
 mod that ships them to use as the base copy - but choosing does not.
 
-**Character Select layout.** On a window at least 1100 px wide (`DOCK_MIN_WIDTH` in `webui.html`) the
+**Character Select layout.** On a window at least 1100 px wide (`DOCK_MIN_WIDTH` in `src/ui/js/character-select-layout.js`) the
 screen is: the character grid on the left (55% of the width) and the card of the selected character - mods
 to merge, menu look, GameBanana mods - on the right (45%), two equal-height columns, and under them a
 bottom row with the character's **name plate** in the middle and the Next button at the right end. The
@@ -514,7 +684,7 @@ own: the game's character name is on the name plate, after the modded name, smal
 **Names we guessed.** The Commit page shows a "names were guessed" warning card whenever a guessed
 name (see "Ticking a character mod tries to name the character") hasn't been confirmed yet; its
 **Review names** button opens a small dedicated modal (`openGuessedNamesModal()` /
-`drawGuessedNamesModal()` in `webui.html` - reusing the same row-building logic the old standalone
+`drawGuessedNamesModal()` in `src/ui/js/menu-icons-text.js` - reusing the same row-building logic the old standalone
 page used) - one row per character: the name in an editable box, **Confirm** (which becomes **Save
 name** once the box is edited) and **Use the game's name**, plus **Confirm all as shown**. A wrong
 guess would otherwise be built into the game's menus. A guess counts as confirmed once the Name task
@@ -558,7 +728,7 @@ changed it), a sentence saying where things stand ("2 mods in use - appearance n
   changes the icons, or only swaps the 3D model with neither) leaves the *other* row reading "Nothing to
   check", and a character only counts as finished once *every task that applies to it* is confirmed -
   `mod_manager.py`'s `_review_state()` returns `name_applicable`/`name_done` and `icons_applicable`/`icons_done`
-  as two separate pairs; `reviewFinished()` in `webui.html` is the one place that combines them (both true,
+  as two separate pairs; `reviewFinished()` in `src/ui/js/tiles-and-review.js` is the one place that combines them (both true,
   or not applicable, for each). Each row is a short walkthrough the first time, and a **read-only summary**
   (status "Completed", with **Edit** right beside the title) afterwards:
   - **Name** - "What should Birdo be called in the game?": the preview (the icon and the name plate as the
@@ -716,9 +886,9 @@ so a mod that only touches, say, the map icon still wins the tile - with the mod
 instead of the game's. A tile with nothing ticked stays faded (`.no-mods`, unchanged) so it's still
 obvious at a glance which characters you haven't touched; before base files are set up, or for a
 character with nothing to compute a picture from at all, the tile falls back to its plain badge and
-name as before. Hover a tile to see where the icon and name came from - including "the game's own"
-for an unmodded one, and "No mods yet" for one with nothing downloaded (no gray text on the tile
-itself for that anymore; it only lives in the tooltip).
+name as before. Hover a tile to see where the name came from (the tooltip no longer mentions the icon - the
+tile's picture shows that, and clicking the tile shows the rest), and "No mods yet" for one with
+nothing downloaded (no gray text on the tile itself for that anymore; it only lives in the tooltip).
 
 **The character's select sound.** Clicking a character's tile plays the character-select voice its ticked mods bring (the
 "Character select" sound in a `MenuDriver_*.bars`: `Api.get_select_voice()`) - whether or not its appearance is finished -
@@ -868,7 +1038,10 @@ unchanged and is what's shown.
 
 ## Voice editing: mute a line, or use your own sound
 
-A character's card has a **Voice** row (**Edit voice lines**). The window lists the character's voice lines - the four
+A character's card has a **Voice** row (**Edit voice lines**). Like **Name** and **Icons**, it is dimmed ("Comes after
+you pick a mod", no Edit button) until the character has a ticked mod - `attachVoiceRow()`'s `setEnabled()`, fed by the card's `refresh()`.
+The character's own *Custom voice* mod doesn't count toward that, so it can't keep the row open after the real mod is unticked
+(existing edits aren't touched - the row just can't be opened until a mod is ticked again). The window lists the character's voice lines - the four
 *important moments* first (character select, finish first, finish mid-pack, finish last), then every other line by category -
 each with a short description, a play button, and **Mute** / **Use my own...**. A handful of lines say "Unknown" instead of
 a description - nobody's traced what triggers them (checked against real Switch hardware, and two modder references - see
@@ -916,7 +1089,7 @@ a description - nobody's traced what triggers them (checked against real Switch 
   voice volume" (on by default) instead: a soft compressor brings the crest factor down near the game's, then a gain is searched
   for (the limiter that follows would eat into a single-shot guess) to bring the *result* to that -14.7 dBFS target, then a smooth
   (tanh) limiter catches any remaining peaks by bending them toward the ceiling rather than flattening them (`matchGameLoudness()`
-  in `webui.html`; checked afterward: well under 1% of samples in the processed test audio come near the ceiling, and the
+  in `src/ui/js/voice.js`; checked afterward: well under 1% of samples in the processed test audio come near the ceiling, and the
   encoder's accuracy is unaffected). Unticked, the audio is used as decoded, unprocessed.
 * **The starting archive.** Changing one line means writing the whole archive again, so the app needs the archive as the game
   would otherwise use it: the copy in a *ticked* voice mod for that slot (that is what the game would play; one left out of the
@@ -1004,6 +1177,43 @@ The **Vehicles** tab has three sections - Vehicles (41 bodies, split into
 karts / bikes / ATVs), Wheels (22 tires) and Gliders (15) - each a fixed roster
 from `src/roster.json` (name, internal id, aliases; researched against the
 wiki, mk8dxbuilder.com and real mod archives, unchanged through game 4.0.0).
+
+**The screen** works like Character Select and Course Select: the three sections are boards, every part is the game's own
+picture of it (no name on the tile), and it is sized to fit the window without scrolling. The part being viewed - the one
+whose card is (or was last) open - has the yellow corner brackets and its name on the plate along the bottom, with its kind
+small beside it ("Mach 8 (Kart)"); while the mouse is over a tile, the plate shows that one instead and a white frame follows
+the mouse. Tick counts (a pack counts on every tile it is listed on - see "A mod for something other than its card") and the red conflict "!" are as before; a hovered tile gets only the white frame (no accent border).
+
+Fitting (`fitVehicleScreen()` in `js/vehicle-screen.js`): one tile size for all 78 parts (a 200:128 picture), found by
+trying every size from big to small and every way of laying the boards out - `a` [bodies | wheels over gliders], `b` [bodies
+over (wheels | gliders)], `c` [bodies | wheels | gliders] - with every count of tiles per row for each board; the first size
+at which one fits wins, and of the fits at that size the one that takes the least room. The sizes it counts with (a board's
+padding, heading and sub-headings) are the CSS's own, so the prediction is exact; a board is never narrower than its heading
+text, which is measured once. Only a window too small for even 36 px tiles scrolls. `css/vehicle-screen.css` comes last.
+
+**The pictures** (`vehicle_icons.py`, `Api.get_vehicle_icons()`): every one is a 200x128 RGBA texture named
+`tc_KP_<kind>_<part>^l` (K kart, B bike, V ATV, T tire, G glider; `<part>` is the roster's own internal id - `BodyK_Ufo` ->
+`K_Ufo`, `Wing_Wlo` -> `G_Wlo`, a tire's `Std` -> `T_Std`). Most (62 parts) are one texture inside `menu.sarc` ->
+`mn_L_KartParts_00.szs`. The 16 families that come in outfits - the Standard Kart, Standard Bike, Pipe Frame, Standard ATV
+and Super Glider once per character, the rest numbered - are **351 loose files** in `UI/cmn/menu/` (each 110,696 bytes, one
+texture, its internal name equal to its file name); the screen shows each family's default (Mario's red, or `_00`). Master
+Cycle's picture is `B_Zld` (its roster id spells it `Zlb`). Every mapping was checked by looking at the decoded pictures.
+Before Setup - or if a picture is missing - the tile shows the part's name.
+
+**The card** is guided like the character and course cards: a head with the part's picture, its name, its kind and where it
+stands ("Kart · 2 mods in use"), and a chip (No mod yet / Choose a mod / Needs a look / Done); then the mods in use (the
+rest behind "Manage"), with "Find a mod" / "Add another mod" under them (packs that replace this part are ordinary rows here);
+then three steps:
+- **Right part** - a mod is filed under a part by where it was found, but what counts is the model file it ships: a ticked
+  mod whose file is for a *different* part changes nothing on this one, so the step says which part it is really for and
+  offers "Move it to <part>" (`gb_move_mod()`, which takes the tick with it) or "Untick it". Worked out from the files
+  (`Api.get_vehicle_fit()`, reusing `_vehicle_slot_mismatch()`), so nothing is confirmed or remembered, and it is not part
+  of "finished". (`gb_move_mod` callers reload the ticked state too - the move renames the mod's key, and a stale one would
+  have been written back.)
+- **Name** and **Icons** - the same two steps as a course, confirmed per set of ticked mods and remembered
+  (`look-reviews.json` buckets `part_names` / `part_icons`; `Api.get_part_look()`, `confirm_part_name()`,
+  `mark_part_icon_reviewed()`). Vehicle parts count in the "N aren't finished" prompt and the review queue.
+
 Each section is its own on-disk category (`vehicles/`, `wheels/`, `gliders/`),
 nested `<category>/<part>/<mod>` like everything else, and reuses the
 character modal / GameBanana card / conflict machinery unchanged.
@@ -1012,9 +1222,9 @@ character modal / GameBanana card / conflict machinery unchanged.
   Vehicles (10530): bodies by type - Kart 10571, Bikes (Outward = standard)
   10572, Bikes (Inward = sport) 10573, ATVs 10574 - Tires 10577, Gliders 10578
   (`Api._vehicle_gb_category_id()`). Browsing a part lists every mod of its
-  *kind* (`gb_browse_vehicle()`), sorted Most Viewed by default because
+  *kind* (`gb_browse_vehicle()`), starting on Most Viewed (until the user picks another sort, which is then remembered) because
   GameBanana's "Most Liked" paging repeats/skips mods in these large
-  categories. Roughly 4% of body mods are misfiled under the wrong subcategory,
+  categories - the window drops the repeats. Roughly 4% of body mods are misfiled under the wrong subcategory,
   and some tire/glider mods sit directly in Vehicles with no subcategory.
 - **Which part a mod replaces is read from its text**, not its category
   (`match_vehicle_targets()`): an internal id (`BodyK_Cat`, `Wing_Pap`,
@@ -1022,45 +1232,28 @@ character modal / GameBanana card / conflict machinery unchanged.
   mention; single common words (Standard, Metal, Comet, ...) never count as a
   plain mention. Measured against real archives, "goes over" phrases agree with
   the files ~98% of the time when present; titles alone are unreliable. The
-  listing has no descriptions, so each browsed page fetches its mods' profiles
+  listing has no descriptions, so each browsed batch fetches its mods' profiles
   (3 at a time, cached - GameBanana rate-limits bursts with HTTP 429) and tiles
-  get a "Replaces X" / "Mentions X" badge plus an optional "only likely
-  matches" filter. It's a guess, never a filter you can't turn off.
+  get a "Replaces X" / "Mentions X" badge plus an "only likely matches"
+  filter, on by default (for items too, except the "Other items" tile). The list keeps loading until enough likely ones
+  fill the window; after two batches in a row with none it pauses and offers "Keep searching" / "Show every mod". It's a
+  guess, never a filter you can't turn off.
 - **The downloaded files are the real check**: the model files a mod ships
   (`Kart/Body/BodyK_*.szs`, `Kart/Tire/TireK_*.szs`, `Kart/Wing/Wing_*.szs`)
   name the exact part they replace, so a download whose files don't include the
   part it was filed under gets the same "slot mismatch" warning courses do
-  (`find_vehicle_part_ids()`).
+  (`find_vehicle_part_ids()`). That includes a different *kind* of part: a tire or glider mod filed under a body, say (a mod
+  with no model file at all, such as a texture pack, is never flagged).
 - **Loose files are auto-wrapped**: about half of body mods ship
   `BodyK_Cat.szs` etc. with no folders at all; `fix_loose_kart_parts()` moves
   each into `romfs/Kart/<Body|BodyTex|Tire|Wing|WingTex|Emblem>/` by its file
   name, all-or-nothing like the loose item-file fixer.
 - The **Add a mod** flow can suggest a vehicle part from the mod's category +
   description.
-- **Linked mods** (`Api.get_vehicle_links()`): some character mods also ship a
-  vehicle part's model file (e.g. the Pomni mods include the Gold Standard
-  body; "Dr. Mario in the House" ships the GLA body, Blue Standard tires and two
-  gliders), and a body mod filed under one part can ship another's. Only the
-  real load locations count (`romfs/Kart/{Body,Tire,Wing}/`); per-character
-  paint (`BodyTex`/`WingTex`) and `Emblem` files don't, since those are a
-  character's own colors on a stock part, not a replacement of it. The part's
-  tile gets a "N linked mods" marker and its modal an "Also ships this part"
-  card; the mod's own row gets an "also ships: X" badge. This is read-only
-  attribution - a mod stays one unit filed where it was downloaded, the
-  checkbox shares the same state everywhere, and **linked mods are never
-  counted** in a tile's X/Y, a section summary, or any footer stat. They ARE
-  included in conflict checks for the part. Wording is deliberately "ships
-  files for", not "modifies": authors often bundle unchanged stock files and
-  there's no vanilla copy to compare against.
-- **Misfiled? Move it.** When a download's files don't match the part it's
-  filed under, the warning names the part(s) it really ships ("ships Sports
-  Coupe's file ... not Standard Kart's") with a **Move to <part>** button
-  (`Api.gb_move_mod()`): the tracking entry, extracted folders, archives and
-  ticked state all move together, the slot check is re-run against the new
-  home, and a failed move is rolled back with nothing recorded. It refuses if
-  the mod is already tracked under the target. Such a download's block is left
-  open (not auto-collapsed) and the mod is not auto-ticked, since it probably
-  belongs elsewhere (this also applies to a course's slot/music warning).
+- **Packs and misfiled mods** (a character mod that also ships a body, a body mod filed under the wrong part...) are handled
+  the same way for every kind of thing - see "A mod for something other than its card". Only the real load locations count
+  for a vehicle part (`romfs/Kart/{Body,Tire,Wing}/`); per-character paint (`BodyTex`/`WingTex`) and `Emblem` files don't, since
+  those are a character's own colors on a stock part, not a replacement of it.
 - **Add a mod**: a mod that's unmistakably a vehicle part but whose text names
   no part (`guess_category == "vehicle_unsorted"`, typically filed directly
   under GameBanana's Vehicles) opens with "- pick a part -" selected instead of
@@ -1094,6 +1287,119 @@ character modal / GameBanana card / conflict machinery unchanged.
   on its card (`game_id` is stored with every fetched mod) - it very likely
   won't load on a Switch. Re-fetching a mod also keeps its recorded slot
   warnings and archive location now (it used to drop them).
+
+## Items
+
+**Items** has its own tab (it used to be a row on the More tab, one fixed pseudo-item with a plain list). It is a fixed roster from
+`src/roster.json`'s `"items"` - 22 items (Banana, Green Shell, Red Shell, Spiny Shell, Bob-omb, Mushroom, Golden Mushroom, Super
+Star, Lightning, Boomerang Flower, Fire Flower, Piranha Plant, Bullet Bill, Blooper, Boo, Super Horn, Crazy Eight, Feather, Coin,
+Rupee, Bell, Item Box) plus a last tile, **Other items**. Each entry has a `name`, `aliases`, an optional `internal` (the model
+folder under `RaceCommon/Item/`, e.g. `ItemKoura` - left out where two items share one, the Green and Red Shell, which are both in
+`ItemKoura.bfres`) and an optional `icon`.
+
+**The pictures** (`item_icons.py`, `Api.get_item_icons()`): 19 of the 22 have a 192x192 RGBA texture `tc_Item_<icon>^l` in
+`menu.sarc` -> `mn_L_ItemSwitch_Item_00.szs` (the Item Switch screen of a custom race: `Koura` = Green Shell, `PKinoko` = Golden
+Mushroom, `SP8` = Crazy Eight ...), so nothing new is copied into the base-game copy. The same textures are in `race.sarc`
+(`rc_L_ItemBox_00.szs`, the race HUD's item slot, along with the double / triple forms and the Rupee's), which the copy doesn't
+have. The Item Box, Rupee and Bell are models only, so their tiles keep their name. Every picture was checked by looking at it.
+
+**The screen** is laid out like Character Select: on a wide window (`DOCK_MIN_WIDTH`, 1100 px) the board is the left 55% and the
+picked item's card is docked on the right, always with an item in it (the last viewed, else the first with a mod); on a small
+one the board takes the width and the card is a pop-up, and resizing across the threshold moves an open card between the two
+(`js/item-screen.js`; `beginDetail()` / `endDetail()` / `wantsDock()` in `character-select-layout.js` hand the card to the Items
+view when it is showing). The name plate along the bottom shows the viewed item - or the one under the mouse, with a white
+frame following - and how its mods stand. Nothing scrolls: `fitItemGrid()` takes the biggest square tile at which the whole
+grid fits its board, over whichever number of columns gives the biggest (the count isn't tied to the game's 8), capped at 150 px;
+`css/item-screen.css` comes after `vehicle-screen.css`.
+
+**Mods and GameBanana.** Mods are filed under `mods/extracted/items/<item name>/<mod name>/`. GameBanana has one flat Items category
+(10579), so - like tires and gliders - browsing it lists every item mod and marks each with the item its text says it replaces
+(`gb_browse_item()`, reusing `match_vehicle_targets()` with the roster's names, aliases and model-folder ids; common one-word names
+like "star" or "coin" only count after a "replaces / goes over" phrase). "Add a mod" has an **Item** target, prefilled from the
+same guess; a mod naming no single item (or several: an item pack) is suggested for **Other items**. A mod that lands under the
+wrong item, or in Other items, is moved from the mod's "..." menu like any other (see "A mod for something other than its card"; "Other items"
+also lists its mods with a picker each). What was filed before items had a roster sits in `items/Items/` (the old
+fixed pseudo-item): it isn't moved - the catch-all tile (name `Items`, shown as "Other items") collects it, along with anything in
+a folder that matches no item.
+
+An item mod's files say which item it replaces: the folders under `RaceCommon/Item/` (`ItemBanana`, `ItemPowerKinoko`, ...), matched to
+the roster's `internal` ids (`_item_folder_owners()`; a folder that only extends an item - `ItemKoura_FX`, `ItemBomheiBomb`, `ItemCoinB`
+- belongs to the longest id it starts with, and the Green and Red Shell share `ItemKoura`, so a mod shipping it replaces both).
+Folders the app can't place (`ItemCommon`, which every item uses) leave the mod where it is.
+
+Not done for items (unlike vehicle parts): the **Name and Icons steps** - an item's picture (`tc_Item_*`, in both `menu.sarc` and
+`race.sarc`) has no override yet, and where the game's text names the items hasn't been found.
+
+## Vehicle parts: names and pictures in the menus
+
+The user has the same control over a part's UI as over a character's: its **name** and its **picture in the parts menu**, from
+a mod or from themselves.
+
+**Names.** All 78 part names are entries in `Common.msbt` (bodies 1101-1186, tires 1201-1222, gliders 1251-1265; one label
+each, none shared), so they go through the same pipeline as characters and courses: `name-labels.json` has `vehicles`,
+`wheels` and `gliders` sections, `ui_setup.NAME_LABEL_RANGES` the three kinds, `set_item_name(part, kind, text)` stores the
+wish by name, and the text is written into every language's `message.sarc` at commit. A mod's own text is read the same way
+(`get_menu_look()`), and a name can be guessed from the mod's name, which is only a suggestion until confirmed.
+
+**Pictures.** The picture source is one of, in this order: what the user chose, what a ticked mod brings, the game's own.
+- A part whose picture is a texture in `menu.sarc` (62 parts): a chosen picture is a texture override
+  (`mn_L_KartParts_00.szs|tc_KP_K_Ufo^l` in `ui-overrides.json`) and goes through the same build as a character's icon
+  (`apply_overrides()` -> `menu.sarc`, checked by `verify_archive()`). A mod's own is found by the same diff of packed archives
+  (`describe_texture()` names a part texture after its part, so it is attributed to the right one).
+- A part whose picture is loose files (16 families, 351 files): a chosen picture is stored once (`loose|K_Std`), and
+  `ui_setup.build_part_pictures()` writes **every variant file** of the family into `part-icons/romfs/UI/cmn/menu/` (always
+  merged in, like `course-icons/`) - each the game's own file from the base copy with the picture swapped in place (the file
+  keeps its name, size and layout; re-encoding the game's own picture reproduces it byte for byte). `Api.sync_part_pictures()`
+  runs when a picture is set or cleared and at the start of every commit, and deletes files no longer wanted. A mod's own
+  loose files count as its picture when the mod is filed under that part.
+- **Precedence:** a picture you chose replaces the files of a mod filed under the same part, but a ticked mod filed
+  *elsewhere* that ships the same file - a character mod's per-outfit `tc_KP_K_Std_MroM` - keeps it (`left_to_mods`; the
+  Icons step says how many).
+- Pictures are cropped in the icon dialog ("part" mode, 200:128) from a mod screenshot or **a file from the user's computer**,
+  stored at up to 400 px in their own shape, and a picture of another shape is fitted inside the part's (never stretched).
+
+Not verified in a running game: that the console shows the loose files and the new names (only the built files and text
+were decoded and compared) - try it in an emulator or on hardware.
+
+## A mod for something other than its card: one experience for every kind
+
+GameBanana files a mod where its author put it, and the files inside often say something else - a Luigi mod on Mario's page, a tire
+mod on a kart's, a course retexture on the wrong course, an item pack. This works the same for characters, courses, vehicle parts
+and items, and the app talks about what a mod *replaces* (never "slots" or "filing").
+
+**What the files say** (`_download_slot_mismatch()` -> a mismatch dict with `targets`, the things the files are for, and
+`unresolved`, how many of the files' ids the app can't place): a character's `Driver/` and `Audio/Driver*` files
+(`slot_characters()`), a course's `Course/<id>/` folder (`_course_slot_mismatch()`), a vehicle part's `Kart/{Body,Tire,Wing}/`
+model - across kinds too, so a tire mod on a kart's page counts - and an item's `RaceCommon/Item/<model>/` folder
+(`_item_slot_mismatch()`). A mod with no such file (a texture pack) says nothing and is never moved.
+
+**After a download** (`gb_download_files()` -> `_refile_mod()`): if every downloaded file's files are for something other than the
+card it came from and the app can place all of them, the mod is moved there (`gb_move_mod()`): one thing -> that thing; several
+(a pack) -> the first of them in the app's order (`_refile_rank()`), where it is filed, and it is listed on the others (below).
+The page then runs `finishRefile()` (`js/refile.js`): the destination's card opens (pop-up or docked) with a note - *"X" replaces
+Mach 8, not Standard Kart, so it is now under Mach 8* / *"X" is a pack: it replaces A and B...* - the mod is ticked when it is the
+only one that card has (the rule for any fresh download), and the note has an **Undo** (`undoRefile()`: the same move back, and it
+unticks what the app ticked). Nothing is guessed: a file that fits the card, or names something unrecognised, leaves the mod where
+it is, with a warning that names what it replaces and a "Move to X" button (`buildFileRow()`); a move that fails (the mod is
+already tracked under the target) says so on the card.
+
+**Moving one by hand**: every mod's "..." menu has "Move to another character / course / part / item..." (`openMoveDialog()`),
+enabled for mods that came through GameBanana (`get_mod_ids()`; a mod added by hand has no record to move). A mod can only move
+between things of its own kind (a character to a character, a part to a part). "Other items" - where item mods that name no
+single item pile up - also lists each of its mods with a picker.
+
+**What a move moves** (`gb_move_mod()`): the extracted folders, the archives, the tracking entry, the ticks, and everything else
+the app remembers by the mod's path - the files left out of it, the clash priorities, voice edits, look reviews and menu picture
+choices (`_rekey_unit_prefix()` rewrites those files). It returns `moved_folders`, which is how an undo finds the ticks. A failed
+move is rolled back with nothing recorded.
+
+**Packs** (`get_pack_links()`): a mod whose files replace more than one thing is listed on the card of each one. The pack stays one
+mod filed in one place (never copied); its keys join the other entries' `units` on the page (`refreshViewsState()`, `packUnits`
+marks them), so it is an ordinary row there - counted in the card and on the tile, in the footer totals (`get_stats()`), and in
+conflict checks - with a "Pack . also X" badge (`buildPackBadge()`; click it to open the next card), and its menu says "Open where
+it's filed" instead of "Move". One tick is shared everywhere, so ticking it on any card turns on everything in it, and the badge
+and note say so. Wording is deliberately "replaces", read from the files: authors sometimes bundle stock files unchanged, and there
+is no vanilla copy to compare against. This replaces the old vehicle-only, read-only "Also ships this part" card.
 
 ## Course-select icon preview & generation
 
@@ -1142,7 +1448,7 @@ certainly reserved for the course name/mode text the game's own UI draws
 over this texture at render time. `generate_course_icon()`
 (`_COURSE_PICT_CONTENT_*` in `mod_manager.py`) composites into that exact
 same window rather than filling the full canvas, and the crop tool's
-aspect ratio (`ICON_GEN_ASPECT` in `webui.html`) targets that 16:9 content
+aspect ratio (`ICON_GEN_COURSE_ASPECT` in `src/ui/js/help-and-icon-generator.js`) targets that 16:9 content
 window directly - a typical 16:9 screenshot needs no letterboxing at all
 before the app adds the matching border around it.
 

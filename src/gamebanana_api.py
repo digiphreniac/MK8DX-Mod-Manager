@@ -18,6 +18,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from html import unescape
+from html.parser import HTMLParser
 from pathlib import Path
 
 USER_AGENT = "mk8dx-mod-manager (personal local tool)"
@@ -61,6 +62,107 @@ def strip_html(text):
     text = re.sub(r"(?i)</p>|<br\s*/?>", "\n", text)
     text = _TAG_RE.sub("", text)
     return unescape(text).strip()
+
+
+class _RunsParser(HTMLParser):
+    """Turns a description's HTML into plain-text "runs" - [{"text": ...}, {"text": ..., "href": ...}] - so the app can show
+    real, clickable links without ever putting remote markup into the page: it builds its own <a> elements from these. Only
+    http(s) links (and GameBanana's own relative ones) survive; everything else is just its text."""
+    _BREAKS = {"p", "div", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "blockquote"}
+    _SKIP = {"script", "style"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.runs = []
+        self._href = None
+        self._skip = 0
+
+    def _add(self, text, href=None):
+        if not text:
+            return
+        if self.runs and self.runs[-1].get("href") == href:
+            self.runs[-1]["text"] += text
+        else:
+            self.runs.append({"text": text, "href": href} if href else {"text": text})
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self._SKIP:
+            self._skip += 1
+        elif tag == "br":
+            self._add("\n")
+        elif tag == "a":
+            self._href = _safe_href(dict(attrs).get("href"))
+        elif tag == "li":
+            self._add("\n• ")
+        elif tag in self._BREAKS:
+            self._add("\n")
+
+    def handle_endtag(self, tag):
+        if tag in self._SKIP:
+            self._skip = max(0, self._skip - 1)
+        elif tag == "a":
+            self._href = None
+        elif tag in self._BREAKS:
+            self._add("\n")
+
+    def handle_data(self, data):
+        if not self._skip:
+            self._add(data, self._href)
+
+
+def _safe_href(href):
+    href = (href or "").strip()
+    if href.startswith("/") and not href.startswith("//"):
+        href = "https://gamebanana.com" + href
+    return href if re.match(r"^https?://[^\s]+$", href, re.IGNORECASE) else None
+
+
+def html_to_runs(text):
+    """The runs (see _RunsParser) of a description's HTML: its text with the line breaks tidied, and its links kept."""
+    if not text:
+        return []
+    parser = _RunsParser()
+    parser.feed(text)
+    parser.close()
+    runs = parser.runs
+    for r in runs:   # never more than one blank line in a row
+        r["text"] = re.sub(r"[ \t]*\n(?:[ \t]*\n)+", "\n\n", r["text"])
+        r["text"] = re.sub(r"\n\n(?=• )", "\n", r["text"])   # (a list's bullets sit on consecutive lines)
+    if runs:   # no blank lines at either end
+        runs[0]["text"] = runs[0]["text"].lstrip()
+        runs[-1]["text"] = runs[-1]["text"].rstrip()
+    tidy = []
+    for r in runs:   # a link's own text starts and ends at its first and last letter (not the space the page put inside it)
+        if r.get("href"):
+            text = r["text"].strip()
+            if text and text != r["text"]:
+                start = r["text"].index(text[0])
+                if start:
+                    tidy.append({"text": r["text"][:start]})
+                tidy.append({"text": text, "href": r["href"]})
+                if start + len(text) < len(r["text"]):
+                    tidy.append({"text": r["text"][start + len(text):]})
+                continue
+        tidy.append(r)
+    return [r for r in tidy if r["text"]]
+
+
+def tag_names(tags):
+    """A mod's tags as plain strings. The mod list gives them that way already ("Texture: Custom"); a mod's own page gives
+    {"_sTitle": "Texture", "_sValue": "Custom"} objects."""
+    names = []
+    for tag in tags or []:
+        if isinstance(tag, dict):
+            title, value = tag.get("_sTitle"), tag.get("_sValue")
+            tag = f"{title}: {value}" if title and value else (title or value)
+        if isinstance(tag, str) and tag.strip():
+            names.append(tag.strip())
+    return names
+
+
+def _added(ts):
+    """"Mar 03, 2024" for a GameBanana unix timestamp (None when it has none)."""
+    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%b %d, %Y") if ts else None
 
 
 def parse_mod_ref(url_or_id) -> tuple[str, int]:
@@ -127,15 +229,24 @@ def browse_category(category_id: int, page: int = 1, per_page: int = 15, sort: s
             "view_count": row.get("_nViewCount", 0),
             "thumbnail_url": thumbnail_url,
             "has_content_ratings": row.get("_bHasContentRatings", False),
-            "tags": row.get("_aTags") or [],
+            "tags": tag_names(row.get("_aTags")),
+            "added": _added(row.get("_tsDateAdded")),
         })
-    meta = data.get("_aMetadata", {})
+    return _page_result(records, data.get("_aMetadata", {}), page, per_page)
+
+
+def _page_result(records, meta, page, per_page):
+    """The shape every browse call returns. `done` = there is nothing after this page."""
+    total = meta.get("_nRecordCount", len(records))
+    per_page = meta.get("_nPerpage", per_page) or per_page
     return {
         "records": records,
-        "total": meta.get("_nRecordCount", len(records)),
+        "total": total,
         "is_complete": meta.get("_bIsComplete", True),
+        "done": bool(meta.get("_bIsComplete", True)) or page * per_page >= total,
         "per_page": per_page,
         "page": page,
+        "next_page": page + 1,
     }
 
 
@@ -211,6 +322,7 @@ def fetch_mod_detail(mod_id: int, record_type: str = "Mod"):
         "record_type": record_type,
         "name": data["_sName"],
         "description": strip_html(data.get("_sText")),
+        "description_runs": html_to_runs(data.get("_sText")),
         "profile_url": data.get("_sProfileUrl", f"https://gamebanana.com/{default_url_path}/{mod_id}"),
         "thumbnail_url": thumbnail_url,
         "thumbnail_url_large": thumbnail_url_large,
@@ -221,7 +333,7 @@ def fetch_mod_detail(mod_id: int, record_type: str = "Mod"):
         "download_count": data.get("_nDownloadCount", 0),
         "view_count": data.get("_nViewCount", 0),
         "like_count": data.get("_nLikeCount", 0),
-        "tags": data.get("_aTags") or [],
+        "tags": tag_names(data.get("_aTags")),
         "files": files,
         "category_name": category.get("_sName"),
         "category_id": category.get("_idRow"),
@@ -238,14 +350,23 @@ def fetch_mod_detail(mod_id: int, record_type: str = "Mod"):
 
 # Only these mod subcategories are for things that actually replace/edit a
 # course - matches what the user's own manual research process filtered to.
-COURSE_SEARCH_SUBCATEGORIES = {"Course Edits", "Course Retextures", "Custom Race Courses"}
+# (Custom Battle Courses are left out: they replace battle arenas, which the course roster has no cards for - see
+# SIMPLE_MOD_CATEGORIES "battle_courses")
+COURSE_SEARCH_SUBCATEGORIES = {"Course Edits", "Course Retextures", "Custom Race Courses", "Custom Lighting"}
 
 
-def search_mods(query: str, game_id: int = 6507, page: int = 1, per_page: int = 10):
+def _category_id(category):
+    """The id at the end of a category's profile link ('.../mods/cats/10553'), None when there isn't one."""
+    m = re.search(r"/cats/(\d+)", (category or {}).get("_sProfileUrl") or "")
+    return int(m.group(1)) if m else None
+
+
+def search_mods(query: str, game_id: int = 6507, page: int = 1, per_page: int = 15):
     """GameBanana's full-text search (same engine as the site's search box) -
     unlike browse_category, this matches against a mod's description too, not
     just its title, which is essential for courses since retexture mods
-    rarely repeat the base course's name in their own title."""
+    rarely repeat the base course's name in their own title. It has no sort
+    (every sort parameter is ignored - the results are always best-match first)."""
     params = urllib.parse.urlencode({
         "_sSearchString": query,
         "_idGameRow": game_id,
@@ -256,6 +377,8 @@ def search_mods(query: str, game_id: int = 6507, page: int = 1, per_page: int = 
     data = _get_json(url)
     records = []
     for row in data.get("_aRecords", []):
+        if row.get("_sModelName") != "Mod":
+            continue   # (the search also finds WIPs, questions and requests - none of them can be downloaded)
         images = (row.get("_aPreviewMedia") or {}).get("_aImages") or []
         thumbnail_url = None
         if images:
@@ -270,20 +393,43 @@ def search_mods(query: str, game_id: int = 6507, page: int = 1, per_page: int = 
             "view_count": row.get("_nViewCount", 0),
             "thumbnail_url": thumbnail_url,
             "has_content_ratings": row.get("_bHasContentRatings", False),
-            "tags": row.get("_aTags") or [],
+            "tags": tag_names(row.get("_aTags")),
+            "added": _added(row.get("_tsDateAdded")),
             "subcategory": (row.get("_aSubCategory") or {}).get("_sName"),
+            "subcategory_id": _category_id(row.get("_aSubCategory")),
+            "root_category": (row.get("_aRootCategory") or {}).get("_sName"),
+            "root_category_id": _category_id(row.get("_aRootCategory")),
         })
-    meta = data.get("_aMetadata", {})
-    return {
-        "records": records,
-        "total": meta.get("_nRecordCount", len(records)),
-        "is_complete": meta.get("_bIsComplete", True),
-        "per_page": per_page,
-        "page": page,
-    }
+    result = _page_result(records, data.get("_aMetadata", {}), page, per_page)
+    result["done"] = result["done"] or not data.get("_aRecords")   # (a page past the end comes back empty)
+    return result
 
 
-def _snippet_around(text: str, needle: str, radius: int = 90) -> str:
+def search_filtered(query: str, keep, first_page: int = 1, pages: int = 3):
+    """Searches GameBanana and keeps only the results `keep(record)` accepts. Most of a page's results are something else
+    (other mod kinds, other games' courses), so this reads several search pages at the same time to bring back a useful
+    handful in one go. `next_page` is where the next call should start."""
+    with ThreadPoolExecutor(max_workers=pages) as pool:
+        results = list(pool.map(lambda p: search_mods(query, page=p), range(first_page, first_page + pages)))
+    records, seen, done = [], set(), False
+    for res in results:
+        for rec in res["records"]:
+            if rec["mod_id"] not in seen and keep(rec):
+                seen.add(rec["mod_id"])
+                records.append(rec)
+        if res["done"]:
+            done = True
+            break
+    return {"records": records, "done": done, "next_page": first_page + pages, "page": first_page,
+            "total": results[0]["total"], "per_page": results[0]["per_page"]}
+
+
+def search_course_mods(query: str, first_page: int = 1, pages: int = 3):
+    """A course's mods: the search results in the course-editing subcategories."""
+    return search_filtered(query, lambda rec: rec["subcategory"] in COURSE_SEARCH_SUBCATEGORIES, first_page, pages)
+
+
+def snippet_around(text: str, needle: str, radius: int = 90) -> str:
     """A short excerpt of text centered on the first occurrence of needle
     (case-insensitive), or just the start of text if needle isn't found."""
     if not text:
@@ -297,39 +443,6 @@ def _snippet_around(text: str, needle: str, radius: int = 90) -> str:
     prefix = "…" if start > 0 else ""
     suffix = "…" if end < len(text) else ""
     return prefix + text[start:end].strip() + suffix
-
-
-def search_mods_with_descriptions(course_name: str, page: int = 1, per_page: int = 10):
-    """Searches for course_name, keeps only results in the course-editing
-    subcategories, and fetches each survivor's description (search results
-    don't include it) in parallel so the caller can show a snippet without
-    the user having to open every single candidate one by one. Results that
-    literally mention course_name are sorted first - a scanning aid only,
-    never a filter, since titles/relevance alone aren't trustworthy (a mod
-    can rank top for a query just because the name appears incidentally)."""
-    result = search_mods(course_name, page=page, per_page=per_page)
-    candidates = [r for r in result["records"] if r["subcategory"] in COURSE_SEARCH_SUBCATEGORIES]
-
-    def _with_snippet(rec):
-        try:
-            detail = fetch_mod_detail(rec["mod_id"])
-            desc = detail["description"]
-        except GameBananaError:
-            desc = ""
-        mentions = bool(desc) and course_name.lower() in desc.lower()
-        return {
-            **rec,
-            "description_snippet": _snippet_around(desc, course_name),
-            "mentions_course": mentions,
-        }
-
-    if candidates:
-        with ThreadPoolExecutor(max_workers=min(8, len(candidates))) as pool:
-            candidates = list(pool.map(_with_snippet, candidates))
-    candidates.sort(key=lambda c: c["mentions_course"], reverse=True)
-
-    result["records"] = candidates
-    return result
 
 
 # url -> a copy already fetched by prefetch_files(); download_file() uses (and
@@ -423,7 +536,7 @@ def find_7zip():
     ):
         if Path(candidate).is_file():
             return candidate
-    found = shutil.which("7z") or shutil.which("7z.exe")
+    found = shutil.which("7z") or shutil.which("7zz") or shutil.which("7z.exe")
     return found
 
 

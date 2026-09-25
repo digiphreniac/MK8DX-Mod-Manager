@@ -1,0 +1,5 @@
+  /* The course card (course-card.js): the course-select picture in its steps. Same look as a picture on Course Select's
+     tiles (a 16:9 picture under a white name banner), at a fixed size instead of the tile's. */
+  .cl-course-pict { width: 260px; max-width: 100%; margin: 4px 0 8px 0; }
+  .cl-course-pict .course-pict-wrap { margin: 0; }
+  .cl-sum-name { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }

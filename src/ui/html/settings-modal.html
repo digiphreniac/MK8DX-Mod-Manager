@@ -1,0 +1,114 @@
+<div id="settings-modal-backdrop" hidden>
+  <div id="settings-modal">
+    <div id="settings-modal-header">
+      <h2>Settings</h2>
+      <button class="ghost" id="btn-settings-modal-close">Close</button>
+    </div>
+    <div id="settings-modal-body">
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Master Directory</span></div>
+        <div class="settings-body">
+          <div id="setting-master-dir-path" class="settings-path-display"></div>
+          <button id="btn-change-master-dir" class="small">Change&hellip;</button>
+          <div class="settings-hint">
+            Where this app keeps your downloads and all its own settings/cache files. Changing it lets you optionally bring your existing files along to the new folder.
+          </div>
+        </div>
+      </div>
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">UI icons &amp; text</span></div>
+        <div class="settings-body" id="ui-setup-settings-body"></div>
+      </div>
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">UI Icon Worklist</span></div>
+        <div class="settings-body">
+          <div class="settings-hint" style="margin-top:0">
+            Every downloaded mod that's UI art or a packed .sarc with no romfs (character icon sets, loading-screen/theme archives, ...) - can't be merged automatically. Use an external tool like Switch Toolbox to inject the icons into your combined set at <code>ui-icons/romfs/UI/cmn/</code>. A whole-file .sarc from a theme is a full replacement of that set, so start from it deliberately rather than layering it over your own icon work.
+          </div>
+          <div id="ui-icon-worklist-body"><div class="ui-icon-worklist-empty">Loading&hellip;</div></div>
+        </div>
+      </div>
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Game version</span></div>
+        <div class="settings-body">
+          <label for="setting-game-build-id">Game build ID (optional)</label>
+          <input type="text" id="setting-game-build-id" class="settings-text-input" list="known-build-ids"
+                 maxlength="32" spellcheck="false" placeholder="32 hex characters, e.g. 6A85262F21B903649BD7C62628D26E43">
+          <datalist id="known-build-ids">
+            <option value="6A85262F21B903649BD7C62628D26E43">v3.0.3</option>
+            <option value="9EF5CAA2D5B933C772358C5AA6FABA15">v3.0.1</option>
+          </datalist>
+          <div id="setting-game-build-id-error" class="settings-hint" style="color: var(--danger);" hidden></div>
+          <div class="settings-hint">
+            Code patches (exefs .ips files, e.g. most Mechanics mods) only work on the exact game version they were built for, and do nothing - with no error - on any other. Enter your game's build ID (the name of its <code>.ips</code> patch files / cheat files, found on cheat databases for your version) to have patches for a different version flagged as "wrong game version". Leave empty to skip the check.
+          </div>
+        </div>
+      </div>
+      <div class="modal-card" id="gamefiles-card">
+        <div class="modal-card-header"><span class="modal-card-title">Your game's files (for menu icons &amp; names)</span></div>
+        <div class="settings-body" id="gamefiles-body"></div>
+      </div>
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">GameBanana Browsing</span></div>
+        <div class="settings-body">
+          <label class="settings-checkbox-label">
+            <input type="checkbox" id="setting-show-nsfw">
+            Show NSFW mods
+          </label>
+          <div class="settings-hint">
+            When off, mods GameBanana marks with a content visibility rating are hidden from "Browse GameBanana" lists and searches. Pasting a direct link to a specific mod always works regardless of this setting.
+          </div>
+        </div>
+      </div>
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Character Select</span></div>
+        <div class="settings-body">
+          <label class="settings-checkbox-label">
+            <input type="checkbox" id="setting-show-tile-counts">
+            Show mod counts on character tiles
+          </label>
+          <div class="settings-hint">
+            Off by default. When on, each character tile shows a badge like 1/4 (mods ticked / mods downloaded). When off, a tile that has mods downloaded but none ticked gets a small hollow ring instead, and hovering a tile still tells you the numbers.
+          </div>
+          <label class="settings-checkbox-label" style="margin-top: 14px;">
+            <input type="checkbox" id="setting-play-select-voice">
+            Play a character's select sound
+          </label>
+          <div class="settings-hint">
+            On by default. Each time you click a character's tile, and when a character's mod becomes finished (its name and icons checked, or nothing to check), the app plays the character-select voice from its ticked mods - the sound the game makes when you pick it - and the speaker on its tile lights up while it plays. Nothing plays for a character whose mods don't include one.
+          </div>
+        </div>
+      </div>
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Advanced</span></div>
+        <div class="settings-body">
+          <label class="settings-checkbox-label">
+            <input type="checkbox" id="setting-advanced-mode">
+            Advanced mode
+          </label>
+          <div class="settings-hint">
+            Shows extra technical detail (for example the full list of files in a conflict is open by default). Nothing essential is hidden without it - conflicts and left-out files are always available in the section below.
+          </div>
+        </div>
+      </div>
+      <div class="modal-card" id="conflicts-card">
+        <div class="modal-card-header"><span class="modal-card-title">Conflicts &amp; left-out files</span></div>
+        <div class="settings-body">
+          <div class="settings-hint">
+            When two checked mods change the same file you can keep one mod's copy, use the game's own file, or leave just those files out of one mod - the rest of the mod still works. Leave-outs are remembered, even across re-downloads, and every mod's popup has a "Files" button (in a character's mod list it is "Edit included files" in the row's ... menu) to leave out any single file.
+          </div>
+          <div id="conflicts-body"><div class="conflicts-empty">Loading&hellip;</div></div>
+        </div>
+      </div>
+      <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Maintenance</span></div>
+        <div class="settings-body">
+          <button id="btn-clear-all-mods" class="danger small">Clear All Mods&hellip;</button>
+          <div class="settings-hint">
+            Forgets every GameBanana mod link and file status tracked for every character (optionally deleting the downloaded files too). Mods you added manually, outside the app, are never touched.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

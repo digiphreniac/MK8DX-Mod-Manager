@@ -1,0 +1,30 @@
+  /* Currently-selected cup (the one whose 4 courses show below) - corner-only
+     bracket highlight rather than a full ring, echoing the in-game cup
+     carousel's own pulsing yellow-corner selection cursor (see
+     SCREENSHOTS/5_course_selection.jpg). Drawn as a pseudo-element so it
+     layers cleanly over the tile's own background/border instead of
+     replacing them. */
+  .cup-tile.active::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 10px;
+    pointer-events: none;
+    --corner-color: #ffe600;
+    --corner-len: 20px;
+    --corner-thick: 3px;
+    background:
+      linear-gradient(var(--corner-color), var(--corner-color)) top left / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top left / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top right / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top right / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom left / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom left / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom right / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom right / var(--corner-thick) var(--corner-len) no-repeat;
+    animation: cup-corner-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes cup-corner-pulse {
+    0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px rgba(255, 230, 0, 0.75)); }
+    50% { opacity: 0.35; filter: drop-shadow(0 0 7px rgba(255, 230, 0, 0.9)); }
+  }

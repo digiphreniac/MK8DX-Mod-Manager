@@ -1,0 +1,371 @@
+  /* ---- The character card: a status chip, then the steps Mod and Look (only the one that needs you is open) ---- */
+  .cc-head { display: flex; align-items: center; gap: 12px; margin: 0 0 8px 0; }
+  .cc-headtext { flex: 1; min-width: 0; }
+  .cc-headname { font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cc-headname .np-base { font-size: 12px; font-weight: 400; color: var(--text-dim); margin-left: 6px; }
+  .cc-headsub { font-size: 12.5px; color: var(--text-dim); }
+  .cc-panel { margin: 0 0 10px 0; }
+  .cc-panel > .modal-card, .cc-panel > div > .modal-card { margin-bottom: 0; }
+  .cc-panel .cc-mods { margin-bottom: 0; }
+  .cc-mods:not(.show-all) .mod-row:not(.checked) { display: none; }
+  .cc-mods:not(.show-all) .icon-only-row { display: flex; }   /* not a tickable mod - never collapsed with the unchecked ones */
+  .cc-mods .cc-hint { font-size: 12.5px; color: var(--text-dim); padding: 8px 14px; border-bottom: 1px solid var(--divider); }
+  .cc-mods .cc-hint[hidden] { display: none; }
+  .cc-mods:not(.show-all) .modal-card-header button:not(.cc-manage) { display: none; }
+  .cc-manage[hidden] { display: none; }
+  /* the chips beside a mod's name. A checked or hovered row is filled with --accent-soft, so a chip can't be too: what a mod
+     replaces (Character, Kart, ...) is an outline with no fill, and the chips that do something (Voice, icon) are filled with
+     the card's own colour, outlined in the accent, and fill in on hover - clear on the row whether it is checked or not. */
+  .mod-row .part-badge {
+    flex: 0 0 auto; font-size: 11px; padding: 1px 8px; border-radius: 6px; background: transparent; color: var(--accent);
+    border: 1px solid var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  .mod-row .part-badge.voice, .mod-row .part-badge.picture { display: inline-flex; align-items: center; justify-content: center; padding: 2px 6px; }
+  .mod-row .part-badge.voice svg, .mod-row .part-badge.picture svg { width: 13px; height: 13px; }
+  .pic-line { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .pic-dot { fill: currentColor; }
+  /* the Voice tag opens the list of lines; the round button beside it plays one */
+  .mod-row button.part-badge.voice, .mod-row button.part-badge.picture { appearance: none; font: inherit; cursor: pointer; background: var(--panel); border-color: var(--accent); }
+  .mod-row button.part-badge.voice:hover, .mod-row button.part-badge.voice:focus-visible,
+  .mod-row button.part-badge.picture:hover, .mod-row button.part-badge.picture:focus-visible { background: var(--accent); color: #fff; }
+  .voice-play {
+    appearance: none; flex: 0 0 auto; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent);
+  }
+  .voice-play svg { width: 10px; height: 10px; display: block; fill: currentColor; }
+  .voice-play:hover, .voice-play[data-state="playing"] { background: var(--accent); color: #fff; }
+  .voice-play[data-state="loading"] { cursor: progress; }
+  .voice-play[data-state="loading"] svg { animation: voice-pulse 0.8s ease-in-out infinite alternate; }
+  .voice-play[data-state="error"] { color: var(--danger); }
+  @keyframes voice-pulse { from { opacity: 0.25; } to { opacity: 1; } }
+  .voice-err { flex-basis: 100%; }
+  /* the "Menu pictures" window */
+  .pics-card { max-width: 560px; max-height: min(84vh, 700px); display: flex; flex-direction: column; }
+  .pics-card .pics-sub { font-size: 12.5px; color: var(--text-dim); margin: -4px 0 10px 0; overflow-wrap: anywhere; }
+  .pics-body { overflow-y: auto; min-height: 0; flex: 1 1 auto; margin: 0 -6px; padding: 0 6px; }
+  .pics-set + .pics-set { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--divider); }
+  .pics-title { font-size: 13px; font-weight: 700; margin: 0 0 8px 0; }
+  .pics-title .pics-note { font-weight: 400; color: var(--text-dim); margin-left: 6px; }
+  .pics-warn { font-size: 12.5px; color: var(--warn); background: var(--warn-soft); border-radius: 8px; padding: 6px 10px; margin: 0 0 8px 0; }
+  .pics-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .pics-tile { width: 112px; }
+  .pics-img { width: 112px; height: 112px; box-sizing: border-box; border-radius: 10px; background: var(--thumb-bg); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .pics-img img { max-width: 100%; max-height: 100%; display: block; }
+  .pics-img.none { background: transparent; border: 1.5px dashed var(--panel-border); color: var(--text-dim); font-size: 11.5px; line-height: 1.35; padding: 8px; text-align: center; }
+  .pics-cap { font-size: 12.5px; font-weight: 600; margin-top: 5px; }
+  .pics-size { display: block; font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 1px; }
+  .pics-hint { font-size: 12.5px; color: var(--text-dim); margin: 14px 0 0 0; }
+  /* the "Voice lines" window */
+  .voice-card { display: flex; flex-direction: column; max-width: 520px; max-height: min(82vh, 640px); }
+  .voice-card .voice-sub { font-size: 12.5px; color: var(--text-dim); margin: -4px 0 8px 0; overflow-wrap: anywhere; }
+  .voice-list { overflow-y: auto; min-height: 0; flex: 1 1 auto; margin: 0 -6px; padding: 0 6px; }
+  .voice-group { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); margin: 12px 0 2px 0; }
+  .voice-group:first-child { margin-top: 2px; }
+  .voice-row { display: flex; align-items: center; gap: 10px; padding: 5px 2px; border-bottom: 1px solid var(--divider); }
+  .voice-row .voice-play { width: 26px; height: 26px; }
+  .voice-row .voice-play svg { width: 11px; height: 11px; }
+  .voice-row .voice-label { flex: 1; min-width: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+  .voice-row .voice-len { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .voice-empty { font-size: 13.5px; color: var(--text-dim); padding: 10px 0; }
+  /* The voice editor: a character's voice lines with Mute / Use your own sound (openVoiceEditor). Rows are laid out as a
+     table (Sound / Description / Actions) without a literal <table> - <details> needs to wrap only some rows (one per
+     category), which a real table can't do - so .ve-thead and every .ve-row instead share one CSS grid column template,
+     which lines their columns up just as a table's would. */
+  .gate-card.voice-editor { max-width: min(1080px, 96vw); max-height: min(90vh, 860px); display: flex; flex-direction: column; }   /* (.gate-card, further down, sets 480px) */
+  .ve-status { font-size: 12px; font-weight: 600; color: var(--text-dim); margin: -6px 0 8px 0; }
+  .ve-note { font-size: 12.5px; line-height: 1.45; color: var(--text-dim); margin: 0 0 8px 0; }
+  .ve-base { font-size: 12.5px; line-height: 1.45; padding: 8px 10px; border-radius: 9px; background: var(--bg-soft); border: 1px solid var(--panel-border); margin-bottom: 8px; }
+  .ve-base.warn { background: var(--warn-soft); border-color: var(--warn); color: var(--text); }
+  .ve-base .ve-base-act { margin-top: 6px; }
+  .ve-err { font-size: 12.5px; color: var(--danger); background: var(--danger-soft); border-radius: 8px; padding: 7px 10px; margin-bottom: 8px; }
+  /* search + category pills, standing in for what used to be several separate collapsed sections */
+  .ve-search { margin: 0 0 8px 0; }
+  .ve-search input { width: 100%; box-sizing: border-box; padding: 7px 11px; border-radius: 8px; border: 1px solid var(--panel-border); background: var(--panel); color: var(--text); font-size: 13px; }
+  .ve-search input:focus { outline: none; border-color: var(--accent); }
+  .ve-catbar { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px 0; }
+  .ve-catbar[hidden] { display: none; }
+  .ve-catbar button { padding: 4px 11px; font-size: 12px; }
+  /* Sound/Actions grow only to what their content actually needs (max-content), not a flat px ceiling - a fixed
+     ceiling gets "maximized" into on a wide window whether or not anything in the column is that wide (CSS Grid
+     grows every non-fr track toward its cap before an fr track gets any leftover space), which left a visible gap
+     of empty column past the last button while Description, only ever getting genuine leftovers, wrapped instead
+     of using the room that gap wasted. */
+  .ve-thead, .ve-row { display: grid; grid-template-columns: minmax(160px, max-content) 1fr minmax(190px, max-content); gap: 4px 16px; }
+  .ve-thead[hidden] { display: none; }
+  .ve-thead { padding: 0 2px 6px 2px; border-bottom: 1px solid var(--divider); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); }
+  .ve-list { overflow-y: auto; min-height: 0; flex: 1 1 auto; margin: 0 -8px; padding: 0 8px; }
+  .ve-head { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); margin: 12px 0 2px 0; padding-top: 8px; border-top: 1px solid var(--divider); }
+  .ve-head:first-child { margin-top: 2px; padding-top: 0; border-top: none; }
+  .ve-row { align-items: center; padding: 7px 2px; border-bottom: 1px solid var(--divider); }
+  .ve-row.off { opacity: 0.6; }
+  .ve-row[hidden] { display: none; }
+  .ve-sound { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .ve-sound .voice-play { width: 26px; height: 26px; flex: 0 0 auto; }
+  .ve-sound .voice-play svg { width: 11px; height: 11px; }
+  .ve-play-spacer { width: 26px; height: 26px; flex: 0 0 auto; display: inline-block; }
+  .ve-sound-text { min-width: 0; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .ve-label { font-size: 13.5px; font-weight: 600; }
+  .ve-count { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .ve-desc { font-size: 12.5px; color: var(--text-dim); line-height: 1.4; }
+  .ve-desc.unknown { opacity: 0.6; font-style: italic; }
+  .ve-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+  .ve-chip { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--thumb-bg); color: var(--text-dim); }
+  .ve-orig { font-size: 11.5px; color: var(--accent); background: none; border: none; box-shadow: none; padding: 0 2px; cursor: pointer; }
+  .ve-orig:hover { text-decoration: underline; background: none; border: none; }
+  /* an edited line's Mute/Use-my-own button IS its state - "pressed" rather than a plain button plus a separate chip */
+  button.toggle-on { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); font-weight: 600; }
+  button.toggle-on:hover { background: var(--warn); color: #fff; }
+  button.toggle-on.custom { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  button.toggle-on.custom:hover { background: var(--accent); color: #fff; }
+  .ve-row .voice-err { grid-column: 1 / -1; }
+  .ve-row.busy .ve-acts { opacity: 0.5; pointer-events: none; }
+  @media (max-width: 760px) {
+    .ve-thead { display: none; }
+    .ve-row { grid-template-columns: 1fr; gap: 4px; padding: 9px 2px; }
+  }
+  /* "Use my own sound": choose a file, pick the part, preview, use */
+  .gate-card.ve-custom { max-width: 620px; max-height: 92vh; overflow-y: auto; }
+  .ve-custom .ve-note { margin-bottom: 10px; }
+  .ve-drop { border: 2px dashed var(--panel-border); border-radius: 12px; padding: 16px; text-align: center; font-size: 13px; color: var(--text-dim); }
+  .ve-drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .ve-file { font-size: 12.5px; margin: 10px 0 4px 0; overflow-wrap: anywhere; }
+  .ve-wave { position: relative; height: 84px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--bg-soft); cursor: crosshair; overflow: hidden; touch-action: none; user-select: none; }
+  .ve-wave canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .ve-range { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 8px 0 4px 0; font-size: 12.5px; }
+  .ve-range label { display: flex; align-items: center; gap: 6px; }
+  .ve-range input[type=number] { width: 74px; }
+  .ve-opts { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 2px 0; font-size: 13px; }
+  .ve-opts label { display: flex; align-items: center; gap: 8px; }
+  .ve-len { font-size: 12.5px; color: var(--text-dim); margin-left: auto; }
+  .ve-len.bad { color: var(--danger); font-weight: 600; }
+  .mod-row .mod-name { flex: 1 1 12em; min-width: 8em; overflow-wrap: anywhere; cursor: pointer; }
+  .modal-card.gb-slim { border: 1px dashed var(--panel-border); background: transparent; margin: 8px 0 0 0; }
+  .gb-slim .modal-card-header { background: transparent; border-bottom: none; cursor: pointer; padding: 9px 12px; }
+  .gb-slim .modal-card-title { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text); font-weight: 600; }
+  .gb-slim .gb-slim-hint { font-size: 12px; color: var(--text-dim); }
+  .gb-slim.open .modal-card-header { border-bottom: 1px solid var(--panel-border); }
+  .gb-slim:hover { border-color: var(--accent); }
+  .gb-mod-block.gb-just-added { background: var(--accent-soft); animation: gb-flash 1.6s ease-out; }
+  @keyframes gb-flash { from { box-shadow: inset 0 0 0 2px var(--accent); } to { box-shadow: inset 0 0 0 2px transparent; } }
+  .gb-choose-note { font-size: 12.5px; font-weight: 600; color: var(--accent); margin: 2px 0 6px 0; }
+  /* waiting: shapes where the content will be, a spinner for the wait itself */
+  .sk { background: var(--thumb-bg); border-radius: 8px; position: relative; overflow: hidden; }
+  .sk::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.10), transparent); transform: translateX(-100%); animation: sk-shimmer 1.4s ease-in-out infinite; }
+  @keyframes sk-shimmer { to { transform: translateX(100%); } }
+  .spin { width: 14px; height: 14px; flex: none; border: 2px solid var(--panel-border); border-top-color: var(--accent); border-radius: 50%; display: inline-block; animation: sk-spin 0.8s linear infinite; }
+  @keyframes sk-spin { to { transform: rotate(360deg); } }
+  .load-note { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-dim); padding: 4px 0; }
+  .indet { height: 4px; border-radius: 2px; background: var(--thumb-bg); overflow: hidden; position: relative; margin-top: 8px; }
+  .indet::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: var(--accent); border-radius: 2px; animation: sk-indet 1.2s ease-in-out infinite; }
+  @keyframes sk-indet { to { left: 100%; } }
+  .sk-tile { height: 190px; border-radius: 10px; }
+  @media (prefers-reduced-motion: reduce) { .sk::after, .spin, .indet::after, #btn-refresh.busy svg { animation: none; } }
+  .cc-chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--thumb-bg); color: var(--text-dim); }
+  .cc-chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .cc-chip.ok { background: var(--ok-soft); color: var(--ok); }
+  .cc-step { border-top: 1px solid var(--divider); padding: 9px 0 4px 0; }
+  .cc-step-row { display: flex; align-items: flex-start; gap: 10px; }
+  .cc-dot { width: 20px; height: 20px; flex: none; border-radius: 50%; box-sizing: border-box; margin-top: 1px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
+  .cc-dot.pending { border: 1.5px solid var(--panel-border); }
+  .cc-dot.current { border: 1.5px solid var(--accent); }
+  .cc-dot.current::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .cc-dot.done { background: var(--ok-soft); color: var(--ok); }
+  .cc-step-text { flex: 1; min-width: 0; }
+  .cc-step-inline .cc-step-text { flex: 0 1 auto; }
+  .cc-step-inline .cc-step-row > button { margin-left: 6px; }
+  .cc-step-text b { display: block; font-size: 14px; }
+  .cc-step-text span { font-size: 12.5px; color: var(--text-dim); }
+  .cc-step.is-pending .cc-step-text b { color: var(--text-dim); }
+  .cc-step-body { padding: 8px 0 6px 30px; }
+  .cc-step-body[hidden] { display: none; }
+  .cc-step-body .modal-card { margin-bottom: 10px; }
+  /* a mod row: the folder/files/remove buttons sit behind the "..." button */
+  .mod-row .mod-more { margin-left: auto; }
+  .mod-actions { display: none; flex-basis: 100%; gap: 6px; flex-wrap: wrap; padding: 2px 0 2px 24px; }
+  .mod-row.actions-open .mod-actions { display: flex; }
+  .cc-variant-note { font-size: 12.5px; color: var(--text-dim); padding: 8px 14px; border-bottom: 1px solid var(--divider); }
+  /* the Look step */
+  .cl-look { display: flex; flex-direction: column; gap: 10px; }
+  .cl-preview { display: flex; align-items: center; gap: 14px; background: var(--thumb-bg); border-radius: 10px; padding: 12px 14px; }
+  .cl-preview img, .cl-preview .cl-noicon { width: 64px; height: 64px; object-fit: contain; flex: none; border-radius: 10px; }
+  .cl-preview .cl-noicon { background: var(--panel); border: 1px dashed var(--panel-border); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-dim); text-align: center; }
+  .cl-plate { background: rgba(0, 0, 0, 0.62); color: #fff; border-radius: 6px; padding: 8px 18px; font-size: 16px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cl-plate .np-base { font-size: 11px; font-weight: 400; margin-left: 6px; color: rgba(255, 255, 255, 0.7); white-space: nowrap; }
+  .cl-plate.is-edit { display: flex; align-items: center; gap: 2px; cursor: text; padding: 6px 16px; overflow: visible; border: 1px solid transparent; transition: border-color 0.15s, box-shadow 0.15s; }
+  .cl-plate.is-edit:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .cl-plate input.cl-plate-input { background: transparent; border: none; outline: none; box-shadow: none; color: #fff; font: inherit; padding: 2px 0; margin: 0; min-width: 4ch; max-width: 26ch; text-overflow: ellipsis; }
+  .cl-plate input.cl-plate-input::placeholder { color: #fff; opacity: 1; }
+  .cl-plate input.cl-plate-input:focus::placeholder { color: rgba(255, 255, 255, 0.5); }
+  .cl-preview button.cl-edit-btn { flex: none; width: 32px; height: 32px; padding: 0; margin: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; background: transparent; border: 1px solid var(--text-dim); color: var(--text); box-shadow: none; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+  .cl-preview button.cl-edit-btn:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .cl-preview button.cl-edit-btn:active { transform: scale(0.94); }
+  .cl-look { --cl-ic: 56px; --cl-prev: 88px; }   /* the sizes the waiting shapes copy */
+  /* the guided pass through unfinished characters ("Review them") */
+  .review-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px 0; padding: 8px 12px; border-radius: 10px; background: var(--accent-soft); border: 1px solid var(--accent); font-size: 13px; }
+  .review-bar .review-text { flex: 1; min-width: 160px; font-weight: 600; }
+  .review-bar.is-done { background: var(--ok-soft); border-color: var(--ok); }
+  /* "N characters aren't finished": asked once, when leaving Choose mods */
+  .gate-backdrop { position: fixed; inset: 0; z-index: 9000; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .gate-card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5); padding: 20px 22px; max-width: 480px; width: 100%; }
+  .gate-card h3 { margin: 0 0 10px 0; font-size: 17px; }
+  .gate-card p { margin: 12px 0 0 0; font-size: 13.5px; line-height: 1.5; color: var(--text-dim); }
+  .gate-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .gate-chip { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); }
+  .gate-chip.more { background: var(--thumb-bg); color: var(--text-dim); }
+  .gate-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+  /* the walkthrough: 1 Name, 2 Icons */
+  .cl-steps { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+  .cl-step-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; box-shadow: none; padding: 2px 4px; font: inherit; color: inherit; cursor: default; }
+  .cl-step-btn.can { cursor: pointer; }
+  .cl-step-btn.can:hover { color: var(--text); }
+  .cl-step-n { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--panel-border); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; }
+  .cl-step-btn.on { color: var(--text); font-weight: 700; }
+  .cl-step-btn.on .cl-step-n { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .cl-step-btn.done .cl-step-n { background: var(--ok-soft); border-color: transparent; color: var(--ok); }
+  .cl-step-bar { width: 26px; height: 1px; background: var(--panel-border); }
+  .cl-q { font-size: 14.5px; font-weight: 700; margin-bottom: -6px; }
+  .cl-sub { font-size: 12.5px; color: var(--text-dim); }
+  .cl-sum-name { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .cl-sum-name .cl-hint { margin: 0; }
+  .cl-ic.is-static { cursor: default; }
+  .cl-table.is-summary .cl-t-desc { font-size: 12.5px; }
+  /* a roomier preview where there is room for it (wide AND tall windows) */
+  @media (min-width: 1400px) and (min-height: 820px) {
+    .cl-preview { gap: 18px; padding: 16px 20px; }
+    .cl-preview img, .cl-preview .cl-noicon { width: 88px; height: 88px; }
+    .cl-plate { font-size: 21px; }
+    .cl-plate.is-edit { padding: 9px 22px; }
+    .cl-plate .np-base { font-size: 12px; }
+    .cl-preview button.cl-edit-btn { width: 36px; height: 36px; font-size: 17px; }
+    .cl-look .cl-ic { width: 64px; height: 64px; }
+    .cl-look { --cl-ic: 64px; --cl-prev: 120px; }
+    .cl-look .cl-table th:first-child, .cl-look .cl-table td.cl-t-icon { width: 96px; }
+    .cl-look .cl-t-name { font-size: 14.5px; }
+    .cl-look .cl-t-desc { font-size: 13px; }
+  }
+  @media (min-width: 1800px) and (min-height: 950px) {
+    .cl-preview img, .cl-preview .cl-noicon { width: 104px; height: 104px; }
+    .cl-plate { font-size: 25px; }
+    .cl-plate.is-edit { padding: 11px 26px; }
+    .cl-plate .np-base { font-size: 13px; }
+    .cl-preview button.cl-edit-btn { width: 40px; height: 40px; font-size: 19px; }
+    .cl-look .cl-ic { width: 76px; height: 76px; }
+    .cl-look { --cl-ic: 76px; --cl-prev: 136px; }
+    .cl-look .cl-table th:first-child, .cl-look .cl-table td.cl-t-icon { width: 112px; }
+    .cl-look .cl-t-name { font-size: 16px; }
+    .cl-look .cl-t-desc { font-size: 14px; }
+  }
+  .cl-name { display: flex; align-items: center; gap: 10px; }
+  .cl-name label { font-size: 13px; color: var(--text-dim); width: 46px; flex: none; }
+  .cl-name input { flex: 1; min-width: 0; }
+  .cl-hint { font-size: 12px; color: var(--text-dim); margin: -4px 0 0 2px; }
+  .cl-nudge { border: 1px dashed var(--panel-border); border-radius: 10px; padding: 12px 14px; }
+  .cl-nudge b { display: block; font-size: 14px; }
+  .cl-nudge span { display: block; font-size: 12.5px; color: var(--text-dim); margin: 2px 0 8px 0; }
+  .cl-sk { display: flex; flex-direction: column; gap: 10px; }
+  .cl-sk-prev { height: var(--cl-prev); border-radius: 10px; }
+  .cl-sk-row { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--divider); }
+  .cl-sk-row:last-child { border-bottom: none; }
+  .cl-sk-head { padding: 4px 8px; min-height: 39px; box-sizing: border-box; border-bottom: 1px solid var(--panel-border); }
+  .cl-sk-icwrap { width: 84px; flex: none; display: flex; justify-content: center; }
+  .cl-sk-ic { width: var(--cl-ic); height: var(--cl-ic); border-radius: 10px; }
+  .cl-sk-name { width: 130px; flex: none; display: flex; flex-direction: column; gap: 6px; }
+  .cl-sk-desc { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .cl-colours { display: flex; flex-direction: column; gap: 6px; }
+  .cl-colour-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cl-colour { width: 40px; height: 40px; padding: 2px; border-radius: 50%; border: 2px solid transparent; background: var(--thumb-bg); position: relative; cursor: pointer; box-shadow: none; }
+  .cl-colour img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; display: block; }
+  .cl-colour.is-sel { border-color: var(--accent); }
+  .cl-colour.is-plain { opacity: 0.55; }
+  .cl-colour .cl-colour-n { font-size: 11px; color: var(--text-dim); }
+  .cl-colour.is-gap::after { content: "!"; position: absolute; top: -3px; right: -3px; width: 15px; height: 15px; border-radius: 50%; background: var(--warn); color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .cl-tile-tag { font-size: 12px; color: var(--warn); }
+  .cl-table-box { container-type: inline-size; }
+  .cl-table { width: 100%; border-collapse: collapse; }
+  .cl-table th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--panel-border); }
+  .cl-table th:first-child, .cl-table td.cl-t-icon { text-align: center; width: 84px; }
+  .cl-table td { padding: 8px; vertical-align: middle; border-bottom: 1px solid var(--divider); }
+  .cl-table tbody tr:last-child td { border-bottom: none; }
+  .cl-table th.cl-th-menu, .cl-table td.cl-t-menu { width: 40px; text-align: right; position: relative; padding: 4px; }
+  /* the picture is the button: a pencil over it on hover / keyboard focus */
+  .cl-ic { position: relative; display: block; width: 56px; height: 56px; padding: 0; margin: 0 auto; border: none; border-radius: 10px; background: var(--thumb-bg); box-shadow: none; cursor: pointer; overflow: hidden; }
+  .cl-ic img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .cl-ic.is-blank { background: transparent; border: 1px dashed var(--panel-border); }
+  .cl-ic-blank { display: flex; align-items: center; justify-content: center; height: 100%; padding: 4px; font-size: 10.5px; line-height: 1.2; color: var(--text-dim); }
+  .cl-ic.is-gap .cl-ic-blank { font-size: 26px; font-weight: 300; }
+  .cl-ic-ov { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 20px; opacity: 0; transition: opacity 0.15s; }
+  .cl-ic:hover .cl-ic-ov, .cl-ic:focus-visible .cl-ic-ov { opacity: 1; }
+  .cl-ic:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cl-t-name { font-size: 13.5px; white-space: nowrap; }
+  .cl-t-name > div { font-weight: 700; }
+  .cl-src { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+  .cl-src.you { background: var(--ok-soft); color: var(--ok); }
+  .cl-t-desc { font-size: 12.5px; color: var(--text-dim); line-height: 1.4; }
+  .cl-t-desc .cl-tile-tag { margin-top: 3px; }
+  .cl-link { background: none; border: none; box-shadow: none; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .cl-link:hover { filter: brightness(1.2); }
+  .cl-kebab { width: 30px; height: 30px; padding: 0; border-radius: 50%; border: none; background: transparent; box-shadow: none; color: var(--text-dim); font-size: 18px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-transform: none; letter-spacing: 0; }
+  .cl-kebab:hover, .cl-kebab[aria-expanded="true"] { background: var(--thumb-bg); color: var(--text); }
+  .cl-menu { position: fixed; z-index: 10000; min-width: 210px; padding: 4px; text-align: left; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .cl-menu-item.danger { color: var(--danger); }
+  .cl-menu-item { display: block; width: 100%; text-align: left; background: transparent; border: none; box-shadow: none; padding: 7px 10px; border-radius: 6px; font-size: 13px; font-weight: 400; color: var(--text); cursor: pointer; white-space: nowrap; }
+  .cl-menu-item:hover, .cl-menu-item:focus-visible { background: var(--thumb-bg); outline: none; }
+  .cl-menu-sep { height: 1px; margin: 4px 0; background: var(--divider); }
+  /* narrow card: the picture on the left; name and description stacked on the right, the row's menu at the corner */
+  @container (max-width: 520px) {
+    .cl-table, .cl-table thead, .cl-table tbody { display: block; }
+    .cl-table thead tr { display: flex; justify-content: flex-end; }
+    .cl-table th { display: none; }
+    .cl-table th.cl-th-menu { display: block; border-bottom: none; padding: 0 4px; }
+    .cl-table tbody tr { display: grid; grid-template-columns: 72px 1fr 34px; column-gap: 8px; align-items: start; border-bottom: 1px solid var(--divider); padding: 6px 0; }
+    .cl-table tbody tr:last-child { border-bottom: none; }
+    .cl-table td { display: block; border-bottom: none; padding: 2px 4px; width: auto; }
+    .cl-table td.cl-t-icon { grid-row: 1 / span 2; grid-column: 1; padding-top: 4px; }
+    .cl-table td.cl-t-name, .cl-table td.cl-t-desc { grid-column: 2; }
+    .cl-table td.cl-t-menu { grid-column: 3; grid-row: 1; padding: 0; width: auto; }
+    .cl-table.is-summary tbody tr { grid-template-columns: 72px 1fr; }
+  }
+  .cl-tile-tag.info { color: var(--text-dim); }
+  .cl-gap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border: 1px solid var(--panel-border); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; }
+  .cl-gap .cl-gap-text { flex: 1; min-width: 180px; }
+  /* "mods downloaded, none ticked": a hollow ring where the count badge would be */
+  .tile-pending-dot {
+    position: absolute; top: 7%; right: 7%; box-sizing: border-box; pointer-events: none;
+    width: clamp(9px, calc(var(--tile, 70px) * 0.15), 14px); height: clamp(9px, calc(var(--tile, 70px) * 0.15), 14px);
+    border: 2px solid var(--accent); border-radius: 50%; background: transparent;
+  }
+  /* The character being viewed: the same pulsing yellow corner brackets as the selected cup on Course Select. */
+  .char-tile.active::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 10px;
+    pointer-events: none;
+    --corner-color: #ffe600;
+    --corner-len: 18px;
+    --corner-thick: 3px;
+    background:
+      linear-gradient(var(--corner-color), var(--corner-color)) top left / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top left / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top right / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) top right / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom left / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom left / var(--corner-thick) var(--corner-len) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom right / var(--corner-len) var(--corner-thick) no-repeat,
+      linear-gradient(var(--corner-color), var(--corner-color)) bottom right / var(--corner-thick) var(--corner-len) no-repeat;
+    animation: cup-corner-pulse 1.4s ease-in-out infinite;
+  }
+
+  /* a note at the top of a card: something that was just done for the user there (a mod moved here, see js/refile.js) */
+  .cc-notice { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 10px 0; padding: 9px 12px; border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 8px; font-size: 12.5px; line-height: 1.45; }
+  .cc-notice span { flex: 1; }
+  .cl-menu-item:disabled { opacity: 0.45; cursor: default; }
+
+  /* "Move to another ...": the small dialog over the card */
+  .mv-backdrop { position: fixed; inset: 0; z-index: 45; display: flex; align-items: center; justify-content: center; background: rgba(20, 22, 28, 0.55); animation: fadeIn 0.14s ease-out; }
+  .mv-dialog { width: 420px; max-width: calc(100vw - 40px); padding: 18px 20px; border-radius: 12px; background: var(--panel); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
+  .mv-dialog h3 { margin: 0 0 6px 0; font-size: 15px; }
+  .mv-note { margin: 0 0 12px 0; font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
+  .mv-dialog select { width: 100%; }
+  .mv-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+

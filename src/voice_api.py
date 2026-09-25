@@ -404,7 +404,7 @@ class VoiceEditMixin:
         return game_files.status(self.mod_root)
 
     def get_voice_editor(self, character):
-        """Everything the voice editor window shows for a character (see webui.html, openVoiceEditor)."""
+        """Everything the voice editor window shows for a character (see ui/js/voice.js, openVoiceEditor)."""
         stems = self._voice_stems(character)
         if not stems:
             return {"success": True, "character": character, "known": False, "lines": [], "bases": [], "problems": [],

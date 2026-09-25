@@ -1,0 +1,50 @@
+  /* Modal */
+  /* The shared popup is opened on top of Settings by "Clear All Mods" and
+     "Change master directory" - it has to sit above the Settings popup (z 20),
+     but stay below the popups those flows never open. */
+  #modal-backdrop.above-settings { z-index: 25; }
+  #modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 22, 28, 0.4);
+    display: flex;
+    /* Anchored to the top, not vertically centered: this modal's content
+       (the GameBanana fetch card in particular) grows and shrinks as mods
+       are fetched/downloaded/removed. Centering meant the whole modal - and
+       the "paste a link" input inside it - shifted position on screen every
+       time, which kept landing clicks on stale coordinates. Pinning the top
+       means only the bottom edge moves, so the input stays put. */
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 20px 20px 20px;
+    z-index: 10;
+    animation: fadeIn 0.14s ease-out;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.96) translateY(6px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  #modal {
+    background: var(--panel);
+    border-radius: 14px;
+    width: 760px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 68px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    animation: popIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  #modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+  }
+  #modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
+  #modal-body { padding: 18px 20px 20px 20px; overflow-y: auto; }
+
+  /* Help modal - same visual treatment as #modal, own ids so it can be
+     opened independently (e.g. while a character/course modal is already
+     open behind it). */
