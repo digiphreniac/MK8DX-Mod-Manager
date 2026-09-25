@@ -128,41 +128,93 @@ function buildPackBadge(key, cardName) {
   return badge;
 }
 
+// Line icons for the More tab's tiles (24x24, drawn with the text colour) - static markup, nothing from a remote page
+const MORE_ICONS = {
+  mechanics: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  ui: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18M9 9v11"/>',
+  code_patches: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 6l-3 12"/>',
+  modpacks: '<path d="M12 3 4 7v10l8 4 8-4V7z"/><path d="m4 7 8 4 8-4M12 11v10"/>',
+  battle_courses: '<ellipse cx="12" cy="9.5" rx="5.5" ry="6.5"/><path d="M12 16l-1.6 2.2h3.2zM12 18.2c0 1.6-1.5 1.8-1.5 3.3"/>',
+};
+const MORE_FALLBACK_ICON = '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/>';
+
+// Opens a More category's card; with `browse`, also its GameBanana window (the tile's own button)
+function openMoreCard(label, browse) {
+  openCharacterModal(label);
+  if (browse) {
+    const btn = [...document.querySelectorAll(".gb-browse-toggle-row button")].find(b => b.dataset.item === label);
+    if (btn) btn.click();
+  }
+}
+
+// The More tab: one tile per category (Mechanics, UI, ...) - what it is for, how far along it is, and a way straight into
+// GameBanana. A tile opens the same card characters and courses use.
 function renderMoreList() {
   const container = document.getElementById("more-list");
   container.innerHTML = "";
-  const card = document.createElement("div");
-  card.className = "category";
   for (const c of SIMPLE_CATEGORIES) {
     const entry = state.simpleCategories.find(sc => sc.key === c.key) || { units: [], gb_attempted: false };
     const total = entry.units.length;
     const selected = entry.units.filter(k => state.checked[k]).length;
+    const attention = entry.gb_attempted && total === 0;
 
-    const row = document.createElement("div");
-    row.className = "more-row";
-    row.addEventListener("click", () => openCharacterModal(c.label));
+    const tile = document.createElement("div");
+    tile.className = "more-tile" + (selected ? " has-selected" : "") + (attention ? " needs-attention" : "");
+    tile.tabIndex = 0;
+    tile.setAttribute("role", "button");
+    tile.addEventListener("click", () => openMoreCard(c.label, false));
+    tile.addEventListener("keydown", (e) => {
+      if (e.target === tile && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openMoreCard(c.label, false); }
+    });
 
+    const head = document.createElement("div");
+    head.className = "more-tile-head";
+    const icon = document.createElement("div");
+    icon.className = "more-icon";
+    icon.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MORE_ICONS[c.key] || MORE_FALLBACK_ICON}</svg>`;
+    head.appendChild(icon);
     const name = document.createElement("div");
-    name.className = "more-row-name";
+    name.className = "more-name";
     name.textContent = c.label;
-    row.appendChild(name);
+    head.appendChild(name);
+    tile.appendChild(head);
 
-    const count = document.createElement("div");
-    count.className = "more-row-count";
-    if (entry.gb_attempted && total === 0) count.classList.add("count-attention");
-    count.textContent = total === 0
-      ? (entry.gb_attempted ? "needs attention" : "no mods yet")
-      : `${selected}/${total} selected`;
-    row.appendChild(count);
+    const blurb = document.createElement("div");
+    blurb.className = "more-blurb";
+    blurb.textContent = c.blurb || "";
+    tile.appendChild(blurb);
 
-    const arrow = document.createElement("div");
-    arrow.className = "more-row-arrow";
-    arrow.textContent = "›";
-    row.appendChild(arrow);
+    const status = document.createElement("div");
+    status.className = "more-status";
+    if (attention) {
+      status.classList.add("attention");
+      status.textContent = "A mod was added here but has no usable files yet - open it to finish or fix.";
+    } else if (total === 0) {
+      status.textContent = "Nothing here yet.";
+    } else {
+      const text = document.createElement("div");
+      text.className = "more-status-text";
+      text.textContent = `${total} ${total === 1 ? "mod" : "mods"} · ${selected} ticked`;
+      status.appendChild(text);
+      const bar = document.createElement("div");
+      bar.className = "more-bar";
+      const fill = document.createElement("div");
+      fill.className = "more-bar-fill";
+      fill.style.width = `${Math.round(100 * selected / total)}%`;
+      bar.appendChild(fill);
+      status.appendChild(bar);
+    }
+    tile.appendChild(status);
 
-    card.appendChild(row);
+    const actions = document.createElement("div");
+    actions.className = "more-actions";
+    actions.appendChild(button("Browse GameBanana ↗", total === 0 && !attention ? "primary small" : "ghost small", (e) => {
+      e.stopPropagation();
+      openMoreCard(c.label, true);
+    }));
+    tile.appendChild(actions);
+    container.appendChild(tile);
   }
-  container.appendChild(card);
 }
 
 // ---- Course Select ----

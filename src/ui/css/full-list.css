@@ -47,26 +47,33 @@
   .mod-row:last-child { border-bottom: none; }
   .mod-row:hover { background: var(--accent-soft); }
 
-  /* "More" tab - a plain list of the flat mod categories (Mechanics, UI,
-     Items, Vehicles - see SIMPLE_CATEGORIES), each row opening the exact
-     same modal characters/courses use. */
-  #more-intro { max-width: 560px; margin: 0 auto 14px auto; }
-  #more-list { max-width: 560px; margin: 0 auto; }
-  .more-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 13px 16px;
-    font-size: 14px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--divider);
+  /* "More" tab - a tile per flat mod category (Mechanics, UI, Code patches...; see SIMPLE_CATEGORIES and renderMoreList): what it is
+     for, how far along it is, and a button into GameBanana. A tile opens the same card characters and courses use. */
+  /* on a panel of its own: text set straight on the checkered background is hard to read */
+  #more-intro { max-width: 980px; margin: 0 auto 14px auto; padding: 12px 16px; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; box-shadow: var(--shadow); }
+  #more-intro-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  #more-intro-text { margin-top: 2px; font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
+  #more-list { max-width: 980px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .more-tile {
+    display: flex; flex-direction: column; gap: 10px; padding: 16px;
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; box-shadow: var(--shadow);
+    cursor: pointer; transition: border-color 0.12s, background 0.12s;
   }
-  .more-row:last-child { border-bottom: none; }
-  .more-row:hover { background: var(--accent-soft); }
-  .more-row-name { flex: 1; font-weight: 600; }
-  .more-row-count { font-size: 12px; color: var(--text-dim); }
-  .more-row-count.count-attention { color: var(--danger); font-weight: 600; }
-  .more-row-arrow { color: var(--text-dim); font-size: 16px; }
+  .more-tile:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .more-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .more-tile.has-selected { border-color: var(--accent); }
+  .more-tile.needs-attention { border-color: var(--danger); }
+  .more-tile-head { display: flex; align-items: center; gap: 12px; }
+  .more-icon { flex: none; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); }
+  .more-tile:hover .more-icon { background: var(--panel); }
+  .more-name { font-size: 15px; font-weight: 600; }
+  .more-blurb { font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
+  .more-status { margin-top: auto; font-size: 12px; color: var(--text-dim); }   /* (status and button sit at the tile's foot, so they line up across a row) */
+  .more-status.attention { color: var(--danger); font-weight: 600; }
+  .more-status-text { margin-bottom: 5px; }
+  .more-bar { height: 5px; border-radius: 3px; background: var(--divider); overflow: hidden; }
+  .more-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+  .more-actions { display: flex; }
   .mod-row input {
     cursor: pointer;
     width: 15px;

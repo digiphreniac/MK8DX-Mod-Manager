@@ -44,6 +44,7 @@ function buildGameBananaCard(itemName, category, opts) {
   const browseToggleBtn = document.createElement("button");
   browseToggleBtn.className = "ghost small";
   browseToggleBtn.textContent = "Browse & search GameBanana ↗";
+  browseToggleBtn.dataset.item = itemName;   // (openMoreCard finds the card's button by it)
   browseToggleRow.appendChild(browseToggleBtn);
   sectionBody.appendChild(browseToggleRow);
 

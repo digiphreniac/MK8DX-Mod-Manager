@@ -24,11 +24,12 @@ const MK8DX_GAME_ID = 6507;
 const isVehicleGuess = (g) => VEHICLE_SECTION_KEYS.includes(g) || g === "vehicle_unsorted";
 
 const SIMPLE_CATEGORIES = [
-  { key: "mechanics", label: "Mechanics" },
-  { key: "ui", label: "UI" },
-  { key: "code_patches", label: "Code patches" },
-  { key: "modpacks", label: "Modpacks" },
-  { key: "battle_courses", label: "Battle courses" },
+  // `blurb`: what belongs in it, shown on its tile in the More tab
+  { key: "mechanics", label: "Mechanics", blurb: "Gameplay tweaks - a coin cap, CPU difficulty, how the game plays. Most are code patches." },
+  { key: "ui", label: "UI", blurb: "Menus, the in-race HUD, loading screens and the minimap." },
+  { key: "code_patches", label: "Code patches", blurb: "Patches to the game's program itself. They only work on the exact game version they were made for." },
+  { key: "modpacks", label: "Modpacks", blurb: "Big bundles of many mods. A pack is also listed on every card it changes." },
+  { key: "battle_courses", label: "Battle courses", blurb: "Custom battle arenas, each replacing one of the game's battle courses." },
 ];
 // Items (mirrors mod_manager.py's ITEMS_*) have their own screen and a per-item roster, loaded from Api.get_items_view() into
 // state.items as [{name, internal, units, gb_attempted, catch_all?, label?}]. The last one is the catch-all ("Items", the folder

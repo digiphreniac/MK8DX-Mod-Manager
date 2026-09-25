@@ -179,7 +179,11 @@ comes from differs (`fetchPage()`): `gb_browse` (a character's subcategory), `gb
   a race course's search). Each is one fixed pseudo-item that browses, searches and adds links like any card. A modpack stays filed
   under Modpacks, but `get_pack_links()` lists it (with its "Pack" badge) on every character / course / part / item card it
   replaces - the same mechanism as any other pack. Adding one of these needs an entry in both lists and an `<option>` in
-  `add-mod-modal.html`.
+  `add-mod-modal.html`. The tab (`renderMoreList()` in `views.js`, styles in `full-list.css`) is a responsive grid of tiles - one per
+  category: a line icon (`MORE_ICONS`), its name, a one-line `blurb` (in `SIMPLE_CATEGORIES`), how many mods it holds and how many are
+  ticked (with a bar), and a "Browse GameBanana" button that opens the category's card and its GameBanana window in one go
+  (`openMoreCard()`; primary while the category is empty). A category whose download left nothing usable is outlined in red with a
+  sentence saying so. A new category needs an icon in `MORE_ICONS` and a blurb.
 - **What a card's search keeps** (`_search_kind()`): its own kind; for characters, vehicle parts and items also GameBanana's
   Skins > Packs and Skins > Other/Misc (mods of those kinds that no single roster entry names); for Modpacks also Skins > Packs.
   Custom Lighting counts as a course kind (`COURSE_SEARCH_SUBCATEGORIES`). The search endpoint also returns WIPs, questions and
