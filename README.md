@@ -173,6 +173,17 @@ comes from differs (`fetchPage()`): `gb_browse` (a character's subcategory), `gb
   the window) goes back to browsing with the remembered sort. A search with nothing found offers to search gamebanana.com itself.
   The card's paste field is the shortcut into it: a link or id is fetched as before (`looksLikeModRef()`), anything else opens this
   window already searching for it - the field's button changes from "Fetch" to "Search" as you type.
+- **The More tab's categories** (`SIMPLE_MOD_CATEGORIES`, mirrored by `SIMPLE_CATEGORIES` in `state-and-helpers.js`): Mechanics, UI,
+  Code patches (GameBanana's own category for exefs `.ips` mods), Modpacks and Battle courses (the Custom Battle Courses
+  subcategory - the course roster has no cards for battle arenas, so those mods get one place of their own instead of showing up in
+  a race course's search). Each is one fixed pseudo-item that browses, searches and adds links like any card. A modpack stays filed
+  under Modpacks, but `get_pack_links()` lists it (with its "Pack" badge) on every character / course / part / item card it
+  replaces - the same mechanism as any other pack. Adding one of these needs an entry in both lists and an `<option>` in
+  `add-mod-modal.html`.
+- **What a card's search keeps** (`_search_kind()`): its own kind; for characters, vehicle parts and items also GameBanana's
+  Skins > Packs and Skins > Other/Misc (mods of those kinds that no single roster entry names); for Modpacks also Skins > Packs.
+  Custom Lighting counts as a course kind (`COURSE_SEARCH_SUBCATEGORIES`). The search endpoint also returns WIPs, questions and
+  requests, which `search_mods()` drops - none can be downloaded.
 - **Tags**: a mod's own page gives tags as `{"_sTitle", "_sValue"}` objects (the list gives strings) - `tag_names()` turns both
   into "Title: Value" strings.
 - **Links in descriptions**: `gamebanana_api.html_to_runs()` turns a description's HTML into runs (`{text}` / `{text, href}`;

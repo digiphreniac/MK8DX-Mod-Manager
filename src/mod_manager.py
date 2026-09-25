@@ -108,7 +108,17 @@ VEHICLES_CATEGORY_ID = 10530  # parent of the vehicle-part section categories, s
 SIMPLE_MOD_CATEGORIES = {
     "mechanics": {"label": "Mechanics", "gb_category_id": 5088},
     "ui": {"label": "UI", "gb_category_id": 2162},
+    # Code patches (exefs .ips files) have a GameBanana category of their own besides Mechanics
+    "code_patches": {"label": "Code patches", "gb_category_id": 26513},
+    # A pack has no one card: it is listed on every card of what it replaces too (see get_pack_links)
+    "modpacks": {"label": "Modpacks", "gb_category_id": 16881},
+    # Custom battle courses replace battle arenas, which the course roster has no cards for - subcategory of Courses
+    "battle_courses": {"label": "Battle courses", "gb_category_id": 31808},
 }
+# GameBanana's Skins > Packs and Skins > Other/Misc subcategories: mods of a character / vehicle / item kind that no single
+# roster entry names. A search from a card of those kinds lists them too (see _search_kind).
+SKINS_PACKS_CATEGORY_ID = 10562
+SKINS_MISC_CATEGORY_ID = 10528
 # Items got their own screen and a fixed per-item roster (roster.json's "items": Banana, Green Shell, Super Horn ...) like
 # vehicle parts. GameBanana has one flat "Items" category (no subcategory per item), so - as with tires and gliders - it lists
 # every item mod and each is annotated with the item its text says it replaces (see match_vehicle_targets, which reads the
@@ -3796,11 +3806,11 @@ class Api(VoiceEditMixin):
 
     def _search_kind(self, rec, characters):
         """What kind of mod a search result is, from the GameBanana category it is filed in: ("characters", the character's
-        roster name), ("courses"|"vehicles"|"items"|"mechanics"|"ui", None), or ("other", None). Only the author's own
-        filing - the files can still say otherwise, which the download checks (see _refile_mod)."""
+        roster name), ("courses"|"vehicles"|"items"|<a simple category's key>, None), ("skin_packs"|"skin_misc", None) for
+        Skins' Packs / Other/Misc, or ("other", None). Only the author's own filing - the files can still say otherwise, which the download checks (see _refile_mod)."""
         sub_id, root_id = rec.get("subcategory_id"), rec.get("root_category_id")
-        if sub_id in VEHICLE_BODY_CATEGORY_IDS.values() or sub_id == VEHICLES_CATEGORY_ID or any(
-                info.get("gb_category_id") == sub_id for info in VEHICLE_SECTIONS.values()):
+        if sub_id is not None and (sub_id in VEHICLE_BODY_CATEGORY_IDS.values() or sub_id == VEHICLES_CATEGORY_ID or any(
+                info.get("gb_category_id") == sub_id for info in VEHICLE_SECTIONS.values())):
             return "vehicles", None
         if sub_id == ITEMS_GB_CATEGORY_ID:
             return "items", None
@@ -3809,6 +3819,10 @@ class Api(VoiceEditMixin):
         for key, info in SIMPLE_MOD_CATEGORIES.items():
             if info["gb_category_id"] in (sub_id, root_id):
                 return key, None
+        if sub_id == SKINS_PACKS_CATEGORY_ID:
+            return "skin_packs", None
+        if sub_id == SKINS_MISC_CATEGORY_ID:
+            return "skin_misc", None
         if rec.get("subcategory"):
             wanted = normalize_char_name(rec["subcategory"])
             match = next((name for name in characters if normalize_char_name(name) == wanted), None)
@@ -3827,12 +3841,14 @@ class Api(VoiceEditMixin):
         if not query:
             return {"error": None, "records": [], "total": 0, "done": True, "page": page, "query": query}
         wanted = "vehicles" if category in VEHICLE_SECTIONS else category
+        # the kinds a card's search keeps: its own, plus Skins' packs and misc for the kinds those can be for
+        accepted = {wanted} | ({"skin_packs", "skin_misc"} if wanted in ("characters", "vehicles", "items") else {"skin_packs"} if wanted == "modpacks" else set())
         characters = self._load_roster()
         kinds = {}
 
         def keep(rec):
             kinds[rec["mod_id"]] = self._search_kind(rec, characters)
-            return kinds[rec["mod_id"]][0] == wanted
+            return kinds[rec["mod_id"]][0] in accepted
 
         try:
             result = gamebanana_api.search_filtered(query, keep, first_page=page)
@@ -3850,7 +3866,7 @@ class Api(VoiceEditMixin):
         for rec in records:
             if rec["kind"] == "vehicles":
                 sub_id = rec.get("subcategory_id")
-                section = next((k for k, info in VEHICLE_SECTIONS.items() if info.get("gb_category_id") == sub_id), "vehicles")
+                section = next((k for k, info in VEHICLE_SECTIONS.items() if sub_id and info.get("gb_category_id") == sub_id), "vehicles")
                 groups.setdefault(section, (vehicles[section], []))[1].append(rec)
             elif rec["kind"] == "items":
                 groups.setdefault(ITEMS_CATEGORY, (self._load_item_roster(), []))[1].append(rec)

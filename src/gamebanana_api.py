@@ -350,7 +350,9 @@ def fetch_mod_detail(mod_id: int, record_type: str = "Mod"):
 
 # Only these mod subcategories are for things that actually replace/edit a
 # course - matches what the user's own manual research process filtered to.
-COURSE_SEARCH_SUBCATEGORIES = {"Course Edits", "Course Retextures", "Custom Race Courses"}
+# (Custom Battle Courses are left out: they replace battle arenas, which the course roster has no cards for - see
+# SIMPLE_MOD_CATEGORIES "battle_courses")
+COURSE_SEARCH_SUBCATEGORIES = {"Course Edits", "Course Retextures", "Custom Race Courses", "Custom Lighting"}
 
 
 def _category_id(category):
@@ -375,6 +377,8 @@ def search_mods(query: str, game_id: int = 6507, page: int = 1, per_page: int = 
     data = _get_json(url)
     records = []
     for row in data.get("_aRecords", []):
+        if row.get("_sModelName") != "Mod":
+            continue   # (the search also finds WIPs, questions and requests - none of them can be downloaded)
         images = (row.get("_aPreviewMedia") or {}).get("_aImages") or []
         thumbnail_url = None
         if images:
@@ -397,7 +401,7 @@ def search_mods(query: str, game_id: int = 6507, page: int = 1, per_page: int = 
             "root_category_id": _category_id(row.get("_aRootCategory")),
         })
     result = _page_result(records, data.get("_aMetadata", {}), page, per_page)
-    result["done"] = result["done"] or not records   # (a page past the end comes back empty)
+    result["done"] = result["done"] or not data.get("_aRecords")   # (a page past the end comes back empty)
     return result
 
 

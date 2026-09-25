@@ -19,7 +19,7 @@ const GB_EMPTY_RUN_LIMIT = 2;
 // the same for a search, where a batch can well hold none of the kind wanted (most of what a search finds is something else)
 const GB_SEARCH_EMPTY_RUN_LIMIT = 4;
 // what a card's search keeps, for "Nothing found among ... mods"
-const GB_SEARCH_KIND_NOUN = { characters: "character", courses: "course", vehicles: "vehicle-part", wheels: "vehicle-part", gliders: "vehicle-part", items: "item", mechanics: "Mechanics", ui: "UI" };
+const GB_SEARCH_KIND_NOUN = { characters: "character", courses: "course", vehicles: "vehicle-part", wheels: "vehicle-part", gliders: "vehicle-part", items: "item", mechanics: "Mechanics", ui: "UI", code_patches: "code-patch", modpacks: "modpack", battle_courses: "battle-course" };
 // how far below the window's bottom edge (px) the end of the list may be before the next batch is fetched
 const GB_LOOKAHEAD = 500;
 

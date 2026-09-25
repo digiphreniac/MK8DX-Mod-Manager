@@ -513,7 +513,7 @@ async function confirmAddMod() {
   const otherKey = document.getElementById("add-mod-other-select").value;
   const simpleTarget = SIMPLE_CATEGORIES.find(c => c.key === otherKey);
   if (simpleTarget) {
-    // A simple category (Mechanics/UI) behaves exactly like
+    // A simple category (Mechanics, UI, Code patches...) behaves exactly like
     // a character/course target above - fetch metadata, then hand off into
     // its own modal (reached via the More tab) so files get picked the
     // normal way, not auto-downloaded.

@@ -26,6 +26,9 @@ const isVehicleGuess = (g) => VEHICLE_SECTION_KEYS.includes(g) || g === "vehicle
 const SIMPLE_CATEGORIES = [
   { key: "mechanics", label: "Mechanics" },
   { key: "ui", label: "UI" },
+  { key: "code_patches", label: "Code patches" },
+  { key: "modpacks", label: "Modpacks" },
+  { key: "battle_courses", label: "Battle courses" },
 ];
 // Items (mirrors mod_manager.py's ITEMS_*) have their own screen and a per-item roster, loaded from Api.get_items_view() into
 // state.items as [{name, internal, units, gb_attempted, catch_all?, label?}]. The last one is the catch-all ("Items", the folder
