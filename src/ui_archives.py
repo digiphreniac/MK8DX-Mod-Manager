@@ -40,6 +40,9 @@ class ArchiveError(Exception):
 
 # --- Yaz0 ------------------------------------------------------------------
 
+_BITS = (0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01)
+
+
 def yaz0_decompress(data: bytes, limit: int = None) -> bytes:
     """Decompresses a Yaz0 stream. `limit` stops as soon as that many output
     bytes exist (enough to read an archive's header without paying for the
@@ -51,9 +54,51 @@ def yaz0_decompress(data: bytes, limit: int = None) -> bytes:
         size = min(size, limit)
     out = bytearray(size)
     src, dst, n = 16, 0, len(data)
+    # (bulk of the stream: far enough from both ends that no group can run past them, so nothing needs checking per byte)
+    safe_dst = size - 8 * 273
+    safe_src = n - 8 * 3 - 1
+    while dst < safe_dst and src < safe_src:
+        code = data[src]
+        src += 1
+        if code == 0xFF:
+            out[dst:dst + 8] = data[src:src + 8]
+            dst += 8
+            src += 8
+            continue
+        for bit in _BITS:
+            if code & bit:
+                out[dst] = data[src]
+                dst += 1
+                src += 1
+            else:
+                b1 = data[src]
+                dist = (((b1 & 0x0F) << 8) | data[src + 1]) + 1
+                length = b1 >> 4
+                if length == 0:
+                    length = data[src + 2] + 0x12
+                    src += 3
+                else:
+                    length += 2
+                    src += 2
+                start = dst - dist
+                if start < 0:
+                    raise ArchiveError("corrupt Yaz0 stream")
+                if dist >= length:
+                    out[dst:dst + length] = out[start:start + length]
+                elif dist == 1:
+                    out[dst:dst + length] = bytes((out[start],)) * length
+                else:
+                    chunk = bytes(out[start:dst])
+                    out[dst:dst + length] = (chunk * (length // dist + 1))[:length]
+                dst += length
     while dst < size and src < n:
         code = data[src]
         src += 1
+        if code == 0xFF and dst + 8 <= size and src + 8 <= n:   # eight literals in a row: one copy
+            out[dst:dst + 8] = data[src:src + 8]
+            dst += 8
+            src += 8
+            continue
         for _ in range(8):
             if dst >= size:
                 break
@@ -62,21 +107,24 @@ def yaz0_decompress(data: bytes, limit: int = None) -> bytes:
                 dst += 1
                 src += 1
             else:
-                b1, b2 = data[src], data[src + 1]
-                src += 2
-                dist = (((b1 & 0x0F) << 8) | b2) + 1
+                b1 = data[src]
+                dist = (((b1 & 0x0F) << 8) | data[src + 1]) + 1
                 length = b1 >> 4
                 if length == 0:
-                    length = data[src] + 0x12
-                    src += 1
+                    length = data[src + 2] + 0x12
+                    src += 3
                 else:
                     length += 2
-                length = min(length, size - dst)
+                    src += 2
+                if length > size - dst:
+                    length = size - dst
                 start = dst - dist
                 if start < 0:
                     raise ArchiveError("corrupt Yaz0 stream")
                 if dist >= length:
                     out[dst:dst + length] = out[start:start + length]
+                elif dist == 1:
+                    out[dst:dst + length] = bytes((out[start],)) * length
                 else:  # overlapping copy repeats the last `dist` bytes
                     chunk = bytes(out[start:dst])
                     out[dst:dst + length] = (chunk * (length // dist + 1))[:length]
@@ -102,6 +150,15 @@ def set_cache_dir(path) -> None:
     """Where decompressed archives are kept between runs (None = memory only)."""
     global _cache_dir
     _cache_dir = Path(path) if path is not None else None
+
+
+def forget_decompressed() -> None:
+    """Drops every remembered decompressed archive, in memory and on disk (the game's files were replaced)."""
+    with _mem_lock:
+        _mem.clear()
+    if _cache_dir is not None:
+        for f in _cache_dir.glob("*.bin"):
+            f.unlink(missing_ok=True)
 
 
 def _disk_get(key: str, size: int):
@@ -257,12 +314,15 @@ def yaz0_store(data: bytes) -> bytes:
     """A valid Yaz0 stream holding `data` uncompressed (every group is eight
     literals). Larger than a real compression (~12%), but every Yaz0 decoder
     reads it, and it needs no compressor - fine for an icon archive."""
-    out = bytearray(b"Yaz0" + struct.pack(">I", len(data)) + b"\0" * 8)
-    for i in range(0, len(data), 8):
-        chunk = data[i:i + 8]
-        out.append((0xFF << (8 - len(chunk))) & 0xFF if len(chunk) < 8 else 0xFF)
-        out += chunk
-    return bytes(out)
+    full, rest = divmod(len(data), 8)
+    body = bytearray(9 * full)
+    body[0::9] = b"\xff" * full          # (the group's flag byte, then its eight literals - filled a column at a time)
+    for j in range(8):
+        body[1 + j::9] = data[j:full * 8:8]
+    if rest:
+        body.append((0xFF << (8 - rest)) & 0xFF)
+        body += data[full * 8:]
+    return b"Yaz0" + struct.pack(">I", len(data)) + b"\0" * 8 + bytes(body)
 
 
 # --- BNTX ------------------------------------------------------------------

@@ -11,9 +11,14 @@ Two shapes:
   group(name, stamp, build)    a whole set at once (all the cup medallions, all the vehicle pictures, ...) kept as one JSON file,
                                {picture name: PNG data URI}, because that is what the screens ask for in one go.
 A build that gives nothing (the file was unreadable) is never stored - the next call tries again.
+
+Pictures are kept - and sent to the page - as WebP (quality 90, transparency kept): 3 to 5 times smaller than the PNG they were
+decoded to, which matters because every picture crosses into the page as text (about 18 MB of PNG in a full session, mostly
+course pictures). They come back as data URIs with the right type - use data_uri(), which looks at the bytes.
 """
 import base64
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -21,7 +26,8 @@ import threading
 from pathlib import Path
 
 DIRNAME = "image-cache"
-VERSION = 1
+VERSION = 2   # (2: pictures are kept as WebP)
+WEBP_QUALITY = 90
 
 
 def digest(*parts) -> str:
@@ -39,8 +45,23 @@ def file_stamp(path) -> tuple:
     return (st.st_size, st.st_mtime_ns)
 
 
-def data_uri(png: bytes) -> str:
-    return "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+def compress(png: bytes) -> bytes:
+    """The picture as WebP; unchanged if Pillow can't (no WebP support, unreadable data) or if it wouldn't be smaller."""
+    try:
+        from PIL import Image
+        with Image.open(io.BytesIO(png)) as im:
+            im.load()
+            out = io.BytesIO()
+            im.save(out, format="WEBP", quality=WEBP_QUALITY, method=4)
+        return out.getvalue() if len(out.getvalue()) < len(png) else png
+    except Exception:
+        return png
+
+
+def data_uri(image: bytes) -> str:
+    """A data URI for PNG or WebP bytes (told apart by their first bytes)."""
+    mime = "image/webp" if image[:4] == b"RIFF" and image[8:12] == b"WEBP" else "image/png"
+    return f"data:{mime};base64," + base64.b64encode(image).decode("ascii")
 
 
 def _write_atomic(path: Path, data: bytes) -> None:
@@ -59,10 +80,12 @@ class ImageCache:
         self.root = Path(root) if root is not None else None
 
     def picture(self, name: str, stamp, build):
-        """PNG bytes for `name`: from disk when its stamp still matches, else `build()` (PNG bytes or None) and store it.
+        """The picture for `name` (WebP bytes): from disk when its stamp still matches, else `build()` (PNG bytes or None),
+        converted, and stored.
         Any trouble with the cache folder just means the picture is built each time - never an error."""
         if self.root is None or stamp is None:
-            return build()
+            png = build()
+            return compress(png) if png else png
         key = hashlib.sha1(name.encode("utf-8")).hexdigest()[:20]
         path = self.root / "pictures" / f"{key}.{digest(stamp)}.png"
         try:
@@ -72,6 +95,7 @@ class ImageCache:
             pass
         png = build()
         if png:
+            png = compress(png)
             try:
                 for old in path.parent.glob(f"{key}.*.png"):
                     old.unlink(missing_ok=True)
@@ -84,7 +108,7 @@ class ImageCache:
         """{picture name: PNG data URI}: from disk when the stamp still matches, else `build()` ({picture name: PNG bytes},
         {} when nothing could be read) and store it."""
         if self.root is None:
-            return {n: data_uri(p) for n, p in build().items()}
+            return {n: data_uri(compress(p)) for n, p in build().items()}
         path = self.root / f"{name}.json"
         stamp = digest(stamp)
         try:
@@ -93,7 +117,7 @@ class ImageCache:
                 return saved["icons"]
         except (OSError, ValueError):
             pass
-        icons = {n: data_uri(p) for n, p in build().items()}
+        icons = {n: data_uri(compress(p)) for n, p in build().items()}
         if icons:
             try:
                 _write_atomic(path, json.dumps({"stamp": stamp, "icons": icons}).encode("utf-8"))

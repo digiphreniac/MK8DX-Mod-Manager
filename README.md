@@ -83,12 +83,14 @@ Given a character or a course, it can:
   build replaced or removed (never deleted automatically)
 - `ui-setup-cache.json` - cache of the icons/text read out of your mods'
   archives (safe to delete; it just makes the next build faster)
-- `image-cache/` - PNGs decoded from the game's textures: the cup medallions, vehicle and item pictures (one JSON file
+- `image-cache/` - pictures decoded from the game's textures (kept as WebP, quality 90 - 3 to 5 times smaller than PNG, which
+  is what crosses into the page): the cup medallions, vehicle and item pictures (one JSON file
   each) and each course/part/character-menu picture (`pictures/`), including the previews of mods' own course pictures;
   and `archives/`, the decompressed icon archives (the ~12 that are opened over and over, ~60 MB; at most 24 files, the
   least recently used are dropped). An entry is
-  rebuilt whenever the file it came from changes, and "Update from a new dump" clears it; safe to delete at any time
-  (the next launch decodes again, about 10 seconds' worth, spread over the screens as you open them).
+  rebuilt whenever the file it came from changes, and "Update from a new dump" clears it; safe to delete at any time.
+  A background pass (`Api._warm_up`, started shortly after launch and after a new dump) fills it, plus this run's memory
+  caches, before you open the screens - about 5 seconds on a fresh folder, under a second once it is filled.
 - `gamebanana-descriptions.json` - the descriptions of the mods GameBanana listed in a browse or search, so seeing the
   same list again (or after a restart) needs no requests; an entry is used for 14 days, at most 3000 are kept. Safe to delete.
 - `excluded-files.json` - files each mod must NOT contribute to a commit (how

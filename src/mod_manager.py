@@ -19,6 +19,8 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
+import time
 import types
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
@@ -5506,7 +5508,11 @@ class Api(VoiceEditMixin):
     def _ui_setup_plan(self):
         """The cached analysis of every checked mod's packed UI archives -
         recomputed only when a source file changes or the set of checked mods
-        does."""
+        does. One at a time: the background warm-up and a screen can ask together."""
+        with self.__dict__.setdefault("_plan_lock", threading.RLock()):
+            return self._ui_setup_plan_unlocked()
+
+    def _ui_setup_plan_unlocked(self):
         checked = sorted(k for k, v in self._load_state().items() if v)
         extracted = self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME
         game_files = self._game_files()
@@ -6026,13 +6032,47 @@ class Api(VoiceEditMixin):
         return out
 
     def warm_ui_analysis(self):
-        """Reads the ticked mods' menu files ahead of time (in the background,
-        right after the app starts) so the first Menu look card opens instantly."""
-        try:
-            self._ui_setup_plan()
-        except (OSError, ui_setup.ua.ArchiveError):
-            return False
+        """Starts getting everything the screens will ask for ready in the background (right after the app starts) - the
+        ticked mods' menu files, the game's pictures, the decompressed icon archives - so the first card, and the first
+        time on each screen, open as fast as the later ones. Returns at once; see _warm_up()."""
+        self._start_warmup()
         return True
+
+    def _start_warmup(self):
+        if self.mod_root is None:
+            return
+        self._warm_gen = getattr(self, "_warm_gen", 0) + 1
+        threading.Thread(target=self._warm_up, args=(self._warm_gen,), daemon=True, name="warm-caches").start()
+
+    def _warm_up(self, gen):
+        """Runs what each screen would run the first time, one step after the other, and throws the answers away - the point
+        is what it leaves behind: the disk caches (image-cache/) and this run's memory caches. Once everything is on disk a
+        pass costs a fraction of a second. A step that fails is skipped (the screen will meet the same problem itself and
+        say so); a new "Update from a new dump" (which bumps _warm_gen) ends a pass that is still running for the old one."""
+        if self._game_files().get("menu") is None:
+            return   # (no copy of the game's files yet: nothing to warm)
+        try:
+            names = [r["name"] if isinstance(r, dict) else r for r in self._load_roster()]
+            course_names = [c["name"] for cup in self._load_course_roster() for c in cup["courses"]]
+        except (OSError, ValueError, KeyError, TypeError):
+            return
+        steps = (
+            self._ui_setup_plan,                                   # (the ticked mods' menu files)
+            self.get_cup_icons,
+            lambda: self.get_course_default_pictures(course_names),
+            self.get_vehicle_icons,
+            self.get_item_icons,
+            lambda: self.get_character_tile_view(names),           # (the character icons, and the archives behind them)
+            self.get_ui_setup,
+        )
+        for step in steps:
+            if gen != getattr(self, "_warm_gen", gen):
+                return
+            try:
+                step()
+            except Exception:
+                pass
+            time.sleep(0.05)   # (leave the page's own requests a turn)
 
     # --- the user's own game files (the base the UI step builds on) -----------
 
@@ -6193,8 +6233,10 @@ class Api(VoiceEditMixin):
             return res
         self._ui_plan_cache = None
         self._image_cache().clear()   # (a new dump can hold different pictures behind the same file sizes and dates)
-        for attr in ("_cup_icon_cache", "_vehicle_icon_cache", "_item_icon_cache", "_default_pict_cache"):
+        for attr in ("_cup_icon_cache", "_vehicle_icon_cache", "_item_icon_cache", "_default_pict_cache", "_ui_base_tex"):
             self.__dict__.pop(attr, None)
+        ui_setup.ua.forget_decompressed()
+        self._start_warmup()   # (bumps _warm_gen: a pass still running for the old dump stops)
         self.sync_voice_edits()
         return {"success": True, "status": game_files.status(self.mod_root)}
 
