@@ -59,7 +59,7 @@ function renderListView() {
         cb.checked = target;
         state.checked[key] = target;
       }
-      pywebview.api.save_checked(state.checked);
+      saveChecked();
       refreshToggleLabels();
       refreshBehindModal({ ifChanged: true });
     });
@@ -74,7 +74,7 @@ function renderListView() {
       checkboxes.push({ key, cb });
       cb.addEventListener("change", () => {
         state.checked[key] = cb.checked;
-        pywebview.api.save_checked(state.checked);
+        saveChecked();
         refreshToggleLabels();
         refreshBehindModal({ ifChanged: true });
       });

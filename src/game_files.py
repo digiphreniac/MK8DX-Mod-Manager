@@ -23,6 +23,7 @@ manifest.json (also under game-files/) records what was found: which icon archiv
 where the source folder was (for display only - it does not need to still exist afterward) and when it was copied.
 """
 import json
+import safe_io
 import shutil
 from pathlib import Path
 
@@ -197,7 +198,7 @@ def copy_both(source_folder, master_root: Path) -> dict:
         "vehicle_pictures_all": True,
         "voice_total": len(mm.DRIVER_SLOTS), "problems": result_original["problems"] + result_current["problems"],
     }
-    (root / MANIFEST_FILENAME).write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    safe_io.write_json_atomic((root / MANIFEST_FILENAME), manifest)
     return {"success": True, "manifest": manifest}
 
 
@@ -307,9 +308,7 @@ def top_up_pictures(master_root: Path) -> None:
         manifest[marker] = True if marker != key else count
         changed = True
     if changed:
-        (root / MANIFEST_FILENAME).write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
-
-
+        safe_io.write_json_atomic((root / MANIFEST_FILENAME), manifest)
 def find_current_voice(master_root: Path, kind: str, stem: str):
     """The app's own copy of one character's voice archive, or None."""
     p = master_root / DIRNAME / "current" / _voice_relpath(kind, stem)

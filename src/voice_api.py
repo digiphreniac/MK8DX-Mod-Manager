@@ -21,6 +21,7 @@ How it fits together
 import base64
 import functools
 import json
+import safe_io
 import re
 import shutil
 import threading
@@ -81,7 +82,7 @@ class VoiceEditMixin:
     def _voice_save(self, data):
         chars = {c: r for c, r in data["characters"].items() if r}
         if chars:
-            self._voice_path().write_text(json.dumps({"characters": chars}, indent=2, sort_keys=True), encoding="utf-8")
+            safe_io.write_json_atomic(self._voice_path(), {"characters": chars})
         else:
             try:
                 self._voice_path().unlink()
@@ -255,18 +256,14 @@ class VoiceEditMixin:
         rec["unit"] = unit_key
         if rec.get("suspended"):                   # a base is back: the mod is ticked again if it was before
             rec["suspended"] = False
-            state = self._load_state()
             if rec.pop("was_ticked", True):
-                state[unit_key] = True
-                self.state_path.write_text(json.dumps(state, indent=2, sort_keys=True))
+                self._update_state(lambda state: state.__setitem__(unit_key, True))
         rec["bases"] = {slot: {"source": b["source"], "key": b["key"], "rel": b["rel"], "label": b["label"], "sig": b["sig"],
                                "written": b["written"]} for slot, b in used.items()}
         rec.setdefault("excluded", [])
         if not rec.get("created"):
             rec["created"] = True
-            state = self._load_state()
-            state[unit_key] = True
-            self.state_path.write_text(json.dumps(state, indent=2, sort_keys=True))
+            self._update_state(lambda state: state.__setitem__(unit_key, True))
         self._voice_save(data)
         self._voice_apply_exclusions(character)
         return {"problems": problems}
@@ -516,6 +513,53 @@ class VoiceEditMixin:
                     edits[key] = {"mode": "mute"}
             except ve.VoiceEditError as e:
                 return {"success": False, "error": str(e)}
+        self._voice_save(data)
+        try:
+            res = self._voice_build(character)
+        except (ve.VoiceEditError, OSError, va.VoiceError) as e:
+            data = self._voice_load()
+            if before:
+                data["characters"].setdefault(character, {})["edits"] = before
+            else:
+                data["characters"].pop(character, None)
+            self._voice_save(data)
+            return {"success": False, "error": f"Couldn't write the voice file: {e}"}
+        state = self.get_voice_editor(character)
+        state["build_problems"] = res["problems"]
+        return state
+
+    @_locked
+    def voice_mute_all(self, character):
+        """Mutes every line the character's voice files have (menu select sound, race lines, horns), in one rewrite of the
+        Custom voice mod. Lines that already have the user's own sound are left as they are, and so are lines that are silent
+        in the starting archive. Returns the editor's new state, like `voice_set_line`."""
+        if not self._voice_stems(character):
+            return {"success": False, "error": "This character's voice files aren't known to the app yet."}
+        bases = {slot: b for slot, b in self._voice_bases(character).items() if b}
+        if not bases:
+            return {"success": False, "needs_base": True, "error": (
+                "The app has no copy of this character's voice to start from. Tick a voice mod for this character, or check "
+                "Settings > Your game's files is still set up correctly.")}
+        audible = set()
+        for b in bases.values():
+            try:
+                blob, ents = self._voice_read_base(b)
+            except (OSError, ve.VoiceEditError):
+                continue
+            for key, idx in ve.group_lines(ents).items():
+                if not all(ve.is_silent(ve.sound_bytes(blob, ents[i])) for i in idx):
+                    audible.add(key)
+        data = self._voice_load()
+        rec = data["characters"].setdefault(character, {"edits": {}})
+        edits = rec.setdefault("edits", {})
+        before = json.loads(json.dumps(edits))
+        todo = [k for k in sorted(audible) if (edits.get(k) or {}).get("mode") != "custom"]
+        if not todo:
+            if not edits:
+                data["characters"].pop(character, None)
+            return self.get_voice_editor(character)
+        for key in todo:
+            edits[key] = {"mode": "mute"}
         self._voice_save(data)
         try:
             res = self._voice_build(character)

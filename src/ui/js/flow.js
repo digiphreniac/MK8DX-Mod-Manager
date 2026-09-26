@@ -359,12 +359,6 @@ async function renderSwitchPage() {
     body.appendChild(button("Go to Commit", "primary", () => goStep("commit")));
     return;
   }
-  if (st.ui.needed && !st.ui.done) {
-    body.appendChild(statusCard("wait", "!", st.ui.stale ? "Your menu pictures & names are out of date" : "Your menu pictures & names aren't built yet",
-      "Some of your mods change character icons or names. Build them first, or the game will show its normal menus."));
-    body.appendChild(button("Go to UI icons & text", "primary", () => goStep("ui")));
-    return;
-  }
   if (st.switch.done) {
     body.appendChild(statusCard("ok", "🎉", "All done - your mods work on your Switch",
       "If you change your mods later, the steps above will light up again and you can come back here."));

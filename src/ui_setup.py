@@ -28,6 +28,7 @@ import base64
 import collections
 import datetime
 import json
+import safe_io
 import os
 import re
 import shutil
@@ -958,9 +959,7 @@ def load_overrides(master_root: Path) -> dict:
 
 
 def save_overrides(master_root: Path, data: dict):
-    (master_root / OVERRIDES_FILENAME).write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-
-
+    safe_io.write_json_atomic((master_root / OVERRIDES_FILENAME), data)
 def overrides_signature(master_root: Path) -> str:
     """Changes whenever the overrides (or a picture they use) change."""
     ov = load_overrides(master_root)

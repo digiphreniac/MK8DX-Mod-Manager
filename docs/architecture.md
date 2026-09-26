@@ -42,7 +42,8 @@ The backend modules, every file the app keeps in the master folder, how the fron
   carries its real internal `romfs/Course/<id>/` folder name (see [Reference data](base-game-files.md#reference-data-course-internal-names-and-music-ids)).
 - `gamebanana-mods.json` / `mod-manager-state.json` - your tracked downloads
   and "Mods to merge" checkbox state (both auto-generated, no need to touch
-  by hand)
+  by hand). Every app-owned JSON file is written in one step (`src/safe_io.py`), and the ticks keep the previous good copy as
+  `mod-manager-state.json.bak` - which is also what the app falls back to if the file itself is ever unreadable.
 - `mods/downloads/<category>/<item>/` - raw downloaded archives, one folder
   per character/course
 - `mods/extracted/<category>/<item>/<mod name>/romfs/...` - what those
@@ -82,6 +83,17 @@ For the day-to-day usage guide, see the app's own **Help** panel (top
 right) - it covers the five-step flow, Menu Look, voice editing, conflicts,
 the file-status glossary and known issues, and stays current with the UI
 since it lives in the UI itself (`src/ui/html/help-modal.html`) rather than a separate doc.
+
+## Fixing badly packaged downloads
+
+`download_gb_file` runs a chain of fixers on a fresh download, each only while no mod unit (a folder with a `romfs/`) has been
+found yet, and each all-or-nothing per folder (a folder with anything unfamiliar in it is left for manual review): the
+missing-`romfs` wrapper (`Driver/`, `Kart/`, `Audio/`... found bare), bare course folders, loose item files, loose vehicle parts
+([Vehicle parts](vehicle-parts-and-items.md)), and **loose character files** - `<Slot>.szs`, `Driver_<Slot>.bars` and
+`MenuDriver_<Slot>.bars` (plus `Emblem_*.szs`) side by side with no folders, moved by name into `romfs/Driver`,
+`romfs/Audio/Driver`, `romfs/Audio/DriverMenu` (`fix_loose_character_files()`). The slot must be one of `DRIVER_SLOTS`; a folder
+mixing character files with vehicle parts is left alone. Fixers run at download time only, so an existing broken download is
+fixed by downloading it again.
 
 ## Frontend file layout
 

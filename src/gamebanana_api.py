@@ -540,6 +540,15 @@ def find_7zip():
     return found
 
 
+def _extract_with_bsdtar(archive_path: Path, dest_dir: Path) -> bool:
+    """True when the system's bsdtar unpacked the archive into dest_dir (False when there isn't one, or it failed too)."""
+    tar = shutil.which("bsdtar")
+    if not tar:
+        return False
+    result = subprocess.run([tar, "-xf", str(archive_path), "-C", str(dest_dir)], capture_output=True, text=True)
+    return result.returncode == 0
+
+
 def extract_archive(archive_path: Path, dest_dir: Path):
     """Extracts archive_path into dest_dir (created if needed). Uses Python's
     zipfile for .zip when 7-Zip isn't available; everything else needs 7-Zip."""
@@ -552,6 +561,10 @@ def extract_archive(archive_path: Path, dest_dir: Path):
             capture_output=True, text=True,
         )
         if result.returncode != 0:
+            # Some 7-Zip builds can't read every RAR5 archive ("Unsupported Method"); the system's bsdtar (libarchive - macOS,
+            # and tar.exe on Windows 10+) can, so give it a go before giving up.
+            if _extract_with_bsdtar(archive_path, dest_dir):
+                return
             raise GameBananaError(f"7-Zip extraction failed: {result.stdout}\n{result.stderr}")
         return
 

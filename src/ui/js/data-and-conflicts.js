@@ -28,7 +28,9 @@ async function refreshViewsState() {
 async function loadMods() {
   const [modsResult] = await Promise.all([pywebview.api.get_mods(), refreshViewsState()]);
   state.categories = modsResult.categories;
-  state.checked = modsResult.checked;
+  state.checked = { ...modsResult.checked, ...checkedPending };
+  state.checkedSaved = { ...modsResult.checked };
+  state.epoch = modsResult.epoch;
   renderAll();
 }
 
@@ -195,7 +197,7 @@ function buildConflictCard(group, opts) {
         await pywebview.api.resolve_conflict_group(group.mods, group.paths, null);
       } else if (v.startsWith("untick:")) {
         state.checked[v.slice(7)] = false;
-        await pywebview.api.save_checked(state.checked);
+        await saveChecked();
       }
     } catch (e) {
       status.textContent = "Something went wrong: " + e;

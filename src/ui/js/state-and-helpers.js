@@ -1,4 +1,31 @@
-let state = { categories: {}, checked: {}, roster: [], cups: [], settings: {}, simpleCategories: [], vehicles: [], items: [], packLinks: { by_item: {}, by_unit: {} } };
+let state = { categories: {}, checked: {}, roster: [], cups: [], settings: {}, simpleCategories: [], vehicles: [], items: [], packLinks: { by_item: {}, by_unit: {} },
+  epoch: null,          // names the master folder `checked` was loaded from (get_mods); null until this page has loaded it
+  checkedSaved: {} };   // the ticks as the backend last had them, so a save sends only what changed since
+
+// Ticks are saved as CHANGES - {unit key: on/off} for the units that changed since the last load/save - never as the page's whole
+// picture: a page whose picture is empty or out of date (still loading, or the master folder was switched under it) then can't
+// replace the folder's ticks with its own. The backend also refuses a save whose epoch isn't the folder's current one, and a page
+// that hasn't loaded the ticks yet (epoch null) doesn't save at all. Saves go one at a time, in order.
+let checkedSaveChain = Promise.resolve();
+const checkedPending = {};   // changes handed to a save that hasn't finished - kept over a reload (loadMods) so they aren't dropped
+function saveChecked() {
+  const changes = {};
+  for (const [k, v] of Object.entries(state.checked)) if (state.checkedSaved[k] !== v) changes[k] = v;
+  if (!Object.keys(changes).length) return checkedSaveChain;
+  Object.assign(checkedPending, changes);
+  checkedSaveChain = checkedSaveChain.then(async () => {
+    if (state.epoch == null) return false;
+    const ok = await pywebview.api.save_checked(changes, state.epoch);
+    if (ok === false) {   // the folder changed under this page: take the folder's ticks instead of writing ours over them
+      for (const k of Object.keys(changes)) delete checkedPending[k];
+      await loadMods();
+      return false;
+    }
+    for (const [k, v] of Object.entries(changes)) { state.checkedSaved[k] = v; if (checkedPending[k] === v) delete checkedPending[k]; }
+    return true;
+  }).catch(e => { console.error("saving the ticked mods failed", e); return false; });
+  return checkedSaveChain;
+}
 let viewMode = "characters";
 let openCharacter = null;
 let selectedCup = "Mushroom Cup";

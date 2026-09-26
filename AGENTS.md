@@ -8,7 +8,8 @@ human-facing overview; the design notes, measurements and rules live in `docs/` 
 
 - Install: `pip install -r requirements.txt` (pywebview, Pillow). Run: `python src/mod_manager.py`; `MK8DX_DEBUG=1` opens the
   webview dev tools. On this machine use the project's `.venv/bin/python` (the system Python has no `webview`).
-- There is **no automated test suite**. Verify by calling the backend directly (`Api(Path(master_root))` - it takes a
+- The only automated tests are `tests/test_tick_state.py` (`python -m unittest discover -s tests`): they guard the ticked mods
+  against loss. Everything else is verified by calling the backend directly (`Api(Path(master_root))` - it takes a
   `Path`, not a `str`) and by loading `src/ui` in a browser with `pywebview.api` stubbed to those calls. State what you
   did and did not exercise; the real pywebview bridge is easy to leave untested.
 - The frontend is served from `src/ui/`; everything the page loads must live there.
@@ -48,6 +49,11 @@ human-facing overview; the design notes, measurements and rules live in `docs/` 
   `<master>/game-files/`; never ship or commit game data. Consumers read `current/`. `docs/base-game-files.md`.
 - **`get_flow_status()` is the single source of truth** for the step bar; the frontend only renders it. Commit "staleness"
   compares signatures - change an input and both signatures must include it. `docs/ui-and-flow.md`.
+- **The ticked mods (`mod-manager-state.json`) must never be lost.** The page saves only what CHANGED (`saveChecked()` in
+  `state-and-helpers.js` -> `Api.save_checked(changes, epoch)`), never its whole picture: an empty or out-of-date page must not be
+  able to replace the file (this happened). The epoch names the master folder the page loaded its ticks from, so a page from the
+  folder before a switch is refused. Anything in the backend that changes the ticks goes through `_update_state()` (one lock,
+  atomic write, `.bak` copy) - never `write_text()`. Every app-owned JSON file is written with `safe_io.write_json_atomic()`.
 - **Mods are nested by item**: `mods/extracted/<category>/<item>/<mod name>/romfs/...`, not `<item> - <mod name>`.
   `docs/architecture.md` ("Folder naming").
 - **Vehicle parts and items are named by what a mod *replaces***, never "slot" or "filing" in user-facing text.

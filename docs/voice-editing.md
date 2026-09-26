@@ -43,7 +43,9 @@ a description - nobody's traced what triggers them (checked against real Switch 
   and the game make it clear, or an outside source backs it up; `unknown` - no source or reading pins it down, so the
   description just says "Unknown" instead of a dressed-up guess). Any sound the list doesn't recognise at all gets the same
   treatment - a plain "not identified yet" description rather than being hidden.
-* **Muting** swaps every sound of the line for the silent sound. **Use my own** takes an audio file the user chooses: the *page*
+* **Muting** swaps every sound of the line for the silent sound. **Mute all** (`Api.voice_mute_all`, the button beside *Undo all changes*) does that for every line the character's archives hold in one
+  rewrite of the Custom voice mod: lines with the user's own sound are kept, and so are lines that are already silent in the starting
+  archive. Menu select sound and horns are included; each can be undone singly. **Use my own** takes an audio file the user chooses: the *page*
   reads it (`decodeAudioData` - mp3, wav, ogg, m4a, flac..., whatever the browser plays - brought to 32 kHz), shows it as a
   waveform to pick the part (drag, or start/end), can cut the quiet ends, previews it, and sends the 16-bit samples; the app
   keeps them as a `.wav` in `voice-custom/<character>/` and encodes them into the sounds of the line: the same channel count
