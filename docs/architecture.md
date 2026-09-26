@@ -11,6 +11,7 @@ The backend modules, every file the app keeps in the master folder, how the fron
   (`.bars`) and decodes its sounds so the app can play them; `voice_edit.py` rewrites an archive with some sounds swapped
   (and knows what each voice line is called); `voice_dsp.py` turns audio into the game's sound format; `voice_api.py` is the
   Api's side of it (the Custom voice mod, where the starting archive comes from) - see [Voice editing](voice-editing.md#voice-editing-mute-a-line-or-use-your-own-sound).
+- `mod-notes.json` - the user's own notes on mods - see [Notes on mods](mod-notes.md).
 - `voice-edits.json` / `voice-custom/` - what you muted or replaced per character, and the audio you chose for the
   replaced lines (kept so a line can be encoded again if the archive it goes into changes). Both auto-generated.
 - `src/game_files.py` - the app's own local copy of the base game's files (menu icons/text, every character's default

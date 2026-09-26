@@ -33,6 +33,7 @@ human-facing overview; the design notes, measurements and rules live in `docs/` 
 - `src/game_files.py` - the app's own copy of the base game's files. `cup_icons.py`, `vehicle_icons.py`, `item_icons.py` read
   the game's pictures out of that copy.
 - `src/voice_*.py` - voice archives (`.bars`): read, edit, encode, and the Api side.
+- `src/mod_notes.py` - the user's notes on mods (`mod-notes.json`); page side `src/ui/js/mod-notes.js`.
 - `src/gamebanana_api.py` - GameBanana client. `roster.json` - every character/course/part/item; `name-labels.json` - text ids.
 - `src/image_cache.py`, `library_cache.py`, `gb_desc_cache.py` - caches (see below).
 - `src/ui/` - `index.html` frame, `html/` modals, `css/`, `js/` scripts (see "Frontend rules").
@@ -96,4 +97,5 @@ human-facing overview; the design notes, measurements and rules live in `docs/` 
 | Vehicle parts and items | `docs/vehicle-parts-and-items.md` |
 | A mod that belongs to a different card | `docs/refiling-mods.md` |
 | Voice editing | `docs/voice-editing.md` |
+| The user's notes on mods | `docs/mod-notes.md` |
 | `.ips` code patches | `docs/code-patches.md` |

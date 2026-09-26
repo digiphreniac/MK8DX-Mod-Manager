@@ -906,6 +906,7 @@ function openCharacterModal(name) {
       row.appendChild(label);
       const alsoBadge = buildPackBadge(key, name);
       if (alsoBadge) row.appendChild(alsoBadge);
+      const noteBtn = buildModNoteControl(key, row);
       const openFolderBtn = document.createElement("button");
       openFolderBtn.className = "ghost small";
       openFolderBtn.textContent = "Open folder";
@@ -961,8 +962,10 @@ function openCharacterModal(name) {
           { label: "Remove", title: removeBtn.title, danger: true, run: () => removeBtn.click() },
         ]);
         kb.classList.add("mod-more");
+        row.appendChild(noteBtn);
         row.appendChild(kb);
       } else {
+        row.appendChild(noteBtn);
         row.appendChild(openFolderBtn);
         row.appendChild(filesBtn);
         row.appendChild(removeBtn);

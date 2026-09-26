@@ -79,6 +79,11 @@ a description - nobody's traced what triggers them (checked against real Switch 
   voice mod is put away (it would otherwise keep playing the old mod's voice) and comes back by itself when a base is back.
 * **Commit** picks the Custom voice mod's archives up like any other file; the commit signature includes the voice edits (only
   when there are some, so an earlier commit is not called stale), so changing a line makes the last commit stale.
+* **The tile's muted mark.** A character tile shows a small speaker when a ticked mod ships voice files for it; when the character's voice
+  is entirely silent it shows a red speaker with a cross instead, and its tooltip says so. "Entirely silent" (`_voice_all_muted()`, reported
+  as `muted` in `get_character_tile_view()`'s `voice`): the Custom voice mod is ticked and not paused, and every sound of every archive the
+  character plays - the Custom voice mod's own, or the starting archive where that has none - is silent (`_voice_file_silent()`, remembered per
+  file version). One audible line, or a line with the user's own sound, means no mark; unticking the Custom voice mod removes it.
 * A muted **select sound** is not a sound to play: the tile's click plays nothing and its tooltip says nothing about it
   (`get_select_voice` / `_select_voice_source` treat a sound shorter than 0.05 s as silent).
 * The Api calls take turns (a lock), because the window can call from several threads at once.

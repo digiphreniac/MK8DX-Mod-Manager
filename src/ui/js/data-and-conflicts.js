@@ -31,6 +31,7 @@ async function loadMods() {
   state.checked = { ...modsResult.checked, ...checkedPending };
   state.checkedSaved = { ...modsResult.checked };
   state.epoch = modsResult.epoch;
+  state.notes = modsResult.notes || {};
   renderAll();
 }
 

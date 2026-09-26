@@ -70,4 +70,5 @@ Contributors (and coding agents - see [AGENTS.md](AGENTS.md)) should read the pa
 | [docs/vehicle-parts-and-items.md](docs/vehicle-parts-and-items.md) | Vehicle parts and items: screens, matching a mod to a part, menu pictures |
 | [docs/refiling-mods.md](docs/refiling-mods.md) | A mod that replaces something other than the item it was filed under |
 | [docs/voice-editing.md](docs/voice-editing.md) | Muting or replacing voice lines |
+| [docs/mod-notes.md](docs/mod-notes.md) | Your notes on mods |
 | [docs/code-patches.md](docs/code-patches.md) | `.ips` code patches (exefs) |

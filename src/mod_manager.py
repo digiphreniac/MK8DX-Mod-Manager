@@ -47,6 +47,7 @@ import voice_edit
 import game_files
 import gb_desc_cache
 from voice_api import VoiceEditMixin, VOICE_EDITS_FILENAME
+from mod_notes import ModNotesMixin, NOTES_FILENAME
 
 TITLE_ID = "0100152000022000"  # Mario Kart 8 Deluxe
 STATE_FILENAME = "mod-manager-state.json"
@@ -218,7 +219,7 @@ MASTER_DIR_ITEMS = [
     GB_CATEGORIES_CACHE_FILENAME, GB_MODS_FILENAME, GB_DESCRIPTIONS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME,
     EXCLUDED_FILES_FILENAME, SETTINGS_FILENAME, MODS_DIRNAME, "ui-icons", COURSE_ICONS_DIRNAME, PART_ICONS_DIRNAME,
     "ui-icons-backups", "ui-setup-cache.json", image_cache.DIRNAME,
-    ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME,
+    ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME, NOTES_FILENAME,
 ]
 _INVALID_FS_CHARS = re.compile(r'[<>:"/\\|?*]')
 
@@ -1515,7 +1516,7 @@ def slot_characters(folder: Path) -> set:
     return found
 
 
-class Api(VoiceEditMixin):
+class Api(VoiceEditMixin, ModNotesMixin):
     def __init__(self, mod_root: Path | None):
         # Leading underscore matters: pywebview's inject_pywebview() auto-exposes
         # JS API methods by recursing into every non-underscore-prefixed,
@@ -1527,6 +1528,7 @@ class Api(VoiceEditMixin):
         # exactly the exception signature from the earlier freeze debugging.
         self._window = None  # set by main() right after webview.create_window()
         self._library = library_cache.LibraryCache()
+        self._notes_lock = threading.RLock()   # (the notes and flags on mods: see mod_notes.py)
         self._state_lock = threading.RLock()   # (every read-modify-write of the ticked mods happens under it)
         self._root_epoch = ""                   # (names the folder a page loaded its ticks from - see save_checked)
         self._desc_fetch_lock = threading.Lock()
@@ -2428,6 +2430,7 @@ class Api(VoiceEditMixin):
         stores = [self.excluded_files_path, self.conflict_resolutions_path, self.settings_path,
                   self.mod_root / VOICE_EDITS_FILENAME, self.mod_root / LOOK_REVIEWS_FILENAME,
                   self.mod_root / ui_setup.OVERRIDES_FILENAME]
+        self._notes_rekey(old_rel, new_rel)     # (its keys only - a note's own text is never rewritten)
         for path in stores:
             if path is None or not path.is_file():
                 continue
@@ -2866,6 +2869,7 @@ class Api(VoiceEditMixin):
             "categories": payload,
             "checked": saved,
             "epoch": self._root_epoch,   # (the page sends it back with every save - see save_checked)
+            "notes": self._notes_payload(),          # {unit key: note text} - the user's own notes on mods (mod_notes.py)
             "ui_icons_text": ui_icons_status_text(self.mod_root),
         }
 
@@ -3639,6 +3643,7 @@ class Api(VoiceEditMixin):
             return {"success": False, "error": f"Couldn't delete it: {e}"}
 
         self._clear_state_prefix("/".join(unit_key.split("/")[:3]))
+        self._notes_clear_prefix("/".join(unit_key.split("/")[:3]))   # (the user removed it on purpose; a re-download keeps its notes)
         self.sync_voice_edits()   # (removing a Custom voice mod gives back the files left out for it)
 
         # If this folder was tracked via the GameBanana flow, reset its
@@ -5971,7 +5976,7 @@ class Api(VoiceEditMixin):
         the plan - what the character grid needs to draw its tiles. Every "looks" entry carries whatever
         picture will actually show - the game's own (once base files are set up) if nothing changes it,
         a mod's or the user's if something does ("icon_modded" says which) - so the grid can draw a
-        picture on every tile, not only the modded ones. "voice": {name: {"race", "menu", "select", "from"}}
+        picture on every tile, not only the modded ones. "voice": {name: {"race", "menu", "select", "from", "muted"}}
         for characters with a ticked mod that ships voice files for them (one whose voice files are for
         somebody else's slot doesn't count); "select": whether clicking the tile has a character-select
         sound to play." Every look with a picture also carries `icon_id` (a fingerprint of it); `known_icons` is {name: icon_id}
@@ -5992,6 +5997,7 @@ class Api(VoiceEditMixin):
                         found["from"].append(mod)
             if found["from"]:
                 found["select"] = bool(found["menu"] and self._select_voice_source(name))
+                found["muted"] = self._voice_all_muted(self._canon_char(name))   # (every sound silenced with the voice editor)
                 voice[name] = found
         ctx = self._menu_look_ctx()
         if ctx.get("error"):

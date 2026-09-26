@@ -1,6 +1,7 @@
 let state = { categories: {}, checked: {}, roster: [], cups: [], settings: {}, simpleCategories: [], vehicles: [], items: [], packLinks: { by_item: {}, by_unit: {} },
   epoch: null,          // names the master folder `checked` was loaded from (get_mods); null until this page has loaded it
-  checkedSaved: {} };   // the ticks as the backend last had them, so a save sends only what changed since
+  checkedSaved: {},     // the ticks as the backend last had them, so a save sends only what changed since
+  notes: {} };   // the user's notes on mods, {unit key: text} (get_mods; see mod-notes.js)
 
 // Ticks are saved as CHANGES - {unit key: on/off} for the units that changed since the last load/save - never as the page's whole
 // picture: a page whose picture is empty or out of date (still loading, or the master folder was switched under it) then can't

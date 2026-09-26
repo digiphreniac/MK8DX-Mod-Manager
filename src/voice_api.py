@@ -399,6 +399,46 @@ class VoiceEditMixin:
                       "custom": sum(1 for e in edits.values() if e["mode"] == "custom")}
         return out
 
+    def _voice_file_silent(self, path):
+        """Whether every sound in a voice archive is silent (remembered per file version, so a tile redraw doesn't read it again)."""
+        try:
+            st = path.stat()
+        except OSError:
+            return False
+        cache = self.__dict__.setdefault("_voice_silent_cache", {})
+        key = (str(path), st.st_mtime_ns, st.st_size)
+        if key not in cache:
+            try:
+                blob = path.read_bytes()
+                cache[key] = all(ve.is_silent(ve.sound_bytes(blob, e)) for e in ve.parse(blob))
+            except (OSError, ve.VoiceEditError, va.VoiceError):
+                cache[key] = False
+        return cache[key]
+
+    @_locked
+    def _voice_all_muted(self, character):
+        """True when the character's voice, as the game would play it now, is entirely silent: it has edits that are switched on
+        (its Custom voice mod is ticked and not paused) and every sound of every archive it plays - the Custom voice mod's
+        own, or the starting archive where that has no edit - is silent. What the character's tile shows as "muted"."""
+        rec = self._voice_load()["characters"].get(character)
+        if not rec or not rec.get("edits") or rec.get("suspended"):
+            return False
+        unit_key = rec.get("unit") or self._voice_unit_key(character)
+        if not self._load_state().get(unit_key):
+            return False
+        romfs = self._unit_dir(unit_key) / "romfs"
+        seen = False
+        for slot, base in self._voice_bases(character).items():
+            if base is None:
+                continue
+            kind, stem = slot.split(":")
+            sub1, sub2, prefix = KIND_PREFIX[kind]
+            mine = romfs / sub1 / sub2 / f"{prefix}{stem}.bars"
+            if not self._voice_file_silent(mine if mine.is_file() else base["path"]):
+                return False
+            seen = True
+        return seen
+
     @_locked
     def _voice_base_files_status(self):
         import game_files
