@@ -64,11 +64,12 @@ The backend modules, every file the app keeps in the master folder, how the fron
   clashes are settled, and per-file choices from a mod's "Files" button - **Edit included files** in a character mod's **...** menu) - see
   [Conflicts: leaving files out](merge-rules.md#conflicts-leaving-files-out)
 - `src/name-labels.json` - shipped reference data: which numeric text entry of the game's
-  `Common.msbt` holds each character's (48) and course's (96, both the short and the
+  `Common.msbt` holds each character's (49) and course's (96, both the short and the
   cup-line entry) name - the numbers are the same in every language and every mod. Lets
   a name be handled without opening any game file, and lets the app tell when a mod's
   own text file already renames a character (its entry no longer matches the game's
-  name). Villager (Boy)/(Girl) aren't listed (two identical "Villager" entries).
+  name). Villager (Boy)/(Girl) aren't listed (two identical "Villager" entries). Link (Breath of the Wild) has no entry of its
+  own: the game has one "Link" text for both versions, so `ui_setup.NAME_ALIASES` gives it Link's (naming either names both).
 - `ui-overrides.json` + `ui-overrides/*.png` - icons and names you supplied in
   a character/course popup's "Menu look" card - see [Menu look](menu-look.md#menu-look-your-own-icons-and-names)
 - `look-reviews.json` - which characters' looks you have confirmed with "Looks right" (see [Checking a

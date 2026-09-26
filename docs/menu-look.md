@@ -299,7 +299,7 @@ character's slot, and not a voice file that was left out of the merge; with seve
 It uses the same one-at-a-time player as the Voice lines window (a new sound stops the last), at 70 % volume. Off with
 Settings > Character Select > "Play a character's select sound".
 
-**Villager and Inkling (one slot in-game, two characters).** Clicking their tile opens a card straight away - there is no
+**Villager, Inkling, Link and Metal / Gold Mario (one slot in-game, two characters).** Clicking their tile opens a card straight away - there is no
 "which one?" step. At the top of the card a two-part switch moves between the two (Boy | Girl, Girl | Boy for Inkling): each side
 shows its own picture, its mod's name (or "1/2 ticked", "no mods yet") and its review dot / tick, and it redraws as you tick
 mods. The card opens on the one that still needs its appearance looked at, else the one with ticked mods, else the one you used
@@ -309,6 +309,20 @@ diagonal (first option top left, second bottom right), and a variant with nothin
 placeholder with its label; clicking a picture opens that variant. The tile does not cycle between them - half the information
 would be missing at any moment, and motion means "loading" on the grid. With no picture on either, the tile is the normal
 gradient one. Hovering the tile puts "Boy: Yoda · Girl: Pinkie Pie" on the name plate.
+
+**Link** is the same, with the switch reading **Classic | Breath of the Wild**. The game has two full sets of Link files - `Link` and
+`LinkBotw`: models, race and menu voices, and select / results / map icons - that share one select-screen slot (the Breath of the
+Wild one is the default once it is downloaded; the classic one is based on Skyward Sword). So they are two roster characters:
+"Link" (the classic one, keeping its old folder and settings) and "Link (Breath of the Wild)" (`DRIVER_SLOTS["LinkBotw"]`). Each has
+its own model group (a mod for one is not pick-one with a mod for the other), voice editor and icons; a mod that replaces both is a
+pack, listed on both cards; a download or mod filed under Link that only replaces `LinkBotw` files is flagged as replacing the other
+version (GameBanana downloads are moved there on their own, see [Refiling mods](refiling-mods.md)). Mods already filed under Link
+are not moved automatically. The game has one "Link" name text for both, so a name given to either applies to both (`NAME_ALIASES`).
+
+**Metal Mario | Gold Mario** is the same again (the tile is named for Metal Mario; its gradient is silver and gold). Here each has its
+own name text (`Common.msbt` 1019 and 1054), icons (`tc_Chara_MetalMario`, `tc_Chara_GoldMario`, and the results / map ones) and voice
+archives (`MetalMario`, `GoldMario`), so nothing is shared and each is fully its own character; Gold Mario becomes the default once it
+is unlocked in the game, which the app doesn't need to know.
 
 **Ticking a character mod tries to name the character** (`sync_auto_names()`, run by every
 `save_checked()`, so every way of ticking is covered). Only mods that replace the character's

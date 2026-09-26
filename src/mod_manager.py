@@ -1446,8 +1446,8 @@ def ui_icons_status_text(mod_root: Path):
 # Pauline - the Booster Course Pass's generic guest-slot scheme, also how DrvChr05/06 (Diddy Kong,
 # Funky Kong) were filled in below. ("...Suit" - the bike/ATV outfit - is stripped before the lookup.)
 #
-# Every entry below (59 slot codes, 51 distinct character voices - all 50 roster characters plus
-# Gold Mario's own separate archive) is confirmed byte-for-byte against a real MK8DX dump's
+# Every entry below (59 slot codes, 52 distinct character voices - all 52 roster characters - Link and Link (Breath of the Wild), Metal Mario
+# and Gold Mario are two each) is confirmed byte-for-byte against a real MK8DX dump's
 # Audio/Driver + Audio/DriverMenu folders (game_files.py's discover()/copy_both() will refuse a
 # dump that doesn't have UI/cmn/common.sarc + menu.sarc + a message.sarc, so any dump that gets this
 # far is the real thing) - not a guess or an asset-rip filename fit like the earlier research this
@@ -1465,7 +1465,7 @@ DRIVER_SLOTS = {
     "Koopa": "Bowser", "Karon": "Dry Bones", "KoopaJr": "Bowser Jr.", "KingTeresa": "King Boo",
     "HoneKoopa": "Dry Bowser", "Lemmy": "Lemmy", "Wendy": "Wendy", "Ludwig": "Ludwig", "Iggy": "Iggy",
     "Roy": "Roy", "Morton": "Morton", "SplatoonGirl": "Inkling Girl", "SplatoonBoy": "Inkling Boy",
-    "Link": "Link", "LinkBotw": "Link", "AnimalBoyA": "Villager (Boy)", "AnimalGirlA": "Villager (Girl)",
+    "Link": "Link", "LinkBotw": "Link (Breath of the Wild)", "AnimalBoyA": "Villager (Boy)", "AnimalGirlA": "Villager (Girl)",
     "DrvChr01": "Birdo", "DrvChr02": "Kamek", "DrvChr03": "Petey Piranha", "DrvChr04": "Wiggler", "DrvChr07": "Peachette",
     "DrvChr08": "Pauline", "Larry": "Larry", "Shizue": "Isabelle",
     "DrvChr05": "Diddy Kong", "DrvChr06": "Funky Kong",

@@ -42,7 +42,7 @@ read live and `voice_api.py` read live for voice - meaning UI icons/text needed 
 still be connected, and *muting or replacing a character's default voice needed a ticked voice mod first* if that
 optional folder was never set (true of most installs). Requiring the copy up front removes both: `_game_files()` and
 `_voice_game_file()` now always resolve to the app's own copy, so every roster character
-(all 50 have a `DRIVER_SLOTS` code, plus Gold Mario's own separate voice archive - 51 in total, verified byte-for-byte
+(all 52 have a `DRIVER_SLOTS` code, verified byte-for-byte
 against a real dump; see the comment above `DRIVER_SLOTS`) has a base voice to start from with no voice mod
 ticked at all, and UI icons/text work with nothing ticked either. (The card's Voice row still shows only "Comes after you pick a mod" until the
 character has a ticked mod - see [Voice editing](voice-editing.md#voice-editing-mute-a-line-or-use-your-own-sound) - but that is a UI choice, not a missing base file.) `get_flow_status()`'s `setup.done` requires the copy

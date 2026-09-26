@@ -135,16 +135,16 @@ function initials(name) {
 // Matches the in-game character-select grid: 8 columns x 6 rows, grouped by
 // family the same way the game groups them. A couple of slots are a single
 // icon in-game that lets you pick between two roster entries (Villager,
-// Inkling) - those are represented as {group, options} instead of a name.
+// Inkling, Link, Metal / Gold Mario) - those are represented as {group, options} instead of a name.
 const CHARACTER_GRID_LAYOUT = [
   "Mario", "Luigi", "Peach", "Daisy", "Rosalina", "Tanooki Mario", "Cat Peach", "Peachette",
   "Yoshi", "Toad", "Koopa Troopa", "Shy Guy", "Lakitu", "Toadette", "King Boo", "Petey Piranha",
-  "Baby Mario", "Baby Luigi", "Baby Peach", "Baby Daisy", "Baby Rosalina", "Metal Mario", "Pink Gold Peach", "Wiggler",
+  "Baby Mario", "Baby Luigi", "Baby Peach", "Baby Daisy", "Baby Rosalina", { group: "Metal Mario", options: ["Metal Mario", "Gold Mario"] }, "Pink Gold Peach", "Wiggler",
   "Wario", "Waluigi", "Donkey Kong", "Bowser", "Dry Bones", "Bowser Jr.", "Dry Bowser", "Kamek",
   "Larry", "Lemmy", "Wendy", "Ludwig", "Iggy", "Roy", "Morton", "Birdo",
   { group: "Inkling", options: ["Inkling Girl", "Inkling Boy"] },
   { group: "Villager", options: ["Villager (Boy)", "Villager (Girl)"] },
-  "Isabelle", "Link", "Diddy Kong", "Funky Kong", "Pauline", "Mii",
+  "Isabelle", { group: "Link", options: ["Link", "Link (Breath of the Wild)"] }, "Diddy Kong", "Funky Kong", "Pauline", "Mii",
 ];
 
 // The 1-2 most prominent colors per base-game character/group - just one
@@ -178,7 +178,7 @@ const CHARACTER_COLORS = {
   "Baby Peach":       [{hex:"#F783C6",weight:60},{hex:"#FFD966",weight:40}],
   "Baby Daisy":       [{hex:"#FF8C1A",weight:60},{hex:"#FFE646",weight:40}],
   "Baby Rosalina":    [{hex:"#DCE8F5",weight:55},{hex:"#F5E1A4",weight:45}],
-  "Metal Mario":      [{hex:"#C7CDD3",weight:100}],
+  "Metal Mario":      [{hex:"#C7CDD3",weight:60},{hex:"#D4AF37",weight:40}],   // (the group tile: silver, and Gold Mario's gold)
   "Pink Gold Peach":  [{hex:"#E8AFC0",weight:55},{hex:"#D9B36C",weight:45}],
   "Wiggler":          [{hex:"#F5D033",weight:100}],
   "Wario":            [{hex:"#F5D033",weight:55},{hex:"#6A3FA0",weight:45}],
@@ -240,7 +240,11 @@ function buildCornerGradient(colors) {
   return `linear-gradient(135deg, rgb(${rgbA.r},${rgbA.g},${rgbA.b}) ${bandStart}%, rgb(${rgbB.r},${rgbB.g},${rgbB.b}) ${bandEnd}%)`;
 }
 
+// A group whose first option is named like the group itself needs a word for it next to the other option: the plain "Link" is the
+// classic one, next to "Link (Breath of the Wild)". (Metal Mario | Gold Mario need none: each is named in full.)
+const GROUP_FIRST_OPTION_LABEL = { "Link": "Classic" };
 function groupOptionLabel(fullName, groupName) {
+  if (fullName === groupName && GROUP_FIRST_OPTION_LABEL[groupName]) return GROUP_FIRST_OPTION_LABEL[groupName];
   const paren = fullName.match(/\(([^)]+)\)/);
   if (paren) return paren[1];
   return fullName.replace(groupName, "").trim() || fullName;
