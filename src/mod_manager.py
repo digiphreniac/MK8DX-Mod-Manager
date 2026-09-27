@@ -660,7 +660,13 @@ def looks_like_ui_assets(folder: Path) -> bool:
     # Checked anywhere in the tree, not just the top level - see the same
     # note on looks_like_missing_romfs_wrapper() below; these SARC dump
     # folders are sometimes wrapped in a mod-name folder of their own too.
-    for _dirpath, dirnames, _filenames in os.walk(folder):
+    # A "Menu" / "Common" folder inside UI/cmn/ is not such a dump: that is
+    # where the game itself keeps its loose menu textures (a course's
+    # CoursePict picture, say), so a romfs mod that shipped UI/cmn/Menu/...
+    # without its romfs/ around it is a missing wrapper, not a UI dump.
+    for dirpath, dirnames, _filenames in os.walk(folder):
+        if Path(dirpath).name.lower() == "cmn":
+            continue
         if {d.lower() for d in dirnames} & UI_ASSET_DIRNAMES:
             return True
     return False
@@ -799,8 +805,11 @@ def fix_missing_romfs_wrapper(folder: Path) -> bool:
         # side: Course/MapObj alone aren't a safe signal (see COURSE_WRAPPER_DIRNAMES), but
         # next to a folder that is one, they belong in the same romfs - leaving them behind
         # would stage the music and silently drop the track itself.
+        # The same goes for a UI/ that holds the game's own cmn/ folder (a course's CoursePict picture, say): alone it could be
+        # a modder's own folder, next to Audio/ or Driver/ it is the mod's UI textures.
         matches = matches + [d.name for d in site_dir.iterdir()
-                             if d.is_dir() and d.name.lower() in COURSE_WRAPPER_DIRNAMES and d.name not in matches]
+                             if d.is_dir() and d.name not in matches
+                             and (d.name.lower() in COURSE_WRAPPER_DIRNAMES or (d.name.lower() == "ui" and _ci_child(d, "cmn") is not None))]
         for dirname in matches:
             src = site_dir / dirname
             dest = romfs_dir / dirname
@@ -860,9 +869,9 @@ def fix_bare_course_wrapper(folder: Path) -> bool:
 # starting one level too deep. The slot folder's own name is exactly the
 # internal course id, so where it belongs (romfs/Course/<name>/) is
 # unambiguous - unlike a mod that drops course_*.* files bare at the archive
-# root with no named folder at all, which gives up that id entirely and can't
-# be safely guessed (left for manual review instead; see the "root itself"
-# guard below).
+# root with no named folder at all, which gives up that id entirely (the "root
+# itself" guard below): fix_loose_course_files() takes the id from the course
+# the download was made for instead.
 _COURSE_SLOT_FILE_RE = re.compile(r"^course", re.IGNORECASE)
 
 
@@ -887,6 +896,51 @@ def fix_bare_course_slot(folder: Path) -> bool:
         if not dest.exists():
             shutil.move(str(site), str(dest))
             fixed_any = True
+    return fixed_any
+
+
+# ...and the barest of all: a course's own files with NO folder named for the course - "Retextured" mods that ship only
+# course_model.szs (and a README) at the archive root, or inside a wrapper named for the mod. That gives up the internal id, but the
+# download was made from a known course's page (roster.json says "Wii Grumble Volcano" is Course/Wii_..., one id), so the id is known
+# from the course, not from the archive. Only where the course has exactly ONE id (Animal Crossing's four seasons can't be told
+# apart), and all-or-nothing per folder: every file must be one a course slot holds (course*.* files and their .bars/.barslist,
+# *_muunt.byaml, enemy_path*.bin), plus docs and pictures, and at least one of course_model.szs / course_kcl.szs /
+# course_muunt.byaml / course.bgenv / course_maptexture.bntx must be there. A folder named for an id the game has is left to
+# fix_bare_course_slot(), which already knows what to do with it.
+_LOOSE_COURSE_CORE_FILES = {"course_model.szs", "course_kcl.szs", "course_muunt.byaml", "course.bgenv", "course_maptexture.bntx"}
+_LOOSE_COURSE_FILE_RE = re.compile(r"^(course.*|.*_muunt\.byaml|enemy_path.*\.bin)$", re.IGNORECASE)
+
+
+def find_loose_course_sites(folder: Path, known_slots=()):
+    """[dir, ...] - every folder in the tree holding a course's files loose (no romfs/, no subfolders, nothing this doesn't
+    recognise) that isn't itself named for one of `known_slots` (the game's internal course ids)."""
+    known = {s.lower() for s in known_slots}
+    sites = []
+    for dirpath, dirnames, filenames in os.walk(folder):
+        if any(d.lower() == "romfs" for d in dirnames):
+            dirnames[:] = []
+            continue
+        if dirnames or Path(dirpath).name.lower() in known:
+            continue
+        lower = [f.lower() for f in filenames]
+        if not _LOOSE_COURSE_CORE_FILES & set(lower):
+            continue
+        if all(_LOOSE_COURSE_FILE_RE.match(f) or Path(f).suffix.lower() in _ITEM_IGNORABLE_EXTS or f == ".DS_Store" for f in filenames):
+            sites.append(Path(dirpath))
+    return sites
+
+
+def fix_loose_course_files(folder: Path, slot: str, known_slots=()) -> bool:
+    """Moves each loose course folder's course files into romfs/Course/<slot>/ beside them (docs and pictures stay where
+    they are). `slot` is the internal id of the course the download is for."""
+    fixed_any = False
+    for site in find_loose_course_sites(folder, known_slots):
+        dest = site / "romfs" / "Course" / slot
+        dest.mkdir(parents=True, exist_ok=True)
+        for f in list(site.iterdir()):
+            if f.is_file() and _LOOSE_COURSE_FILE_RE.match(f.name) and not (dest / f.name).exists():
+                shutil.move(str(f), str(dest / f.name))
+                fixed_any = True
     return fixed_any
 
 
@@ -4498,6 +4552,14 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if not units and not looks_like_ui_assets(dest_folder) and looks_like_bare_course_wrapper(dest_folder):
             fix_bare_course_wrapper(dest_folder)
             units = find_mod_units(dest_folder)
+
+        # A course's files with no folder named for it at all ("Retextured" mods with just course_model.szs): the course
+        # this was downloaded for says where they go - see fix_loose_course_files(). (Before the next fix, which would take
+        # a wrapper folder's own name for the course id.)
+        if not units and category == "courses" and not looks_like_ui_assets(dest_folder):
+            slots = self._course_internal_names(item_name)
+            if slots and len(slots) == 1 and fix_loose_course_files(dest_folder, next(iter(slots)), self._course_names_by_internal()):
+                units = find_mod_units(dest_folder)
 
         if not units and not looks_like_ui_assets(dest_folder):
             if fix_bare_course_slot(dest_folder):

@@ -94,7 +94,23 @@ missing-`romfs` wrapper (`Driver/`, `Kart/`, `Audio/`... found bare), bare cours
 ([Vehicle parts](vehicle-parts-and-items.md)), and **loose character files** - `<Slot>.szs`, `Driver_<Slot>.bars` and
 `MenuDriver_<Slot>.bars` (plus `Emblem_*.szs`) side by side with no folders, moved by name into `romfs/Driver`,
 `romfs/Audio/Driver`, `romfs/Audio/DriverMenu` (`fix_loose_character_files()`). The slot must be one of `DRIVER_SLOTS`; a folder
-mixing character files with vehicle parts is left alone. Fixers run at download time only, so an existing broken download is
+mixing character files with vehicle parts is left alone.
+
+Course mods have one more: **loose course files** (`fix_loose_course_files()`) - a "Retextured" mod that ships just
+`course_model.szs` (and a README) with no folders, or inside a folder named for the mod. The download was made from a known course's
+page, so the course names the folder: `roster.json`'s `internal` id (`Gu_SnowMountain` for Mount Wario, ...; all 99 exist in the
+game's own `Course/` folder) gives `romfs/Course/<id>/`. Only for a course with one id (Animal Crossing's four seasons can't be told
+apart), only when every file is one a course slot holds (`course*.*`, `*_muunt.byaml`, `enemy_path*.bin`, docs and pictures stay
+put) with at least one of `course_model.szs` / `course_kcl.szs` / `course_muunt.byaml` / `course.bgenv` / `course_maptexture.bntx`,
+and not for a folder already named for one of the game's course ids (`fix_bare_course_slot()` takes that one). It runs before
+`fix_bare_course_slot()`, which would take a wrapper folder's own name for the id.
+
+The **missing-`romfs` wrapper** fix also takes a bare `UI/` along when it holds the game's own `cmn/` folder and sits next to
+`Audio/`, `Driver/`, `Kart/`... (a course's loose `UI/cmn/Menu/ym_CoursePict_*.bntx` picture, say) - alone, a folder called `UI` could
+be a modder's own. And a `Menu` / `Common` folder inside `UI/cmn/` no longer makes a download look like a raw UI-archive dump
+(`looks_like_ui_assets()`): that is where the game itself keeps those loose textures. Checked on "Mushroom Bridge V3" (Course + Audio
++ UI/cmn, now one mod) and "Triforce Mario Highway" (Daytime / Nighttime / Sunset now three mods; its shared `UI/` and `Music/` folders
+beside them stay outside the `romfs/` folders). Fixers run at download time only, so an existing broken download is
 fixed by downloading it again.
 
 ## Frontend file layout
