@@ -82,6 +82,9 @@ merging when asked. The in-app **Help** button explains each screen in more deta
   the `.exe`. Include that file when you report the problem.
 - **"Failed to load Python DLL ... filename or extension is too long"** - move the folder to a
   shorter path such as `C:\MK8DX-Mod-Manager`.
+- **"Failed to resolve Python.Runtime.Loader.Initialize" in `mod-manager.log` (version 0.1.0 only)** - Windows blocked the
+  app's files because they came from a downloaded zip. Update to 0.1.1 or newer, or right-click the downloaded zip,
+  choose **Properties**, tick **Unblock**, click OK, and extract it again.
 - **The window stays blank or doesn't open** - install the
   [WebView2 runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
 - **Running from source: "Python was not found"** - install Python from python.org with
