@@ -1,0 +1,120 @@
+name: Release
+
+# Builds the Windows package and publishes it as a GitHub Release, but only when
+# src/version.py names a version that has no release yet (i.e. the version was bumped).
+# The package is never stored in the repository; it is built here and attached to the release.
+#
+# Run it by hand (Actions > Release > Run workflow) to test the build: that builds the zip and
+# attaches it to the run as a downloadable artifact, without creating a release.
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # create the release and its tag
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          v=$(python -c "import sys; sys.path.insert(0, 'src'); from version import VERSION; print(VERSION)")
+          if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::src/version.py has VERSION '$v', expected MAJOR.MINOR.PATCH (e.g. 0.2.0)"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether to build
+        id: gate
+        shell: bash
+        run: |
+          tag="v${{ steps.version.outputs.version }}"
+          if [ "${{ github.event_name }}" = "push" ] && gh release view "$tag" > /dev/null 2>&1; then
+            echo "Release $tag already exists, so the version was not bumped. Nothing to build."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Make sure 7-Zip is available to bundle
+        if: steps.gate.outputs.build == 'true'
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:ProgramFiles "7-Zip"
+          if (-not ((Test-Path "$dir\7z.exe") -and (Test-Path "$dir\7z.dll") -and (Test-Path "$dir\License.txt"))) {
+            choco install 7zip -y --no-progress
+          }
+
+      - name: Build the package
+        if: steps.gate.outputs.build == 'true'
+        shell: pwsh
+        run: python tools/build_release.py
+
+      - name: Check the package contents
+        if: steps.gate.outputs.build == 'true'
+        shell: pwsh
+        run: |
+          $zip = "dist\MK8DX-Mod-Manager-v${{ steps.version.outputs.version }}-windows.zip"
+          if (-not (Test-Path $zip)) { throw "Expected $zip was not built" }
+          Expand-Archive $zip -DestinationPath check
+          $app = "check\MK8DX Mod Manager"
+          foreach ($f in "MK8DX Mod Manager.exe", "LICENSE.txt", "README.md", "_internal\ui\index.html",
+                         "_internal\roster.json", "_internal\name-labels.json", "_internal\known-shared-files.json",
+                         "_internal\7zip\7z.exe", "_internal\7zip\7z.dll") {
+            if (-not (Test-Path "$app\$f")) { throw "Package is missing $f" }
+          }
+          (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + "  " + (Split-Path $zip -Leaf) | Set-Content "$zip.sha256"
+
+      - name: Start the packaged app once
+        # Not blocking: a runner has no real desktop, so a failure here is a warning, not a stop.
+        if: steps.gate.outputs.build == 'true'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $app = "check\MK8DX Mod Manager"
+          $p = Start-Process "$app\MK8DX Mod Manager.exe" -PassThru
+          Start-Sleep -Seconds 20
+          $alive = -not $p.HasExited
+          if ($alive) { Stop-Process -Id $p.Id -Force }
+          if (Test-Path "$app\mod-manager.log") { Get-Content "$app\mod-manager.log" }
+          if (-not $alive) { throw "The packaged app exited within 20 seconds" }
+          if (Select-String -Path "$app\mod-manager.log" -Pattern "Traceback") { throw "Traceback in mod-manager.log" }
+
+      - name: Keep the package with this run
+        if: steps.gate.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MK8DX-Mod-Manager-v${{ steps.version.outputs.version }}-windows
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: steps.gate.outputs.build == 'true' && github.event_name == 'push'
+        shell: bash
+        run: |
+          tag="v${{ steps.version.outputs.version }}"
+          gh release create "$tag" dist/*.zip dist/*.sha256 \
+            --target "$GITHUB_SHA" \
+            --title "Mod Manager $tag" \
+            --generate-notes

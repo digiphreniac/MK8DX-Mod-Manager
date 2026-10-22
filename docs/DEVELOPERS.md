@@ -1514,3 +1514,18 @@ short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). Th
   `mod-manager.log` next to the `.exe`, and an uncaught startup error shows a message box pointing at it.
 - Build with a mainstream Python and test the zip on a machine without Python: extract it to a short path,
   run the setup wizard, download a `.7z` mod, commit.
+
+### Publishing a release (GitHub Actions)
+
+`.github/workflows/release.yml` builds the package on GitHub and publishes it as a Release - the zip is never
+committed (`dist/` is ignored). It runs on every push to `master`/`main`, but only builds when `src/version.py`
+names a version that has no release yet:
+
+1. Bump `VERSION` in `src/version.py` (MAJOR.MINOR.PATCH) in the change you merge.
+2. When it lands on `master`, the workflow builds the zip, checks its contents, and creates release `v<version>`
+   (tag at that commit, auto-generated notes, the zip plus a `.sha256` file attached).
+3. A push that doesn't change the version finds `v<version>` already released and does nothing.
+
+To test the build without releasing, run the workflow by hand (Actions > Release > Run workflow): it builds and
+attaches the zip to the run as an artifact only. To redo a release, delete the release and its tag on GitHub,
+then re-run the workflow on that commit (or bump the patch version instead).
