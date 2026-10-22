@@ -59,7 +59,7 @@ function renderListView() {
         cb.checked = target;
         state.checked[key] = target;
       }
-      pywebview.api.save_checked(state.checked);
+      saveChecked();
       refreshToggleLabels();
       refreshBehindModal({ ifChanged: true });
     });
@@ -74,7 +74,7 @@ function renderListView() {
       checkboxes.push({ key, cb });
       cb.addEventListener("change", () => {
         state.checked[key] = cb.checked;
-        pywebview.api.save_checked(state.checked);
+        saveChecked();
         refreshToggleLabels();
         refreshBehindModal({ ifChanged: true });
       });
@@ -119,7 +119,7 @@ let staleViewsTimer = null;
 // (redrawViews with ifChanged) skips the rest. Nothing else a screen shows is in it - so it is used for ticks only, never after
 // something that changes how a tile looks (an icon, a name, a download).
 function entriesSignature(entries) {
-  return entries.map(e => `${e.name}:${(e.units || []).map(u => (state.checked[u] ? "1" : "0")).join("")}${e.gb_attempted ? "g" : ""}`).join("|");
+  return entries.map(e => `${e.name}:${(e.units || []).map(u => (state.checked[u] ? "1" : "0")).join("")}${e.gb_attempted ? "g" : ""}${notesSignature(e.units || [])}`).join("|");
 }
 function viewSignature(mode) {
   const counts = state.settings && state.settings.show_tile_counts ? "c" : "";

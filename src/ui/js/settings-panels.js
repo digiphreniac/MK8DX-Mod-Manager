@@ -282,6 +282,8 @@ function renderMasterDirConfirmStep(container, chosenPath, onSuccess, onChooseAg
       bringBtn.textContent = "Bring My Files";
       return;
     }
+    state.epoch = null;   // (this page's ticks belong to the folder it just left: nothing may be saved until loadMods() has loaded the new one's)
+    for (const k of Object.keys(checkedPending)) delete checkedPending[k];
     onSuccess();
   }
 

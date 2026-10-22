@@ -27,7 +27,7 @@
         <div class="modal-card-header"><span class="modal-card-title">Name and Icons: how a character, course or vehicle part looks in the menus</span></div>
         <div class="settings-body">
           <div class="settings-hint">
-            Once a mod is ticked, a character's, course's or vehicle part's card walks you through two short steps, <strong>Name</strong> and <strong>Icons</strong>, and shows a check mark on each when it is settled (its tile gets a small dot - amber while something needs a look, green when done).
+            Once a mod is ticked, a character's, course's or vehicle part's card walks you through two short steps, <strong>Name</strong> and <strong>Icons</strong>, and shows a check mark on each when it is settled (its tile gets a small dot - amber while something needs a look, green when done). Villager, Inkling, Link and Metal Mario each share one tile with a second character: the card has a switch at the top (Boy | Girl; Classic | Breath of the Wild for Link, the game's two versions of him; Metal Mario | Gold Mario) - mods for one version are separate from mods for the other.
             <br><br>
             <strong>Characters:</strong> Name is what the menus call the character (the mod's own, a guess from the mod's name that you can change, or the game's); Icons is the character-select, map and results pictures and where each comes from (a mod, you, or unchanged). If a mod doesn't ship an icon, pick one of its screenshots or a picture from your computer, drag the square over the part you want, and it becomes all three icons.
             <br><br>
@@ -41,10 +41,19 @@
       </div>
 
       <div class="modal-card">
+        <div class="modal-card-header"><span class="modal-card-title">Notes on mods</span></div>
+        <div class="settings-body">
+          <div class="settings-hint">
+            Every mod row has a small pencil button. Click it to write a <strong>note</strong> for yourself about that mod (what it changes, what to check, where you found it). When a mod you have ticked has a note, its character's / course's / part's tile shows a small pencil in the corner; hover it to read the note. Notes are for you only - they never go to your Switch. They stay with a mod if it is moved or downloaded again, and are forgotten if you remove it.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-card">
         <div class="modal-card-header"><span class="modal-card-title">Voice: mute a line or use your own sound</span></div>
         <div class="settings-body">
           <div class="settings-hint">
-            Every character's card has a <strong>Voice</strong> row with <strong>Edit voice lines</strong>. It lists what the character says - character select, finishing first / mid-pack / last, overtaking, getting hit, items, boosts, the horn - each with a short description (some marked <em>guess</em>: play it to check). For any line you can <strong>Mute</strong> it, or <strong>Use my own</strong> sound: choose an audio file (mp3, wav, ogg, m4a...), pick the part you want, and the app converts it to the game's format (up to 8 seconds). Each line is really several sounds in the game's file (variations and tails); they are always changed together.
+            Every character's card has a <strong>Voice</strong> row with <strong>Edit voice lines</strong>. It lists what the character says - character select, finishing first / mid-pack / last, overtaking, getting hit, items, boosts, the horn - each with a short description (some marked <em>guess</em>: play it to check). For any line you can <strong>Mute</strong> it, or <strong>Use my own</strong> sound: choose an audio file (mp3, wav, ogg, m4a...), pick the part you want, and the app converts it to the game's format (up to 8 seconds). Each line is really several sounds in the game's file (variations and tails); they are always changed together. <strong>Mute all</strong> (at the bottom of the window) silences every line of the character at once - the character-select sound and the horns too - keeping any line you gave your own sound; undo single lines with their <strong>Muted</strong> button, or everything with <strong>Undo all changes</strong>. A character whose whole voice is muted shows a red crossed-out speaker on its tile.
             <br><br>
             Like Name and Icons, the row is dimmed ("Comes after you pick a mod") until the character has a ticked mod; the button appears once one is ticked. The result is saved as a mod called <strong>Custom voice</strong> under that character - tick, untick or remove it like any other, and Commit merges it. Changing one line means writing out the character's whole voice file, so the app starts from the voice you'd otherwise get: a voice mod you've ticked for that character, or else the game's own file, from the copy of your game's files that Setup made. If you tick a different voice mod later, your changes move onto it.
           </div>
@@ -60,7 +69,7 @@
           </div>
           <div class="help-status-term">A modded course's select-screen icon or results-screen background is missing</div>
           <div class="help-status-def">
-            Most course mods bundle their own <code>UI/cmn/menu/ym_CoursePict_&lt;internal id&gt;.bntx</code> thumbnail and <code>UI/cmn/ending/ym_AwardBG_&lt;internal id&gt;.bntx</code> results background, uniquely named per course - these are now merged in normally like any other file (fixed - older merges from before this fix won't have them; commit again to pick them up). If a mod genuinely doesn't bundle one, open that mod's card and use "Icon from screenshot" to generate one from its own GameBanana screenshots instead - see the Course Select strip, which previews any icon (bundled or generated) inline so you can see at a glance which courses still have none. (The black border around every icon, including generated ones, is intentional - it matches the real game's own template, which reserves that space for the course name text drawn over it - see the README for exactly how that was measured.)
+            Most course mods bundle their own <code>UI/cmn/menu/ym_CoursePict_&lt;internal id&gt;.bntx</code> thumbnail and <code>UI/cmn/ending/ym_AwardBG_&lt;internal id&gt;.bntx</code> results background, uniquely named per course - these are now merged in normally like any other file (fixed - older merges from before this fix won't have them; commit again to pick them up). If a mod genuinely doesn't bundle one, open that mod's card and use "Icon from screenshot" to generate one from its own GameBanana screenshots instead - see the Course Select strip, which previews any icon (bundled or generated) inline so you can see at a glance which courses still have none. (The black border around every icon, including generated ones, is intentional - it matches the real game's own template, which reserves that space for the course name text drawn over it - see docs/course-select.md for exactly how that was measured.)
           </div>
           <div class="help-status-term">A modded character's icon or a modded course's name still looks vanilla</div>
           <div class="help-status-def">

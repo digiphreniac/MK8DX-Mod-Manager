@@ -4,7 +4,7 @@ A character's voice lives in two Nintendo ".bars" archives - romfs/Audio/Driver/
 used during a race) and romfs/Audio/DriverMenu/MenuDriver_<slot>.bars (the character-select sound). A voice mod replaces a
 whole archive, so changing one line means writing out the whole archive again with that one sound swapped.
 
-What is proven on a real Switch (see README, "Voice editing"): swapping chosen sounds for a tiny silent sound, and rewriting
+What is proven on a real Switch (see docs/voice-editing.md): swapping chosen sounds for a tiny silent sound, and rewriting
 the archive the way rebuild() does, works for both kinds of archive; other sounds are untouched and the metadata blocks
 need no change. rebuild() keeps every byte of the archive as it was except the chosen sounds and the few numbers that
 locate things (the offset table and the total size).

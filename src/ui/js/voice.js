@@ -220,6 +220,21 @@ async function openVoiceEditor(character, onClose) {
     try { render(await pywebview.api.voice_reset_all(character)); changed = true; } finally { resetBtn.disabled = false; }
   });
   resetBtn.hidden = true;
+  const muteAllBtn = button("Mute all", "ghost", async () => {
+    muteAllBtn.disabled = true;
+    showError(null);
+    let r;
+    try { r = await pywebview.api.voice_mute_all(character); } catch (e) { r = { success: false, error: String(e) }; }
+    muteAllBtn.disabled = false;
+    if (!back.isConnected) return;
+    if (!r || !r.success) { showError((r && r.error) || "That didn't work."); return; }
+    changed = true;
+    render(r);
+    if (r.build_problems && r.build_problems.length) showError(r.build_problems.join(" "));
+  });
+  muteAllBtn.title = "Silence every line of this character's voice (lines with your own sound are kept). Undo one line at a time, or use Undo all changes.";
+  muteAllBtn.hidden = true;
+  acts.appendChild(muteAllBtn);
   acts.appendChild(resetBtn);
   const closeBtn = button("Close", "primary", close);
   acts.appendChild(closeBtn);
@@ -345,12 +360,12 @@ async function openVoiceEditor(character, onClose) {
     showError(null);
     baseBox.replaceChildren();
     if (!st || !st.success) {
-      status.hidden = thead.hidden = searchWrap.hidden = catPills.hidden = true;
+      status.hidden = thead.hidden = searchWrap.hidden = catPills.hidden = muteAllBtn.hidden = true;
       list.replaceChildren(cgEl("div", "voice-empty", (st && st.error) || "Couldn't read this character's voice."));
       return;
     }
     if (!st.known) {
-      status.hidden = thead.hidden = searchWrap.hidden = catPills.hidden = true;
+      status.hidden = thead.hidden = searchWrap.hidden = catPills.hidden = muteAllBtn.hidden = true;
       list.replaceChildren(cgEl("div", "voice-empty", "The app doesn't know this character's voice files yet, so their voice can't be edited."));
       return;
     }
@@ -401,6 +416,8 @@ async function openVoiceEditor(character, onClose) {
     applyFilter();
     list.scrollTop = scroll;
     resetBtn.hidden = !st.lines.some(l => l.state === "mute" || l.state === "custom");
+    muteAllBtn.hidden = !st.lines.some(l => l.available);
+    muteAllBtn.disabled = !st.lines.some(l => l.available && l.state === "normal");
   }
 
   let st;

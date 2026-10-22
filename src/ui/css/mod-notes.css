@@ -1,0 +1,27 @@
+  /* ---- Notes on mods (js/mod-notes.js) ---- */
+  .mod-row .mn-btn {
+    appearance: none; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 2px; font: inherit; font-size: 12px; line-height: 1;
+    padding: 3px 6px; border-radius: 6px; cursor: pointer; background: transparent; color: var(--text-dim);
+    border: 1px solid transparent; opacity: 0.55;
+  }
+  .mod-row:hover .mn-btn, .mod-row .mn-btn:focus-visible, .mod-row .mn-btn.has-note, .mod-row.mn-open .mn-btn { opacity: 1; }
+  .mod-row .mn-btn:hover, .mod-row.mn-open .mn-btn { border-color: var(--accent); background: var(--panel); }
+  .mn-panel { padding: 8px 14px 10px 14px; border-bottom: 1px solid var(--divider); background: var(--panel); }
+  .mn-text {
+    box-sizing: border-box; width: 100%; resize: vertical; min-height: 3.6em; font: inherit; font-size: 13px; padding: 6px 8px;
+    border-radius: 6px; border: 1px solid var(--panel-border); background: var(--bg, transparent); color: var(--text);
+  }
+  .mn-foot { min-height: 1.3em; margin-top: 3px; font-size: 12px; color: var(--text-dim); }
+  .mn-status.bad { color: var(--danger); }
+  /* a tile whose ticked mod has a note: a small round pencil, top left (under the voice mark when the tile has one) */
+  .tile-note {
+    position: absolute; top: 6%; left: 6%; z-index: 2; box-sizing: border-box; cursor: help;
+    width: clamp(15px, calc(var(--tile, 70px) * 0.24), 24px); height: clamp(15px, calc(var(--tile, 70px) * 0.24), 24px);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: var(--accent); color: #fff; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.55);
+  }
+  .tile-note .mn-pencil { width: 62%; height: 62%; }
+  .char-tile:has(.tile-voice-mark) .tile-note { top: calc(6% + clamp(15px, calc(var(--tile, 70px) * 0.24), 24px) + 4px); }
+  .cc-mods:not(.show-all) .mod-row:not(.checked) + .mn-panel { display: none; }
+  .mn-pencil { width: 13px; height: 13px; display: block; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+  .mod-row .mn-btn.has-note { color: var(--accent); }

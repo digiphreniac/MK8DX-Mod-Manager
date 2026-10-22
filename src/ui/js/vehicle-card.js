@@ -395,7 +395,7 @@ function assembleVehicleCard(ctx) {
         const row_ = modCheckboxes.find(x => x.key === key);
         state.checked[key] = false;
         if (row_) { row_.cb.checked = false; row_.row.classList.remove("checked"); }
-        pywebview.api.save_checked(state.checked);
+        saveChecked();
         refreshBehindModal({ ifChanged: true });
         ctx.refreshConflicts();
         ctx.refreshCount();

@@ -479,7 +479,7 @@ function buildGameBananaCard(itemName, category, opts) {
         const onlyUnit = freshEntry.units.length === 1 ? freshEntry.units[0] : null;
         if (onlyUnit && !state.checked[onlyUnit]) {
           state.checked[onlyUnit] = true;
-          await pywebview.api.save_checked(state.checked);
+          await saveChecked();
           await refreshAfterChange();
         }
       });

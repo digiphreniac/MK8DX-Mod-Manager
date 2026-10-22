@@ -23,6 +23,7 @@ import sys
 import threading
 import time
 import types
+import uuid
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -40,6 +41,7 @@ import bntx_encode
 import cup_icons
 import image_cache
 import library_cache
+import safe_io
 from library_cache import mutates_library
 import item_icons
 import vehicle_icons
@@ -51,6 +53,7 @@ import game_files
 import gb_desc_cache
 from version import VERSION as APP_VERSION
 from voice_api import VoiceEditMixin, VOICE_EDITS_FILENAME
+from mod_notes import ModNotesMixin, NOTES_FILENAME
 
 TITLE_ID = "0100152000022000"  # Mario Kart 8 Deluxe
 STATE_FILENAME = "mod-manager-state.json"
@@ -222,7 +225,7 @@ MASTER_DIR_ITEMS = [
     GB_CATEGORIES_CACHE_FILENAME, GB_MODS_FILENAME, GB_DESCRIPTIONS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME,
     EXCLUDED_FILES_FILENAME, SETTINGS_FILENAME, MODS_DIRNAME, "ui-icons", COURSE_ICONS_DIRNAME, PART_ICONS_DIRNAME,
     "ui-icons-backups", "ui-setup-cache.json", image_cache.DIRNAME,
-    ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME,
+    ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME, NOTES_FILENAME,
 ]
 _INVALID_FS_CHARS = re.compile(r'[<>:"/\\|?*]')
 
@@ -243,9 +246,7 @@ def load_master_dir_pointer():
 
 def save_master_dir_pointer(path: Path):
     config_path = APP_ROOT / APP_CONFIG_FILENAME
-    config_path.write_text(json.dumps({"master_dir": str(path)}, indent=2))
-
-
+    safe_io.write_json_atomic(config_path, {"master_dir": str(path)})
 def show_in_file_manager(path: Path, select: bool = False):
     """Opens the system file manager at a folder, or (select=True) on a file with
     it highlighted. Finder on macOS, Explorer on Windows and under WSL, the desktop's
@@ -665,7 +666,13 @@ def looks_like_ui_assets(folder: Path) -> bool:
     # Checked anywhere in the tree, not just the top level - see the same
     # note on looks_like_missing_romfs_wrapper() below; these SARC dump
     # folders are sometimes wrapped in a mod-name folder of their own too.
-    for _dirpath, dirnames, _filenames in os.walk(folder):
+    # A "Menu" / "Common" folder inside UI/cmn/ is not such a dump: that is
+    # where the game itself keeps its loose menu textures (a course's
+    # CoursePict picture, say), so a romfs mod that shipped UI/cmn/Menu/...
+    # without its romfs/ around it is a missing wrapper, not a UI dump.
+    for dirpath, dirnames, _filenames in os.walk(folder):
+        if Path(dirpath).name.lower() == "cmn":
+            continue
         if {d.lower() for d in dirnames} & UI_ASSET_DIRNAMES:
             return True
     return False
@@ -804,8 +811,11 @@ def fix_missing_romfs_wrapper(folder: Path) -> bool:
         # side: Course/MapObj alone aren't a safe signal (see COURSE_WRAPPER_DIRNAMES), but
         # next to a folder that is one, they belong in the same romfs - leaving them behind
         # would stage the music and silently drop the track itself.
+        # The same goes for a UI/ that holds the game's own cmn/ folder (a course's CoursePict picture, say): alone it could be
+        # a modder's own folder, next to Audio/ or Driver/ it is the mod's UI textures.
         matches = matches + [d.name for d in site_dir.iterdir()
-                             if d.is_dir() and d.name.lower() in COURSE_WRAPPER_DIRNAMES and d.name not in matches]
+                             if d.is_dir() and d.name not in matches
+                             and (d.name.lower() in COURSE_WRAPPER_DIRNAMES or (d.name.lower() == "ui" and _ci_child(d, "cmn") is not None))]
         for dirname in matches:
             src = site_dir / dirname
             dest = romfs_dir / dirname
@@ -865,9 +875,9 @@ def fix_bare_course_wrapper(folder: Path) -> bool:
 # starting one level too deep. The slot folder's own name is exactly the
 # internal course id, so where it belongs (romfs/Course/<name>/) is
 # unambiguous - unlike a mod that drops course_*.* files bare at the archive
-# root with no named folder at all, which gives up that id entirely and can't
-# be safely guessed (left for manual review instead; see the "root itself"
-# guard below).
+# root with no named folder at all, which gives up that id entirely (the "root
+# itself" guard below): fix_loose_course_files() takes the id from the course
+# the download was made for instead.
 _COURSE_SLOT_FILE_RE = re.compile(r"^course", re.IGNORECASE)
 
 
@@ -892,6 +902,51 @@ def fix_bare_course_slot(folder: Path) -> bool:
         if not dest.exists():
             shutil.move(str(site), str(dest))
             fixed_any = True
+    return fixed_any
+
+
+# ...and the barest of all: a course's own files with NO folder named for the course - "Retextured" mods that ship only
+# course_model.szs (and a README) at the archive root, or inside a wrapper named for the mod. That gives up the internal id, but the
+# download was made from a known course's page (roster.json says "Wii Grumble Volcano" is Course/Wii_..., one id), so the id is known
+# from the course, not from the archive. Only where the course has exactly ONE id (Animal Crossing's four seasons can't be told
+# apart), and all-or-nothing per folder: every file must be one a course slot holds (course*.* files and their .bars/.barslist,
+# *_muunt.byaml, enemy_path*.bin), plus docs and pictures, and at least one of course_model.szs / course_kcl.szs /
+# course_muunt.byaml / course.bgenv / course_maptexture.bntx must be there. A folder named for an id the game has is left to
+# fix_bare_course_slot(), which already knows what to do with it.
+_LOOSE_COURSE_CORE_FILES = {"course_model.szs", "course_kcl.szs", "course_muunt.byaml", "course.bgenv", "course_maptexture.bntx"}
+_LOOSE_COURSE_FILE_RE = re.compile(r"^(course.*|.*_muunt\.byaml|enemy_path.*\.bin)$", re.IGNORECASE)
+
+
+def find_loose_course_sites(folder: Path, known_slots=()):
+    """[dir, ...] - every folder in the tree holding a course's files loose (no romfs/, no subfolders, nothing this doesn't
+    recognise) that isn't itself named for one of `known_slots` (the game's internal course ids)."""
+    known = {s.lower() for s in known_slots}
+    sites = []
+    for dirpath, dirnames, filenames in os.walk(folder):
+        if any(d.lower() == "romfs" for d in dirnames):
+            dirnames[:] = []
+            continue
+        if dirnames or Path(dirpath).name.lower() in known:
+            continue
+        lower = [f.lower() for f in filenames]
+        if not _LOOSE_COURSE_CORE_FILES & set(lower):
+            continue
+        if all(_LOOSE_COURSE_FILE_RE.match(f) or Path(f).suffix.lower() in _ITEM_IGNORABLE_EXTS or f == ".DS_Store" for f in filenames):
+            sites.append(Path(dirpath))
+    return sites
+
+
+def fix_loose_course_files(folder: Path, slot: str, known_slots=()) -> bool:
+    """Moves each loose course folder's course files into romfs/Course/<slot>/ beside them (docs and pictures stay where
+    they are). `slot` is the internal id of the course the download is for."""
+    fixed_any = False
+    for site in find_loose_course_sites(folder, known_slots):
+        dest = site / "romfs" / "Course" / slot
+        dest.mkdir(parents=True, exist_ok=True)
+        for f in list(site.iterdir()):
+            if f.is_file() and _LOOSE_COURSE_FILE_RE.match(f.name) and not (dest / f.name).exists():
+                shutil.move(str(f), str(dest / f.name))
+                fixed_any = True
     return fixed_any
 
 
@@ -1009,6 +1064,66 @@ def fix_loose_kart_parts(folder: Path) -> bool:
     for site_dir, parts in find_loose_kart_part_sites(folder):
         for name, subdir in parts:
             dest_dir = site_dir / "romfs" / "Kart" / subdir
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest = dest_dir / name
+            if not dest.exists():
+                shutil.move(str(site_dir / name), str(dest))
+                fixed_any = True
+    return fixed_any
+
+
+# --- a character's own files (model, voice, menu sound), loose ---------------
+# Some character mods (a Baby Rosalina "Vanellope" swap, for one) are zipped one folder too deep with no romfs/ or
+# Driver/Audio folders either: just <Slot>.szs, Driver_<Slot>.bars and MenuDriver_<Slot>.bars side by side. Like the item
+# and vehicle-part files above, each file's name says exactly where it goes - the slot part has to be one the game
+# really has (DRIVER_SLOTS) - so this is safe to fix by name. All-or-nothing per folder, like the others.
+_LOOSE_DRIVER_FILE_RES = (
+    (re.compile(r"^Driver_(.+)\.bars$", re.IGNORECASE), ("Audio", "Driver")),
+    (re.compile(r"^MenuDriver_(.+)\.bars$", re.IGNORECASE), ("Audio", "DriverMenu")),
+    (re.compile(r"^(.+)\.szs$", re.IGNORECASE), ("Driver",)),
+)
+
+
+def _loose_character_file_dest(filename: str):
+    """The romfs-relative folder parts a loose character file belongs in (("Audio", "Driver"), ("Kart", "Emblem"), ...), or None
+    when the name isn't one of a character's own files."""
+    for pattern, parts in _LOOSE_DRIVER_FILE_RES:
+        m = pattern.match(filename)
+        if m:
+            if re.sub(r"suit$", "", m.group(1).lower()) in _DRIVER_SLOTS_LOWER:
+                return parts
+    subdir = _kart_part_subdir(filename)
+    return ("Kart", subdir) if subdir == "Emblem" else None
+
+
+def find_loose_character_sites(folder: Path):
+    """[(dir, [(filename, romfs-relative parts), ...]), ...] for every folder holding loose character files (at least one
+    model or voice file) and nothing else this doesn't recognise - docs/preview images are ignored."""
+    sites = []
+    for dirpath, dirnames, filenames in os.walk(folder):
+        if any(d.lower() == "romfs" for d in dirnames):
+            dirnames[:] = []
+            continue
+        if dirnames:
+            continue
+        files, clean = [], True
+        for f in filenames:
+            parts = _loose_character_file_dest(f)
+            if parts:
+                files.append((f, parts))
+            elif Path(f).suffix.lower() not in _ITEM_IGNORABLE_EXTS and f != ".DS_Store":
+                clean = False
+                break
+        if clean and any(parts[0] in ("Driver", "Audio") for _f, parts in files):
+            sites.append((Path(dirpath), files))
+    return sites
+
+
+def fix_loose_character_files(folder: Path) -> bool:
+    fixed_any = False
+    for site_dir, files in find_loose_character_sites(folder):
+        for name, parts in files:
+            dest_dir = site_dir.joinpath("romfs", *parts)
             dest_dir.mkdir(parents=True, exist_ok=True)
             dest = dest_dir / name
             if not dest.exists():
@@ -1391,8 +1506,8 @@ def ui_icons_status_text(mod_root: Path):
 # Pauline - the Booster Course Pass's generic guest-slot scheme, also how DrvChr05/06 (Diddy Kong,
 # Funky Kong) were filled in below. ("...Suit" - the bike/ATV outfit - is stripped before the lookup.)
 #
-# Every entry below (59 slot codes, 51 distinct character voices - all 50 roster characters plus
-# Gold Mario's own separate archive) is confirmed byte-for-byte against a real MK8DX dump's
+# Every entry below (59 slot codes, 52 distinct character voices - all 52 roster characters - Link and Link (Breath of the Wild), Metal Mario
+# and Gold Mario are two each) is confirmed byte-for-byte against a real MK8DX dump's
 # Audio/Driver + Audio/DriverMenu folders (game_files.py's discover()/copy_both() will refuse a
 # dump that doesn't have UI/cmn/common.sarc + menu.sarc + a message.sarc, so any dump that gets this
 # far is the real thing) - not a guess or an asset-rip filename fit like the earlier research this
@@ -1410,7 +1525,7 @@ DRIVER_SLOTS = {
     "Koopa": "Bowser", "Karon": "Dry Bones", "KoopaJr": "Bowser Jr.", "KingTeresa": "King Boo",
     "HoneKoopa": "Dry Bowser", "Lemmy": "Lemmy", "Wendy": "Wendy", "Ludwig": "Ludwig", "Iggy": "Iggy",
     "Roy": "Roy", "Morton": "Morton", "SplatoonGirl": "Inkling Girl", "SplatoonBoy": "Inkling Boy",
-    "Link": "Link", "LinkBotw": "Link", "AnimalBoyA": "Villager (Boy)", "AnimalGirlA": "Villager (Girl)",
+    "Link": "Link", "LinkBotw": "Link (Breath of the Wild)", "AnimalBoyA": "Villager (Boy)", "AnimalGirlA": "Villager (Girl)",
     "DrvChr01": "Birdo", "DrvChr02": "Kamek", "DrvChr03": "Petey Piranha", "DrvChr04": "Wiggler", "DrvChr07": "Peachette",
     "DrvChr08": "Pauline", "Larry": "Larry", "Shizue": "Isabelle",
     "DrvChr05": "Diddy Kong", "DrvChr06": "Funky Kong",
@@ -1461,7 +1576,7 @@ def slot_characters(folder: Path) -> set:
     return found
 
 
-class Api(VoiceEditMixin):
+class Api(VoiceEditMixin, ModNotesMixin):
     def __init__(self, mod_root: Path | None):
         # Leading underscore matters: pywebview's inject_pywebview() auto-exposes
         # JS API methods by recursing into every non-underscore-prefixed,
@@ -1473,6 +1588,9 @@ class Api(VoiceEditMixin):
         # exactly the exception signature from the earlier freeze debugging.
         self._window = None  # set by main() right after webview.create_window()
         self._library = library_cache.LibraryCache()
+        self._notes_lock = threading.RLock()   # (the notes and flags on mods: see mod_notes.py)
+        self._state_lock = threading.RLock()   # (every read-modify-write of the ticked mods happens under it)
+        self._root_epoch = ""                   # (names the folder a page loaded its ticks from - see save_checked)
         self._desc_fetch_lock = threading.Lock()
         self._gb_desc_cache = {}  # mod id -> description, for the browse lists that read the text (vehicles, items, courses)
         self._configure_root(mod_root)
@@ -1489,6 +1607,7 @@ class Api(VoiceEditMixin):
         self.known_shared_files_path = SCRIPT_DIR / KNOWN_SHARED_FILES_FILENAME
 
         self.mod_root = mod_root
+        self._root_epoch = uuid.uuid4().hex   # (a page that loaded the ticks of the folder before this is now out of date)
         if mod_root is None:
             self.state_path = None
             self.gb_categories_cache_path = None
@@ -1513,7 +1632,7 @@ class Api(VoiceEditMixin):
     def _migrate_flat_mod_folders(self):
         """One-time-per-launch, idempotent migration from the old flat
         "<item> - <mod name>" folder/archive naming to the current nested
-        "<item>/<mod name>" layout (see README). Runs on every startup and
+        "<item>/<mod name>" layout (see docs/architecture.md). Runs on every startup and
         master-dir switch - a no-op beyond a quick path-depth check per
         tracked file once everything's already migrated.
 
@@ -1609,19 +1728,18 @@ class Api(VoiceEditMixin):
         if not renamed:
             return
 
-        state = self._load_state()
-        new_state = {}
-        changed = False
-        for key, value in state.items():
-            parts = key.split("/", 2)
-            if len(parts) >= 2 and (parts[0], parts[1]) in renamed:
-                new_top = renamed[(parts[0], parts[1])]
-                remainder = "/" + parts[2] if len(parts) == 3 else ""
-                key = f"{parts[0]}/{new_top}{remainder}"
-                changed = True
-            new_state[key] = value
-        if changed:
-            self.state_path.write_text(json.dumps(new_state, indent=2, sort_keys=True))
+        def rekey(state):
+            new_state = {}
+            for key, value in state.items():
+                parts = key.split("/", 2)
+                if len(parts) >= 2 and (parts[0], parts[1]) in renamed:
+                    new_top = renamed[(parts[0], parts[1])]
+                    remainder = "/" + parts[2] if len(parts) == 3 else ""
+                    key = f"{parts[0]}/{new_top}{remainder}"
+                new_state[key] = value
+            state.clear()
+            state.update(new_state)
+        self._update_state(rekey)
 
     def get_master_dir_status(self):
         return {
@@ -1692,7 +1810,22 @@ class Api(VoiceEditMixin):
         return default
 
     def _load_state(self):
-        return self._load_json(self.state_path, {})
+        """The ticked mods, {unit key: True/False}. Never raises: a file that can't be read gives its .bak copy (see safe_io.py)."""
+        state = safe_io.read_json_with_backup(self.state_path, {})
+        return state if isinstance(state, dict) else {}
+
+    def _write_state(self, state):
+        """Replaces the ticks file in one step, keeping the previous good copy as .bak. Callers hold _state_lock."""
+        safe_io.write_json_atomic(self.state_path, state, keep_backup=True)
+
+    def _update_state(self, change):
+        """Read-modify-write of the ticks under one lock, so two changes at once can't overwrite each other. `change(state)`
+        edits the dict in place; what it returns is returned. The only way (besides save_checked) anything writes the ticks."""
+        with self._state_lock:
+            state = self._load_state()
+            result = change(state)
+            self._write_state(state)
+            return result
 
     def _load_roster_data(self):
         """roster.json in full: {"characters": [...], "courses": [...],
@@ -2357,6 +2490,7 @@ class Api(VoiceEditMixin):
         stores = [self.excluded_files_path, self.conflict_resolutions_path, self.settings_path,
                   self.mod_root / VOICE_EDITS_FILENAME, self.mod_root / LOOK_REVIEWS_FILENAME,
                   self.mod_root / ui_setup.OVERRIDES_FILENAME]
+        self._notes_rekey(old_rel, new_rel)     # (its keys only - a note's own text is never rewritten)
         for path in stores:
             if path is None or not path.is_file():
                 continue
@@ -2365,8 +2499,7 @@ class Api(VoiceEditMixin):
                 continue
             new = walk(data)
             if new != data:
-                path.write_text(json.dumps(new, indent=2, sort_keys=True), encoding="utf-8")
-
+                safe_io.write_json_atomic(path, new)
     def _movable_item(self, name):
         """(folder under mods/extracted/ it is filed in, roster entry) of anything a mod can be moved between - a vehicle
         part, an item (the "Other items" catch-all too), a character or a course - or (None, None). No two of these share a
@@ -2419,7 +2552,6 @@ class Api(VoiceEditMixin):
         extracted_root = self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME
         downloads_root = self.mod_root / MODS_DIRNAME / DOWNLOADS_DIRNAME
         to_dir = sanitize_filename(to_item)
-        state = self._load_state()
         done = []  # (new path, old path) of every completed move, for rollback
         moved_folders, renames = [], []
         try:
@@ -2435,8 +2567,6 @@ class Api(VoiceEditMixin):
                     done.append((new, old))
                     f["downloaded_to"] = str(new)
                     new_rel = new.relative_to(extracted_root).as_posix()
-                    for key in [k for k in state if k == old_rel or k.startswith(old_rel + "/")]:
-                        state[new_rel + key[len(old_rel):]] = state.pop(key)
                     f["slot_mismatch"] = self._download_slot_mismatch(to_section, to_item, new)
                     moved_folders.append(new_rel)
                     renames.append((old_rel, new_rel))
@@ -2463,7 +2593,11 @@ class Api(VoiceEditMixin):
             del gb_mods[from_item]
         gb_mods.setdefault(to_item, []).append(mod)
         self._save_gb_mods(gb_mods)
-        self.state_path.write_text(json.dumps(state, indent=2, sort_keys=True))
+        def rekey(state):   # (the ticks of the moved folders follow them - on the file as it is now, not as it was before the moves)
+            for old_rel, new_rel in renames:
+                for key in [k for k in state if k == old_rel or k.startswith(old_rel + "/")]:
+                    state[new_rel + key[len(old_rel):]] = state.pop(key)
+        self._update_state(rekey)
         for old_rel, new_rel in renames:
             self._rekey_unit_prefix(old_rel, new_rel)
         for _new, old in done:  # tidy now-empty item folders
@@ -2567,8 +2701,7 @@ class Api(VoiceEditMixin):
         return self._load_json(self.gb_mods_path, {})
 
     def _save_gb_mods(self, data):
-        self.gb_mods_path.write_text(json.dumps(data, indent=2, sort_keys=True))
-
+        safe_io.write_json_atomic(self.gb_mods_path, data)
     def _load_conflict_resolutions(self):
         """relpath -> priority-ordered list of unit-keys, most-preferred
         first (see resolve_conflict()). A stale entry - naming a mod that's
@@ -2578,8 +2711,7 @@ class Api(VoiceEditMixin):
         return self._load_json(self.conflict_resolutions_path, {})
 
     def _save_conflict_resolutions(self, data):
-        self.conflict_resolutions_path.write_text(json.dumps(data, indent=2, sort_keys=True))
-
+        safe_io.write_json_atomic(self.conflict_resolutions_path, data)
     def _load_known_shared_files(self):
         return self._load_json(self.known_shared_files_path, {})
 
@@ -2621,8 +2753,7 @@ class Api(VoiceEditMixin):
 
     def _save_excluded_files(self, data):
         data = {k: v for k, v in data.items() if v}
-        self.excluded_files_path.write_text(json.dumps(data, indent=2, sort_keys=True))
-
+        safe_io.write_json_atomic(self.excluded_files_path, data)
     def _excluded_norms(self):
         return {mod: set(entries) for mod, entries in self._load_excluded_files().items()}
 
@@ -2745,7 +2876,7 @@ class Api(VoiceEditMixin):
 
     def save_settings(self, settings):
         merged = {**self._load_settings(), **settings}
-        self.settings_path.write_text(json.dumps(merged, indent=2, sort_keys=True))
+        safe_io.write_json_atomic(self.settings_path, merged)
         return merged
 
     def clear_all_mods(self, delete_files=True):
@@ -2797,13 +2928,25 @@ class Api(VoiceEditMixin):
         return {
             "categories": payload,
             "checked": saved,
+            "epoch": self._root_epoch,   # (the page sends it back with every save - see save_checked)
+            "notes": self._notes_payload(),          # {unit key: note text} - the user's own notes on mods (mod_notes.py)
             "ui_icons_text": ui_icons_status_text(self.mod_root),
         }
 
-    def save_checked(self, checked):
-        self.state_path.write_text(json.dumps(checked, indent=2, sort_keys=True))
+    def save_checked(self, changes, epoch=None):
+        """Records ticks. `changes` is {unit key: on/off} for the units that CHANGED - never the page's whole picture: a key that
+        isn't in it stays as it is, so a page can't lose ticks it doesn't know about (an empty or out-of-date page used to replace
+        the whole file). `epoch` is what get_mods() handed the page: a page that loaded a different master folder (the folder was
+        switched under it) or never finished loading is refused - False, and the page reloads its ticks. True when saved."""
+        if epoch is not None and epoch != self._root_epoch:
+            return False
+        changes = {str(k): bool(v) for k, v in (changes or {}).items()}
+        with self._state_lock:
+            state = self._load_state()
+            state.update(changes)
+            self._write_state(state)
         try:
-            self.sync_auto_names(checked)   # ticking a character mod tries to give the character its name
+            self.sync_auto_names(state)      # ticking a character mod tries to give the character its name
         except Exception:
             pass                            # a naming hiccup must never lose the user's ticks
         self.sync_voice_edits()             # a Custom voice mod follows the mod it was made from (never raises)
@@ -2896,7 +3039,7 @@ class Api(VoiceEditMixin):
         if not undo:
             sigs.append(sig)
         del sigs[:-30]
-        (self.mod_root / LOOK_REVIEWS_FILENAME).write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+        safe_io.write_json_atomic((self.mod_root / LOOK_REVIEWS_FILENAME), data)
         return True
 
     # --- the same two review tasks for a course --------------------------------------------------
@@ -3398,8 +3541,8 @@ class Api(VoiceEditMixin):
     def _find_course_pict_file(self, unit_key):
         """Returns the Path to this course unit's own select-screen thumbnail
         (romfs/UI/cmn/menu/ym_CoursePict_<internal id>.bntx), or None if it
-        doesn't bundle one - most course mods don't (see README's "packed
-        UI/*.sarc" section for the character-icon equivalent of this).
+        doesn't bundle one - most course mods don't (see the "packed
+        UI/*.sarc" section of docs/merge-rules.md for the character-icon equivalent of this).
 
         Resolves the exact checked unit's own romfs the same way
         _compute_claims() does (category/unit_rel/romfs) rather than via
@@ -3560,6 +3703,7 @@ class Api(VoiceEditMixin):
             return {"success": False, "error": f"Couldn't delete it: {e}"}
 
         self._clear_state_prefix("/".join(unit_key.split("/")[:3]))
+        self._notes_clear_prefix("/".join(unit_key.split("/")[:3]))   # (the user removed it on purpose; a re-download keeps its notes)
         self.sync_voice_edits()   # (removing a Custom voice mod gives back the files left out for it)
 
         # If this folder was tracked via the GameBanana flow, reset its
@@ -4346,7 +4490,7 @@ class Api(VoiceEditMixin):
     @mutates_library
     def _download_and_extract_one(self, category, item_name, mod_name, file_entry):
         # Nested by item ("<category>/<item>/<mod>") rather than the old flat
-        # "<item> - <mod>" naming - see README's "Folder layout" section.
+        # "<item> - <mod>" naming - see "Folder naming" in docs/architecture.md.
         # item_name itself is sanitized here (unlike mod_name it was never
         # sanitized under the old flat scheme, since it was never the last -
         # and therefore never the trailing-dot/space-sensitive - path segment
@@ -4415,6 +4559,14 @@ class Api(VoiceEditMixin):
             fix_bare_course_wrapper(dest_folder)
             units = find_mod_units(dest_folder)
 
+        # A course's files with no folder named for it at all ("Retextured" mods with just course_model.szs): the course
+        # this was downloaded for says where they go - see fix_loose_course_files(). (Before the next fix, which would take
+        # a wrapper folder's own name for the course id.)
+        if not units and category == "courses" and not looks_like_ui_assets(dest_folder):
+            slots = self._course_internal_names(item_name)
+            if slots and len(slots) == 1 and fix_loose_course_files(dest_folder, next(iter(slots)), self._course_names_by_internal()):
+                units = find_mod_units(dest_folder)
+
         if not units and not looks_like_ui_assets(dest_folder):
             if fix_bare_course_slot(dest_folder):
                 units = find_mod_units(dest_folder)
@@ -4428,6 +4580,11 @@ class Api(VoiceEditMixin):
         # ...and loose vehicle-part .szs files (BodyK_Cat.szs, Wing_Pap.szs, ...).
         if not units and not looks_like_ui_assets(dest_folder):
             if fix_loose_kart_parts(dest_folder):
+                units = find_mod_units(dest_folder)
+
+        # ...and a character's own loose files (<Slot>.szs, Driver_<Slot>.bars, MenuDriver_<Slot>.bars).
+        if not units and not looks_like_ui_assets(dest_folder):
+            if fix_loose_character_files(dest_folder):
                 units = find_mod_units(dest_folder)
 
         # exefs code patches (.ips) are mergeable units too - see
@@ -4572,15 +4729,12 @@ class Api(VoiceEditMixin):
         `prefix` (a "category/item/mod" string) - shared by remove_mod_unit()
         and _retire_previous_download() so removing a mod's files from disk
         never leaves a stale checked reference to a folder that's gone."""
-        state = self._load_state()
-        changed = False
-        for key in list(state.keys()):
-            if key == prefix or key.startswith(prefix + "/"):
-                del state[key]
-                changed = True
-        if changed:
-            self.state_path.write_text(json.dumps(state, indent=2, sort_keys=True))
-        return changed
+        def clear(state):
+            gone = [k for k in state if k == prefix or k.startswith(prefix + "/")]
+            for k in gone:
+                del state[k]
+            return bool(gone)
+        return self._update_state(clear)
 
     def gb_download_files(self, category, character_name, mod_id, file_ids, record_type="Mod"):
         gb_mods = self._load_gb_mods()
@@ -5381,7 +5535,7 @@ class Api(VoiceEditMixin):
         if bgm_bars_skipped:
             lines.append(
                 f"  ({bgm_bars_skipped} mod(s) bundled Audio/Static/BGM.bars - always skipped, "
-                "see README)"
+                "see docs/merge-rules.md)"
             )
         if resolved:
             lines.append(
@@ -5890,7 +6044,7 @@ class Api(VoiceEditMixin):
         the plan - what the character grid needs to draw its tiles. Every "looks" entry carries whatever
         picture will actually show - the game's own (once base files are set up) if nothing changes it,
         a mod's or the user's if something does ("icon_modded" says which) - so the grid can draw a
-        picture on every tile, not only the modded ones. "voice": {name: {"race", "menu", "select", "from"}}
+        picture on every tile, not only the modded ones. "voice": {name: {"race", "menu", "select", "from", "muted"}}
         for characters with a ticked mod that ships voice files for them (one whose voice files are for
         somebody else's slot doesn't count); "select": whether clicking the tile has a character-select
         sound to play." Every look with a picture also carries `icon_id` (a fingerprint of it); `known_icons` is {name: icon_id}
@@ -5911,6 +6065,7 @@ class Api(VoiceEditMixin):
                         found["from"].append(mod)
             if found["from"]:
                 found["select"] = bool(found["menu"] and self._select_voice_source(name))
+                found["muted"] = self._voice_all_muted(self._canon_char(name))   # (every sound silenced with the voice editor)
                 voice[name] = found
         ctx = self._menu_look_ctx()
         if ctx.get("error"):

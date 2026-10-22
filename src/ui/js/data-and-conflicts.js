@@ -28,7 +28,10 @@ async function refreshViewsState() {
 async function loadMods() {
   const [modsResult] = await Promise.all([pywebview.api.get_mods(), refreshViewsState()]);
   state.categories = modsResult.categories;
-  state.checked = modsResult.checked;
+  state.checked = { ...modsResult.checked, ...checkedPending };
+  state.checkedSaved = { ...modsResult.checked };
+  state.epoch = modsResult.epoch;
+  state.notes = modsResult.notes || {};
   renderAll();
 }
 
@@ -195,7 +198,7 @@ function buildConflictCard(group, opts) {
         await pywebview.api.resolve_conflict_group(group.mods, group.paths, null);
       } else if (v.startsWith("untick:")) {
         state.checked[v.slice(7)] = false;
-        await pywebview.api.save_checked(state.checked);
+        await saveChecked();
       }
     } catch (e) {
       status.textContent = "Something went wrong: " + e;
@@ -270,7 +273,7 @@ function buildFilesPanel(modKey, onChange) {
       row.appendChild(cb);
       row.appendChild(cgEl("code", null, f.path));
       const why = reasons[f.path.toLowerCase()];
-      const note = f.skipped_anyway ? "never copied (see README)"
+      const note = f.skipped_anyway ? "never copied (see docs/merge-rules.md)"
         : f.left_out ? (why && why.kept_label ? `kept ${why.kept_label}'s instead` : why && why.reason === "conflict" ? "game's own file used" : "you left this out")
         : f.kind;
       row.appendChild(cgEl("small", null, note));
