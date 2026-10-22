@@ -1497,3 +1497,20 @@ from the roster) for anything not tracked there - a mod placed by hand,
 outside the GameBanana flow. It's safe to re-run (every subsequent launch
 does run it again) - once a folder is nested, its path no longer matches the
 old flat shape, so there's nothing left for it to do.
+
+## Building a release
+
+`Build Release.bat` (or `python tools/build_release.py`) makes
+`dist/MK8DX-Mod-Manager-v<version>-windows.zip`: a PyInstaller folder build (`tools/mk8dx-mod-manager.spec`,
+no console window) holding the app, its Python runtime and 7-Zip's command-line tool, plus the license and a
+short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). The version comes from
+`src/version.py`; bump it before building.
+
+- `src/app_paths.py` is the one place that knows where files are: `RESOURCE_DIR` (the read-only `ui/`,
+  `roster.json`, `known-shared-files.json`, `name-labels.json`, found under PyInstaller's bundle folder when
+  frozen) and `APP_ROOT` (the folder holding the `.exe`, where `app-config.json` goes). A new bundled data
+  file needs adding to the spec's `datas` and to be read through `app_paths.RESOURCE_DIR`.
+- A packaged build has no console, so `app_paths.redirect_output_to_log()` sends stdout/stderr to
+  `mod-manager.log` next to the `.exe`, and an uncaught startup error shows a message box pointing at it.
+- Build with a mainstream Python and test the zip on a machine without Python: extract it to a short path,
+  run the setup wizard, download a `.7z` mod, commit.

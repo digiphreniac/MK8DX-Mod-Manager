@@ -28,6 +28,11 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
+import app_paths
+# A packaged (windowed) build has no console: send output to a log file before the libraries
+# below are imported, since some of them (pywebview) set up their logging when first imported.
+LOG_PATH = app_paths.redirect_output_to_log() if app_paths.FROZEN else None
+
 import webview
 
 import bntx_decode
@@ -44,6 +49,7 @@ import voice_audio
 import voice_edit
 import game_files
 import gb_desc_cache
+from version import VERSION as APP_VERSION
 from voice_api import VoiceEditMixin, VOICE_EDITS_FILENAME
 
 TITLE_ID = "0100152000022000"  # Mario Kart 8 Deluxe
@@ -159,12 +165,12 @@ VEHICLE_BODY_CATEGORY_IDS = {
 # describe the base course by its own name ("Moo Moo Meadows"), not the
 # prefixed disambiguated label this app displays it under.
 COURSE_NAME_PREFIXES = ("Wii ", "GBA ", "DS ", "N64 ", "GCN ", "SNES ", "3DS ", "Tour ")
-# Where the app's own code lives - fixed, never moves.
-SCRIPT_DIR = Path(__file__).resolve().parent
-# One level up: the app's install root. app-config.json (the bootstrap
-# pointer to the user-chosen master directory) lives here rather than next
-# to the code, since it can't live inside the directory it's pointing at.
-APP_ROOT = SCRIPT_DIR.parent
+# Where the app's own read-only files live (ui/, roster.json, ...) - fixed, never moves.
+SCRIPT_DIR = app_paths.RESOURCE_DIR
+# The app's install root (one level above src/ from source; the folder holding the .exe in a
+# packaged build). app-config.json (the bootstrap pointer to the user-chosen master directory)
+# lives here rather than next to the code, since it can't live inside the directory it's pointing at.
+APP_ROOT = app_paths.APP_ROOT
 IMAGE_EXTS = {".png", ".jpg", ".jpeg"}
 DEFAULT_SETTINGS = {
     "show_nsfw": False,
@@ -6784,7 +6790,22 @@ def default_window_size():
     return target_w, target_h
 
 
-if __name__ == "__main__":
+def report_startup_failure(log_path):
+    """Last resort for a packaged build: there is no console to show the traceback in, so say
+    where it was written."""
+    import traceback
+    traceback.print_exc()
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(
+            None,
+            "The Mod Manager hit an error and has to close.\n\n"
+            f"Details were saved to:\n{log_path}\n\n"
+            "Attach that file when you report the problem.",
+            "Mod Manager", 0x10)
+
+
+def main():
     api = Api(load_master_dir_pointer())
     window_w, window_h = default_window_size()
     window = webview.create_window(
@@ -6802,3 +6823,15 @@ if __name__ == "__main__":
     # enough to hang the whole window. Not worth it just for Inspect Element,
     # so it stays off unless explicitly requested via MK8DX_DEBUG=1.
     webview.start(debug=os.environ.get("MK8DX_DEBUG") == "1")
+
+
+if __name__ == "__main__":
+    if LOG_PATH:
+        print(f"Mod Manager {APP_VERSION}, Python {sys.version.split()[0]}")
+    try:
+        main()
+    except Exception:
+        if LOG_PATH is None:
+            raise
+        report_startup_failure(LOG_PATH)
+        sys.exit(1)

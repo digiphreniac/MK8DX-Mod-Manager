@@ -9,3 +9,9 @@ __pycache__/
 
 
 PROMPTS.md
+
+# Release build output
+.build-venv/
+build/
+dist/
+mod-manager.log

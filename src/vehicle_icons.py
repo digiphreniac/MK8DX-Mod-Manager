@@ -17,6 +17,7 @@ import json
 import re
 from pathlib import Path
 
+import app_paths
 import bntx_decode
 import ui_archives
 
@@ -76,7 +77,7 @@ def key_names() -> dict:
     if _KEY_NAMES is None:
         _KEY_NAMES = {}
         try:
-            roster = json.loads((Path(__file__).resolve().parent / "roster.json").read_text(encoding="utf-8"))
+            roster = json.loads((app_paths.RESOURCE_DIR / "roster.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):
             roster = {}
         for section in ("vehicles", "wheels", "gliders"):

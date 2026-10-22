@@ -21,6 +21,8 @@ from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
 
+import app_paths
+
 USER_AGENT = "mk8dx-mod-manager (personal local tool)"
 API_V13 = "https://gamebanana.com/apiv13"
 API_V11 = "https://gamebanana.com/apiv11"
@@ -531,6 +533,7 @@ def fetch_bytes(url: str, timeout: int = 30) -> bytes:
 
 def find_7zip():
     for candidate in (
+        app_paths.BUNDLED_7ZIP_DIR / "7z.exe",   # shipped inside release builds
         r"C:\Program Files\7-Zip\7z.exe",
         r"C:\Program Files (x86)\7-Zip\7z.exe",
     ):
@@ -548,8 +551,9 @@ def extract_archive(archive_path: Path, dest_dir: Path):
 
     if sevenzip:
         result = subprocess.run(
-            [sevenzip, "x", str(archive_path), f"-o{dest_dir}", "-y"],
+            [str(sevenzip), "x", str(archive_path), f"-o{dest_dir}", "-y"],
             capture_output=True, text=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),   # no console flash from the windowed app
         )
         if result.returncode != 0:
             raise GameBananaError(f"7-Zip extraction failed: {result.stdout}\n{result.stderr}")

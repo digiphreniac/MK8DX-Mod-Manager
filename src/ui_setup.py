@@ -33,6 +33,7 @@ import re
 import shutil
 from pathlib import Path
 
+import app_paths
 import bntx_decode
 import bntx_encode
 import ui_archives as ua
@@ -1103,7 +1104,7 @@ def name_table() -> dict:
     global _NAME_TABLE
     if _NAME_TABLE is None:
         try:
-            _NAME_TABLE = json.loads((Path(__file__).resolve().parent / "name-labels.json").read_text(encoding="utf-8"))
+            _NAME_TABLE = json.loads((app_paths.RESOURCE_DIR / "name-labels.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):
             _NAME_TABLE = {}
     return _NAME_TABLE

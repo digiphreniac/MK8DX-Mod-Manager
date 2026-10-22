@@ -19,10 +19,6 @@ Your mods stay on your computer. The app only talks to GameBanana to browse and 
 ## Requirements
 
 - **Windows 10 or 11.** Only Windows has been tested.
-- **Python 3.9 or newer**, from [python.org](https://www.python.org/downloads/). Tick
-  **"Add python.exe to PATH"** in the installer. (The `py` launcher that the installer adds also works.)
-- **[7-Zip](https://www.7-zip.org/)**, which is needed to unpack `.rar` and `.7z` mods. Plain `.zip` mods
-  work without it, but many mods on GameBanana are not zips.
 - The **Microsoft Edge WebView2 runtime**. It is already included in Windows 11 and up-to-date Windows 10.
 - **Your own copy of Mario Kart 8 Deluxe**, dumped from your Switch, with its RomFS extracted (see
   [First run](#first-run)). The app cannot include the game's files because they belong to Nintendo.
@@ -30,14 +26,26 @@ Your mods stay on your computer. The app only talks to GameBanana to browse and 
 
 ## Install and run
 
-1. Download the release and unzip it somewhere you want to keep it, such as `C:\MK8DX-Mod-Manager`.
-   Avoid `Program Files`, since the app saves a small settings file next to itself.
-2. Double-click **`Run Mod Manager.bat`**.
+1. Download `MK8DX-Mod-Manager-v<version>-windows.zip` from the releases page.
+2. **Extract the whole zip** to a short path you want to keep it in, such as
+   `C:\MK8DX-Mod-Manager`. Don't run it from inside the zip, avoid very long folder paths
+   (Windows refuses to load the app from them), and avoid `Program Files`, since the app saves a
+   small settings file next to itself.
+3. Double-click **`MK8DX Mod Manager.exe`**.
 
-The first launch creates a private Python environment in a `.venv` folder and downloads the
-two libraries the app needs (`pywebview` and `Pillow`). That takes a minute and needs an internet
-connection. Later launches start straight away. A console window stays open while the app runs, so
-any error messages are visible. Close the app window to end it.
+Nothing else needs installing: Python and 7-Zip (for `.rar` and `.7z` mods) are included.
+Windows may show a "Windows protected your PC" notice the first time because the app isn't
+code-signed; choose **More info**, then **Run anyway**. If you'd rather check what you're running, the
+full source is in this repository.
+
+### Running from source (optional)
+
+If you'd rather not use the packaged build, install
+[Python 3.9 or newer](https://www.python.org/downloads/) (tick **"Add python.exe to PATH"**) and
+[7-Zip](https://www.7-zip.org/) (needed for `.rar` and `.7z` mods), then double-click
+**`Run Mod Manager.bat`** in the repository. The first launch creates a private Python environment in a
+`.venv` folder and downloads the two libraries the app needs (`pywebview` and `Pillow`), which needs an
+internet connection. A console window stays open while it runs, so any error messages are visible.
 
 ## First run
 
@@ -70,20 +78,26 @@ merging when asked. The in-app **Help** button explains each screen in more deta
 
 ## Troubleshooting
 
-- **"Python was not found"** - install Python from python.org with *Add python.exe to PATH* ticked,
-  then run the launcher again.
-- **"Can't extract ... 7-Zip isn't installed"** - install 7-Zip with its default settings.
+- **The app says it has to close, or nothing opens** - the details are in `mod-manager.log` next to
+  the `.exe`. Include that file when you report the problem.
+- **"Failed to load Python DLL ... filename or extension is too long"** - move the folder to a
+  shorter path such as `C:\MK8DX-Mod-Manager`.
 - **The window stays blank or doesn't open** - install the
   [WebView2 runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
+- **Running from source: "Python was not found"** - install Python from python.org with
+  *Add python.exe to PATH* ticked, then run the launcher again.
+- **Running from source: "Can't extract ... 7-Zip isn't installed"** - install 7-Zip with its default settings.
 - **A mod shows "Needs romfs folder"** - its author packaged it unusually. Open the mod's folder from
   the app and place its files in a folder named `romfs`.
-- **Something broke after an update** - delete the `.venv` folder and launch again to rebuild it.
-- **Debug mode** - run `Run Mod Manager (Dev).bat` to turn on the browser developer tools.
+- **Running from source: something broke after an update** - delete the `.venv` folder and launch again
+  to rebuild it.
+- **Debug mode** (from source) - run `Run Mod Manager (Dev).bat` to turn on the browser developer tools.
 
 ## Updating
 
-Unzip the new release over the old folder. Your mod data lives in the folder you chose in setup, so
-it is not affected. `app-config.json` in the app folder remembers where that is, so keep it.
+Extract the new release over the old folder (or delete the old `_internal` folder and the `.exe`
+first, then extract). Your mod data lives in the folder you chose in setup, so it is not affected.
+`app-config.json` in the app folder remembers where that is, so keep it.
 
 ## Disclaimer
 
@@ -101,5 +115,6 @@ Dump spreadsheet.
 
 ## License
 
-[MIT](LICENSE). The internal design notes for contributors are in
-[docs/DEVELOPERS.md](docs/DEVELOPERS.md).
+[MIT](LICENSE). The packaged build includes the 7-Zip command-line tool (GNU LGPL, see
+`_internal\7zip\License.txt`). The internal design notes for contributors, including how to build the
+release, are in [docs/DEVELOPERS.md](docs/DEVELOPERS.md).
