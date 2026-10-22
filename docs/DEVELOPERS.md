@@ -93,6 +93,13 @@ short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). Th
   pythonnet (the window library) fails. `app_paths.unblock_downloaded_files()` clears the mark from the bundled files at
   startup, before `webview` is imported. Test a build by marking its files (see the CI smoke test), not just by extracting a
   local zip, which leaves no mark.
+- The zip holds exactly one readme: `release/README.md` (copied in as `README.md`). It is written separately from the
+  repository's `README.md` and is the only place to edit the text users see in the download; CI fails if the package ends up
+  with more than one.
+- First run: with no `app-config.json`, the master folder is `data` next to the app (`default_master_dir()` in
+  `mod_manager.py`; `sd-card-staging` is then next to it too). The folder picker only appears when that spot isn't writable or
+  the user changes it in Settings. The `data` folder is created at run time, never shipped in the zip, so extracting an update
+  over an old install keeps the user's data.
 - A packaged build has no console, so `app_paths.redirect_output_to_log()` sends stdout/stderr to
   `mod-manager.log` next to the `.exe`, and an uncaught startup error shows a message box pointing at it.
 - Build with a mainstream Python and test the zip on a machine without Python: extract it to a short path,

@@ -5,9 +5,10 @@ Builds the Windows release: dist/MK8DX-Mod-Manager-v<version>-windows.zip
     python tools/build_release.py --no-7zip   (skip bundling 7-Zip; .rar/.7z mods then need the user to install it)
 
 What it does: makes a private build environment (.build-venv) with the app's requirements plus
-PyInstaller, runs PyInstaller on tools/mk8dx-mod-manager.spec, adds the license and a short
-readme to the output folder, and zips it. 7-Zip's command-line files are copied from this
-machine's 7-Zip install (or the folder in MK8DX_7ZIP_DIR), so install 7-Zip before building.
+PyInstaller, runs PyInstaller on tools/mk8dx-mod-manager.spec, adds the license and release/README.md
+(the only readme in the zip; it is not the repository's README.md) to the output folder, and zips it.
+7-Zip's command-line files are copied from this machine's 7-Zip install (or the folder in
+MK8DX_7ZIP_DIR), so install 7-Zip before building.
 
 Build with a mainstream Python (3.11-3.13 is the safe range for PyInstaller and pywebview's
 dependencies); the release then runs on any Windows 10/11 machine with no Python installed.
@@ -27,19 +28,6 @@ from version import VERSION   # noqa: E402
 BUILD_VENV = ROOT / ".build-venv"
 APP_NAME = "MK8DX Mod Manager"
 SEVENZIP_FILES = ("7z.exe", "7z.dll", "License.txt")
-
-RELEASE_README = """Mario Kart 8 Deluxe Mod Manager {version}
-
-1. Extract this whole folder somewhere you want to keep it (not inside the zip, and not
-   in Program Files).
-2. Run "{app}.exe".
-
-On first launch a short setup wizard asks where to keep your mod data and for a folder
-extracted from your own copy of the game. See README.md for the full guide, requirements
-and troubleshooting.
-
-If something goes wrong, mod-manager.log (next to the .exe) has the details.
-"""
 
 
 def run(cmd, **kwargs):
@@ -86,8 +74,7 @@ def main():
          ROOT / "tools" / "mk8dx-mod-manager.spec"], env=env, cwd=ROOT)
 
     shutil.copy2(ROOT / "LICENSE", out / "LICENSE.txt")
-    shutil.copy2(ROOT / "README.md", out / "README.md")
-    (out / "READ ME FIRST.txt").write_text(RELEASE_README.format(version=VERSION, app=APP_NAME), encoding="utf-8")
+    shutil.copy2(ROOT / "release" / "README.md", out / "README.md")   # the one readme users get (not the repository's)
 
     archive = shutil.make_archive(str(dist / f"MK8DX-Mod-Manager-v{VERSION}-windows"), "zip", dist, APP_NAME)
     size_mb = Path(archive).stat().st_size / 1e6

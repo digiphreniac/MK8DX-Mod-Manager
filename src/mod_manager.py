@@ -233,8 +233,9 @@ _INVALID_FS_CHARS = re.compile(r'[<>:"/\\|?*]')
 
 
 def load_master_dir_pointer():
-    """Reads app-config.json from the app root. Returns the configured
-    master directory as a Path, or None if not set up yet."""
+    """Reads app-config.json from the app root. Returns the master directory
+    the user chose as a Path, or None when they never changed it (the app then
+    uses default_master_dir())."""
     config_path = APP_ROOT / APP_CONFIG_FILENAME
     if not config_path.exists():
         return None
@@ -244,6 +245,24 @@ def load_master_dir_pointer():
         return None
     raw = data.get("master_dir")
     return Path(raw) if raw else None
+
+
+DEFAULT_DATA_DIRNAME = "data"
+
+
+def default_master_dir():
+    """The folder used until the user picks another: `data` inside the app's own folder (next to the .exe in a packaged build),
+    created when missing. None when that place can't be written to (say the app sits in Program Files) - the app then asks
+    the user to choose a folder, as it always did."""
+    folder = APP_ROOT / DEFAULT_DATA_DIRNAME
+    try:
+        folder.mkdir(exist_ok=True)
+        probe = folder / ".write-test"
+        probe.write_text("")
+        probe.unlink()
+    except OSError:
+        return None
+    return folder
 
 
 def save_master_dir_pointer(path: Path):
@@ -1747,6 +1766,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return {
             "configured": self.mod_root is not None,
             "path": str(self.mod_root) if self.mod_root else None,
+            "default_path": str(APP_ROOT / DEFAULT_DATA_DIRNAME),
         }
 
     def pick_master_dir(self):
@@ -6963,7 +6983,7 @@ def report_startup_failure(log_path):
 
 
 def main():
-    api = Api(load_master_dir_pointer())
+    api = Api(load_master_dir_pointer() or default_master_dir())
     window_w, window_h = default_window_size()
     window = webview.create_window(
         "Mario Kart 8 Mod Manager",
