@@ -31,7 +31,7 @@ def make_api():
 
 
 def on_disk(root):
-    return json.loads((root / mod_notes.NOTES_FILENAME).read_text())
+    return json.loads((root / mod_notes.NOTES_FILENAME).read_text(encoding="utf-8"))
 
 
 class Notes(unittest.TestCase):

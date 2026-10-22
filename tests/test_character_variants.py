@@ -72,15 +72,15 @@ class LinkVariants(unittest.TestCase):
         self.assertEqual(ui_setup.code_for_character("Gold Mario"), "GoldMario")
 
     def test_the_select_screen_has_one_metal_mario_tile_for_both(self):
-        js = (SRC / "ui" / "js" / "state-and-helpers.js").read_text()
+        js = (SRC / "ui" / "js" / "state-and-helpers.js").read_text(encoding="utf-8")
         self.assertIn('{ group: "Metal Mario", options: ["Metal Mario", "Gold Mario"] }', js)
 
     def test_the_select_screen_has_one_link_tile_for_both(self):
-        js = (SRC / "ui" / "js" / "state-and-helpers.js").read_text()
+        js = (SRC / "ui" / "js" / "state-and-helpers.js").read_text(encoding="utf-8")
         layout = js[js.index("const CHARACTER_GRID_LAYOUT"):js.index("];", js.index("const CHARACTER_GRID_LAYOUT"))]
         self.assertIn('{ group: "Link", options: ["Link", "Link (Breath of the Wild)"] }', layout)
         shown = set(re.findall(r'"([^"]+)"', layout)) - {"group", "options"}
-        missing = [n for n in json.loads((SRC / "roster.json").read_text())["characters"] if n not in shown]
+        missing = [n for n in json.loads((SRC / "roster.json").read_text(encoding="utf-8"))["characters"] if n not in shown]
         self.assertEqual(missing, [], "characters the select-screen grid doesn't place")
 
 

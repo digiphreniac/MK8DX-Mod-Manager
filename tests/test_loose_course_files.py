@@ -61,7 +61,7 @@ class LooseCourseFiles(unittest.TestCase):
         self.assertFalse(mm.fix_loose_course_files(root, "Gu_SnowMountain", KNOWN))
 
     def test_every_course_id_in_the_roster_is_a_plain_folder_name(self):
-        roster = json.loads((Path(mm.__file__).parent / "roster.json").read_text())["courses"]
+        roster = json.loads((Path(mm.__file__).parent / "roster.json").read_text(encoding="utf-8"))["courses"]
         single = [c for cup in roster for c in cup["courses"] if len(c.get("internal") or []) == 1]
         self.assertGreater(len(single), 90)              # (only Animal Crossing's four seasons can't be placed this way)
         for c in single:

@@ -12,7 +12,21 @@ import json
 import os
 import sys
 import threading
+import time
 from pathlib import Path
+
+
+def _replace(tmp: Path, path: Path) -> None:
+    """`os.replace`, which on Windows fails with PermissionError for as long as another thread or program (a virus scanner, the
+    indexer) has the target open - for a moment only, so it is tried again a few times before giving up."""
+    for attempt in range(50):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if sys.platform != "win32" or attempt == 49:
+                raise
+            time.sleep(0.005 * (attempt + 1))
 
 
 def write_text_atomic(path, text: str, encoding: str = "utf-8") -> None:
@@ -23,7 +37,7 @@ def write_text_atomic(path, text: str, encoding: str = "utf-8") -> None:
             f.write(text)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, path)
+        _replace(tmp, path)
     finally:
         try:
             tmp.unlink()   # (only still there when the replace didn't happen)
@@ -54,7 +68,13 @@ def read_json_with_backup(path, default):
     if not path.exists():
         return default
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        for attempt in range(10):
+            try:
+                return json.loads(path.read_text(encoding="utf-8"))
+            except PermissionError:   # (Windows: opening a file fails for a moment while it is being replaced)
+                if sys.platform != "win32" or attempt == 9:
+                    raise
+                time.sleep(0.005 * (attempt + 1))
     except (ValueError, OSError) as e:
         print(f"[safe_io] {path.name} couldn't be read ({type(e).__name__}: {e}); trying {path.name}.bak", file=sys.stderr, flush=True)
     try:

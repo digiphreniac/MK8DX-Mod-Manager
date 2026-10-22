@@ -10,6 +10,7 @@ import json
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 
@@ -45,7 +46,7 @@ def make_api(ticks=None):
 
 
 def on_disk(root):
-    return json.loads((root / "mod-manager-state.json").read_text())
+    return json.loads((root / "mod-manager-state.json").read_text(encoding="utf-8"))
 
 
 class SaveChecked(unittest.TestCase):
@@ -93,10 +94,11 @@ class Files(unittest.TestCase):
         def reader():
             while not stop.is_set():
                 try:
-                    if len(json.loads(path.read_text())) != len(TICKS):
+                    if len(safe_io.read_json_with_backup(path, None)) != len(TICKS):
                         bad.append("partial")
-                except (ValueError, OSError):
+                except TypeError:   # (None: the file could not be read and there is no .bak)
                     bad.append("unreadable")
+                time.sleep(0.001)   # (Windows can't replace a file while it is open: readers that never pause would starve the writer)
 
         readers = [threading.Thread(target=reader) for _ in range(4)]
         [t.start() for t in readers]
@@ -118,7 +120,7 @@ class Files(unittest.TestCase):
         api.save_checked({"characters/Toad/Red/Unit": True}, api.get_mods()["epoch"])
         (root / "mod-manager-state.json").write_text("{not json")
         api.save_checked({"characters/Toad/Blue/Unit": True}, api.get_mods()["epoch"])
-        bak = json.loads((root / "mod-manager-state.json.bak").read_text())
+        bak = json.loads((root / "mod-manager-state.json.bak").read_text(encoding="utf-8"))
         self.assertGreaterEqual(len(bak), len(TICKS))
 
     def test_removing_a_mod_clears_only_its_own_ticks(self):
