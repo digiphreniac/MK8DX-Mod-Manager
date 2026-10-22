@@ -20,6 +20,7 @@
   const SCRIPTS = [
     "js/api-coalesce.js",
     "js/state-and-helpers.js",
+    "js/mod-notes.js",
     "js/tiles-and-review.js",
     "js/rich-text.js",
     "js/character-select-layout.js",

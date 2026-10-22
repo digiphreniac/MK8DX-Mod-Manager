@@ -21,6 +21,8 @@ from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
 
+import app_paths
+
 USER_AGENT = "mk8dx-mod-manager (personal local tool)"
 API_V13 = "https://gamebanana.com/apiv13"
 API_V11 = "https://gamebanana.com/apiv11"
@@ -531,6 +533,7 @@ def fetch_bytes(url: str, timeout: int = 30) -> bytes:
 
 def find_7zip():
     for candidate in (
+        app_paths.BUNDLED_7ZIP_DIR / "7z.exe",   # shipped inside release builds
         r"C:\Program Files\7-Zip\7z.exe",
         r"C:\Program Files (x86)\7-Zip\7z.exe",
     ):
@@ -538,6 +541,15 @@ def find_7zip():
             return candidate
     found = shutil.which("7z") or shutil.which("7zz") or shutil.which("7z.exe")
     return found
+
+
+def _extract_with_bsdtar(archive_path: Path, dest_dir: Path) -> bool:
+    """True when the system's bsdtar unpacked the archive into dest_dir (False when there isn't one, or it failed too)."""
+    tar = shutil.which("bsdtar")
+    if not tar:
+        return False
+    result = subprocess.run([tar, "-xf", str(archive_path), "-C", str(dest_dir)], capture_output=True, text=True)
+    return result.returncode == 0
 
 
 def extract_archive(archive_path: Path, dest_dir: Path):
@@ -548,10 +560,15 @@ def extract_archive(archive_path: Path, dest_dir: Path):
 
     if sevenzip:
         result = subprocess.run(
-            [sevenzip, "x", str(archive_path), f"-o{dest_dir}", "-y"],
+            [str(sevenzip), "x", str(archive_path), f"-o{dest_dir}", "-y"],
             capture_output=True, text=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),   # no console flash from the windowed app
         )
         if result.returncode != 0:
+            # Some 7-Zip builds can't read every RAR5 archive ("Unsupported Method"); the system's bsdtar (libarchive - macOS,
+            # and tar.exe on Windows 10+) can, so give it a go before giving up.
+            if _extract_with_bsdtar(archive_path, dest_dir):
+                return
             raise GameBananaError(f"7-Zip extraction failed: {result.stdout}\n{result.stderr}")
         return
 

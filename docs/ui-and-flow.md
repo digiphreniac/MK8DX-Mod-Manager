@@ -1,0 +1,68 @@
+# Look and feel, and the guided flow
+
+Tooltips, scrollbars and waiting states; the four-step flow (Setup, Choose mods, Commit, Copy to Switch) and what makes the Commit step stale.
+
+## Look and feel
+
+- **Tooltips** are one custom element instead of the browser's own. Every `title="..."` in the app (in the markup or set from
+  code, on anything that appears later too) shows it, so nothing had to be rewritten: while the mouse is over an element its
+  title is taken off (that is what stops the browser's own tooltip) and put back when the mouse leaves. It is a dark card with
+  an arrow, appears after a short pause over each element (moving on to the next one starts the wait again), goes under the element (above it when
+  there is no room), stays inside the window, and disappears on click, scroll, key press or window resize. Lines of a title
+  become lines of the tooltip and a "Label: text" line gets its label picked out. Tab to an element and it shows too.
+- **Scrollbars** are slim and use the app's colours (light and dark). The window's content is capped at 1800px wide
+  (`--app-max` in the stylesheet): on a wider window the extra room goes to the sides, and the header, tabs, pages and
+  footer stay lined up.
+- **Waiting is shown, not hidden.** A character tile with ticked mods pulses until the app has read what those mods change
+  (the icon and name) - on opening the app, and again after a tick. In a character's card, ticking or unticking a mod turns
+  the Name and Icons sections into a loading state at once (the status line says "reading the appearance...", the chip says
+  "Reading...") until the new answer is drawn; a course's Menu look card does the same ("Reading the mod's menu files...").
+
+## The guided flow: step bar, Next button, Commit page
+
+The app walks you through four steps, shown in the header itself - one row holding the title, the four steps and
+two icon buttons (Refresh, the circular arrow, which turns while it reloads; Settings, the gear) - and a
+**Next** button in the bottom-right corner - flush with the window's right edge, a rectangle with barely rounded corners
+and a slanted left side (bottom-left sticks out further than top-left), like the game's own (`get_flow_status()` in
+`mod_manager.py` is the single source of truth; the frontend just renders it):
+
+1. **Setup** - first run: master folder (existing flow), then a required wizard: game version
+   (`set_game_version()`; a known version also sets `game_build_id`, which the code-patch "wrong
+   version" checks use), **your game's files** (required, no skip - see [Base game files](base-game-files.md#base-game-files-a-required-local-copy)),
+   options (NSFW, Advanced mode), and Switch language (`ui_setup_locale`). `setup.done`
+   (`get_flow_status()`) is true only once both the `setup_done` flag is set AND the base-files
+   copy exists (`game_files.status().done`) - a base-files copy that goes missing sends the step
+   bar back to "Setup" even if the wizard was completed before. Reopen from the step bar. The
+   `pywebviewready` startup handler checks this too, not just whether a master folder is configured -
+   a folder being picked (which happens immediately, before the wizard even opens) isn't the same as
+   setup being finished, so closing/reloading the app mid-wizard used to silently drop straight into
+   the main app on the next launch instead of resuming it; it now reopens the wizard (with no Close
+   button, same as a genuine first run) whenever `setup.done` is false.
+2. **Choose mods** - the Character / Course / Vehicles / More / Full List tabs,
+   with per-tab tick counts.
+3. **Commit** (was "Merge & Stage"). The page asks `preview_commit()` (a dry
+   run: claims, clashes, warnings) as soon as it opens, shows every clash as a
+   settle-it-here card, and blocks the Commit button until none are left. When
+   there's menu icons/text to combine, that's just a lightweight warning here
+   (linking to Settings) - the actual `merge()` call itself builds it
+   automatically, right before its own file-copy pass. The result comes
+   back structured (`counts`, `warnings`) with the old text log (now including
+   what got built) kept under "Details (full log)". The sidebar Output log was
+   removed.
+4. **Copy to Switch** - checklist + "It works!" (`mark_switch_done()`).
+
+**Phase 3** (2026-09-22) removed what used to be its own fifth step, "UI icons & text" - a whole
+page just for picking a language and pressing Build, when the analysis and the build were already
+fast and automatic underneath it. Checking guessed names and picking between conflicting icon
+versions moved onto the Commit page itself as warning cards; language, the (rare) pick-which-mod-
+wins conflict, and Open the folder/Undo/manual rebuild/"do this by hand" all moved to Settings
+instead - deliberately not a Commit-page card of its own, since language is a set-once preference,
+not something to review at every commit. See [Menu icons & text](menu-icons-and-text.md#menu-icons--text-combined-character-icons-and-coursecharacter-names) for the full picture.
+
+"Done"/"stale": a commit records `last_commit` (a signature of the ticked
+mods + every left-out file) and, when anything needed combining, `last_ui_build`
+(see [Menu icons & text](menu-icons-and-text.md#menu-icons--text-combined-character-icons-and-coursecharacter-names) for what's in that signature) - `commit.stale`
+is true if *either* no longer matches, so a language change alone (no mods
+re-ticked) still calls for a re-commit. The Switch confirmation is tied to
+both signatures together. Change any input and the step turns amber again.
+`flowNextTarget()` in the frontend decides what Next says from the page you're on.

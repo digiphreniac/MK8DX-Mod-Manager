@@ -341,7 +341,7 @@ async function confirmAddModPerFile(link, errEl, confirmBtn) {
       ticked = true;
     }
   }
-  if (ticked) await pywebview.api.save_checked(state.checked);
+  if (ticked) await saveChecked();
   refreshBehindModal();
   showAddModSummary(result);
 }

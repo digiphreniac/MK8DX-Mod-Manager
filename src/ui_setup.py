@@ -28,11 +28,13 @@ import base64
 import collections
 import datetime
 import json
+import safe_io
 import os
 import re
 import shutil
 from pathlib import Path
 
+import app_paths
 import bntx_decode
 import bntx_encode
 import ui_archives as ua
@@ -958,9 +960,7 @@ def load_overrides(master_root: Path) -> dict:
 
 
 def save_overrides(master_root: Path, data: dict):
-    (master_root / OVERRIDES_FILENAME).write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-
-
+    safe_io.write_json_atomic((master_root / OVERRIDES_FILENAME), data)
 def overrides_signature(master_root: Path) -> str:
     """Changes whenever the overrides (or a picture they use) change."""
     ov = load_overrides(master_root)
@@ -1095,6 +1095,11 @@ def _msbt_names(plan: dict, prefer=("USen", "EUen")):
 _NAME_TABLE = None
 
 
+# Characters that are a second version of another one and share its name text (the game has one "Link" entry for both Link
+# and Link (Breath of the Wild)): {name: the character whose name entry it shares}. Naming either one changes both in-game.
+NAME_ALIASES = {"Link (Breath of the Wild)": "Link"}
+
+
 def name_table() -> dict:
     """name-labels.json (shipped with the app): {"characters": {name: [labels]},
     "courses": {name: [labels]}} - which text entry holds each name. The numbers
@@ -1103,9 +1108,14 @@ def name_table() -> dict:
     global _NAME_TABLE
     if _NAME_TABLE is None:
         try:
-            _NAME_TABLE = json.loads((Path(__file__).resolve().parent / "name-labels.json").read_text(encoding="utf-8"))
+            _NAME_TABLE = json.loads((app_paths.RESOURCE_DIR / "name-labels.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):
             _NAME_TABLE = {}
+        chars = _NAME_TABLE.get("characters")
+        if isinstance(chars, dict):
+            for alias, target in NAME_ALIASES.items():
+                if target in chars:
+                    chars.setdefault(alias, chars[target])
     return _NAME_TABLE
 
 
@@ -1126,7 +1136,7 @@ def find_name_labels(plan: dict, name: str, kind: str):
         return None
     labels = (name_table().get(kind) or {}).get(name)
     if labels:
-        return {"labels": list(labels), "vanilla": _strip_course_prefix(name) if kind == "courses" else name}
+        return {"labels": list(labels), "vanilla": _strip_course_prefix(name) if kind == "courses" else NAME_ALIASES.get(name, name)}
     msbt, _aid = _msbt_names(plan or {})
     if not msbt:
         return None

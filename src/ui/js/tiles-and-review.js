@@ -110,6 +110,9 @@ function buildTile(displayName, units, onClick, gbAttempted, opts) {
     tile.appendChild(count);
   }
 
+  const noteMark = buildTileNote(units);   // (a pencil when one of its ticked mods has a note of the user's - mod-notes.js)
+  if (noteMark) tile.appendChild(noteMark);
+
   return { tile, checkedUnits, selected, badge, nameEl: name };
 }
 
@@ -200,7 +203,7 @@ function applyCharacterLook(ref, looks) {
   tile.title = notes.join("\n");
 }
 
-function speakerSvg() {
+function speakerSvg(muted) {
   const NS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", "0 0 16 16");
@@ -214,6 +217,13 @@ function speakerSvg() {
   const far = document.createElementNS(NS, "path");
   far.setAttribute("class", "speaker-wave w2");
   far.setAttribute("d", "M12.3 3.4a6.6 6.6 0 0 1 0 9.2");
+  if (muted) {   // (no waves: a cross beside the cone)
+    const x = document.createElementNS(NS, "path");
+    x.setAttribute("class", "speaker-x");
+    x.setAttribute("d", "M10.4 5.6l4 4.8M14.4 5.6l-4 4.8");
+    svg.append(cone, x);
+    return svg;
+  }
   svg.append(cone, near, far);
   return svg;
 }
@@ -228,13 +238,16 @@ function applyVoiceMarker(ref, voice) {
   const found = ref.names.map(n => voice[n]).filter(Boolean);
   if (!found.length) return;
   const from = [...new Set(found.flatMap(f => f.from))];
-  const note = `Voice files: ${voiceWhat(found.some(f => f.race), found.some(f => f.menu))} (from ${from.join(", ")})`
-    + (found.some(f => f.select) ? "\nSelect sound: click to hear it" : "");
-  const mark = cgEl("div", "tile-voice-mark");
+  const muted = found.some(f => f.muted);   // every sound silenced in the Voice editor
+  const note = muted
+    ? "Muted: all of this character's voice is silenced (Voice row on its card)"
+    : `Voice files: ${voiceWhat(found.some(f => f.race), found.some(f => f.menu))} (from ${from.join(", ")})`
+      + (found.some(f => f.select) ? "\nSelect sound: click to hear it" : "");
+  const mark = cgEl("div", "tile-voice-mark" + (muted ? " muted" : ""));
   if (voiceNow.speaking && ref.names.includes(voiceNow.speaking)) mark.classList.add("speaking");
   mark.setAttribute("role", "img");
   mark.setAttribute("aria-label", note);
-  mark.appendChild(speakerSvg());
+  mark.appendChild(speakerSvg(muted));
   tile.appendChild(mark);
   tile.title = tile.title ? tile.title + "\n" + note : note;
 }

@@ -655,7 +655,7 @@ function assembleCharacterCard(ctx) {
     }
     const bothDone = ns.state === "done" && is_.state === "done";
     // say exactly which of Name/Icons still needs a look, rather than the vague "appearance" -
-    // the two are independent tasks now (see "Name and Icons" in the README), so naming them here
+    // the two are independent tasks now (see "Name and Icons" in docs/menu-look.md), so naming them here
     // says at a glance which row below to open.
     const needing = [ns.state === "current" && "name", is_.state === "current" && "icons"].filter(Boolean);
     let sub;
@@ -704,7 +704,7 @@ function assembleCharacterCard(ctx) {
           }
         }
         if (cleared) {
-          pywebview.api.save_checked(state.checked);
+          saveChecked();
           refreshBehindModal({ ifChanged: true });
           if (refreshCount) refreshCount();
           if (refreshToggle) refreshToggle();
@@ -849,7 +849,7 @@ function openCharacterModal(name) {
         cb.checked = target;
         row.classList.toggle("checked", target);
       }
-      pywebview.api.save_checked(state.checked);
+      saveChecked();
       refreshBehindModal({ ifChanged: true });
       updateModalConflicts();
       refreshModsCount();
@@ -896,7 +896,7 @@ function openCharacterModal(name) {
       cb.addEventListener("change", () => {
         state.checked[key] = cb.checked;
         row.classList.toggle("checked", cb.checked);
-        pywebview.api.save_checked(state.checked);
+        saveChecked();
         refreshBehindModal({ ifChanged: true });
         updateModalConflicts();
         refreshModsCount();
@@ -906,6 +906,7 @@ function openCharacterModal(name) {
       row.appendChild(label);
       const alsoBadge = buildPackBadge(key, name);
       if (alsoBadge) row.appendChild(alsoBadge);
+      const noteBtn = buildModNoteControl(key, row);
       const openFolderBtn = document.createElement("button");
       openFolderBtn.className = "ghost small";
       openFolderBtn.textContent = "Open folder";
@@ -961,8 +962,10 @@ function openCharacterModal(name) {
           { label: "Remove", title: removeBtn.title, danger: true, run: () => removeBtn.click() },
         ]);
         kb.classList.add("mod-more");
+        row.appendChild(noteBtn);
         row.appendChild(kb);
       } else {
+        row.appendChild(noteBtn);
         row.appendChild(openFolderBtn);
         row.appendChild(filesBtn);
         row.appendChild(removeBtn);

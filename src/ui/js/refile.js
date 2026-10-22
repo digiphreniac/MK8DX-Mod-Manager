@@ -43,7 +43,7 @@ async function finishRefile(info, opts) {
     const only = entry && entry.units.length === 1 ? entry.units[0] : null;
     if (only && !state.checked[only]) {
       state.checked[only] = true;
-      await pywebview.api.save_checked(state.checked);
+      await saveChecked();
       ticked = true;
     }
   }
@@ -92,7 +92,7 @@ async function undoRefile(info) {
         if (key === folder || key.startsWith(folder + "/")) state.checked[key] = false;
       }
     }
-    await pywebview.api.save_checked(state.checked);
+    await saveChecked();
   }
   cardNotice = { item: info.from_item, text: `Put "${info.mod_name}" back under ${refileLabel(info.from_item)}.` };
   await showRefileTarget(info.from_item);
