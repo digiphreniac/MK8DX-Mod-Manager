@@ -89,6 +89,10 @@ short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). Th
   `roster.json`, `known-shared-files.json`, `name-labels.json`, found under PyInstaller's bundle folder when
   frozen) and `APP_ROOT` (the folder holding the `.exe`, where `app-config.json` goes). A new bundled data
   file needs adding to the spec's `datas` and to be read through `app_paths.RESOURCE_DIR`.
+- Files extracted from a downloaded zip carry Windows' "from the Internet" mark, and .NET refuses to load a marked DLL, so
+  pythonnet (the window library) fails. `app_paths.unblock_downloaded_files()` clears the mark from the bundled files at
+  startup, before `webview` is imported. Test a build by marking its files (see the CI smoke test), not just by extracting a
+  local zip, which leaves no mark.
 - A packaged build has no console, so `app_paths.redirect_output_to_log()` sends stdout/stderr to
   `mod-manager.log` next to the `.exe`, and an uncaught startup error shows a message box pointing at it.
 - Build with a mainstream Python and test the zip on a machine without Python: extract it to a short path,

@@ -91,6 +91,9 @@ jobs:
         shell: pwsh
         run: |
           $app = "check\MK8DX Mod Manager"
+          # Mark the files as downloaded from the Internet, as they are on a user's PC after extracting the release zip.
+          Get-ChildItem $app -Recurse -File | Where-Object { $_.Name -ne "MK8DX Mod Manager.exe" } |
+            ForEach-Object { Set-Content -Path $_.FullName -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3" }
           $p = Start-Process "$app\MK8DX Mod Manager.exe" -PassThru
           Start-Sleep -Seconds 20
           $alive = -not $p.HasExited

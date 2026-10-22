@@ -33,6 +33,8 @@ import app_paths
 # A packaged (windowed) build has no console: send output to a log file before the libraries
 # below are imported, since some of them (pywebview) set up their logging when first imported.
 LOG_PATH = app_paths.redirect_output_to_log() if app_paths.FROZEN else None
+if app_paths.FROZEN:   # (also before the import below: pythonnet is refused by Windows while the zip's "downloaded" mark is on it)
+    print(f"Cleared the downloaded-file mark from {app_paths.unblock_downloaded_files()} bundled files")
 
 import webview
 
