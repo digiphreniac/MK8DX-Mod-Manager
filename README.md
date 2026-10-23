@@ -49,14 +49,14 @@ internet connection. A console window stays open while it runs, so any error mes
 
 ## First run
 
-The app keeps your downloaded mods, settings and caches in a **`data`** folder that it creates next to
-itself (next to the `.exe`, or in the repository folder when run from source). You can pick a different
-folder later under **Settings**. If the app is somewhere it can't write to, it asks you to choose a folder instead.
-
 On first launch, a short setup wizard asks for:
 
-1. **Your game version** and a few options (language, adult-content filter, advanced mode).
-2. **Your game's files.** Dump Mario Kart 8 Deluxe from your own Switch (for example with NXDumpTool)
+1. **A data folder**, where the app keeps your downloaded mods, settings and caches. The app suggests a
+   **`data`** folder next to itself (next to the `.exe`, or in the repository folder when run from source) and marks it
+   as recommended, so most people just click Next. You can pick a different folder here, or later under **Settings**.
+   If the app is somewhere it can't write to, there is no suggestion and you choose a folder instead.
+2. **Your game version** and a few options (language, adult-content filter, advanced mode).
+3. **Your game's files.** Dump Mario Kart 8 Deluxe from your own Switch (for example with NXDumpTool)
    and extract its RomFS (in Ryujinx: right-click the game, then *Extract Data*, then *RomFS*; or use
    `hactool`). Choose the extracted folder, the one that contains `UI/cmn/common.sarc`. The app
    copies only the few hundred MB it needs, so you can delete the extraction afterward.

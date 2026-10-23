@@ -1819,7 +1819,21 @@ class Api(VoiceEditMixin, ModNotesMixin):
             "configured": self.mod_root is not None,
             "path": str(self.mod_root) if self.mod_root else None,
             "default_path": str(APP_ROOT / DEFAULT_DATA_DIRNAME),
+            "is_default": self.mod_root is not None and Path(self.mod_root).resolve() == (APP_ROOT / DEFAULT_DATA_DIRNAME).resolve(),
         }
+
+    def use_default_master_dir(self):
+        """Goes back to the recommended folder (`data` next to the app): forgets the folder the user chose (app-config.json) and starts using
+        the default. Nothing is moved - whatever was in the other folder stays there."""
+        default = default_master_dir()
+        if default is None:
+            return {"success": False, "error": "The app can't write to its own folder, so it has no recommended folder here. Choose one instead."}
+        try:
+            (APP_ROOT / APP_CONFIG_FILENAME).unlink(missing_ok=True)
+        except OSError as e:
+            return {"success": False, "error": f"Couldn't switch back: {e}"}
+        self._configure_root(default)
+        return {"success": True, "error": None}
 
     def pick_master_dir(self):
         """Opens a native folder-picker. Returns the chosen path, or None if

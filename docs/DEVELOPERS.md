@@ -97,9 +97,11 @@ short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). Th
   repository's `README.md` and is the only place to edit the text users see in the download; CI fails if the package ends up
   with more than one.
 - First run: with no `app-config.json`, the master folder is `data` next to the app (`default_master_dir()` in
-  `mod_manager.py`; `sd-card-staging` is then next to it too). The folder picker only appears when that spot isn't writable or
-  the user changes it in Settings. The `data` folder is created at run time, never shipped in the zip, so extracting an update
-  over an old install keeps the user's data.
+  `mod_manager.py`; `sd-card-staging` is then next to it too). The wizard's first step, "Data folder" (`setup-wizard.js`), shows
+  it marked Recommended (`get_master_dir_status()["is_default"]`); Next keeps it, "Change folder..." picks another (written to
+  `app-config.json`), and "Use the recommended folder" (`use_default_master_dir()`) deletes that pointer again. When the default
+  spot isn't writable the old full-screen folder picker is shown instead. The `data` folder is created at run time, never shipped
+  in the zip, so extracting an update over an old install keeps the user's data.
 - A packaged build has no console, so `app_paths.redirect_output_to_log()` sends stdout/stderr to
   `mod-manager.log` next to the `.exe`, and an uncaught startup error shows a message box pointing at it.
 - Build with a mainstream Python and test the zip on a machine without Python: extract it to a short path,

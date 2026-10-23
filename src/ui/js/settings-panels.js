@@ -312,7 +312,7 @@ async function runMasterDirSetup() {
   renderMasterDirConfirmStep(body, chosen, async () => {
     await loadMods();
     await loadSettings();
-    openSetupWizard(0, false);
+    openSetupWizard(1, false);
   }, runMasterDirSetup);
 }
 document.getElementById("btn-setup-choose-folder").addEventListener("click", runMasterDirSetup);
