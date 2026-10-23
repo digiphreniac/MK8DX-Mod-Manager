@@ -188,6 +188,9 @@
   .help-status-def { font-size: 12.5px; color: var(--text-dim); margin: 2px 0 10px 0; line-height: 1.4; }
   .help-status-def:last-child { margin-bottom: 0; }
 
-  /* the All done page: Back on the left, the support nudge on the right */
-  .pg-done-actions { justify-content: space-between; margin-bottom: 14px; }
-  .pg-support { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--text-dim); }
+  /* the All done page: Back, then the "enjoying your mods?" card (like / star / donate), then the troubleshooting tips */
+  .pg-done-actions { margin-bottom: 14px; }
+  .pg-support-intro { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.4; }
+  .pg-support-way { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 0; border-top: 1px solid var(--divider); }
+  .pg-support-label { font-size: 13px; font-weight: 600; }
+  .pg-support-why { font-size: 12.5px; color: var(--text-dim); margin-top: 1px; }

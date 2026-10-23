@@ -365,6 +365,32 @@ function buildTroubleshooting() {
   return trouble;
 }
 
+// The "enjoying your mods?" card on the All done page: three quick ways to help, each with why it matters (see state-and-helpers.js).
+function supportCard() {
+  const card = cgEl("div", "modal-card pg-support-card");
+  const head = cgEl("div", "modal-card-header");
+  head.appendChild(cgEl("span", "modal-card-title", "Enjoying your mods?"));
+  card.appendChild(head);
+  const pad = cgEl("div", "uis-pad");
+  pad.appendChild(cgEl("div", "pg-support-intro", "This app is free and made by one person. If it saved you some time, these take a few seconds and help a lot:"));
+  const ways = [
+    GAMEBANANA_PAGE_URL && { label: "Like it on GameBanana", why: "The more likes the page has, the more people find it.", open: "Open GameBanana", url: GAMEBANANA_PAGE_URL },
+    { label: "Star it on GitHub", why: "It helps other modders find the project.", open: "Open GitHub", url: GITHUB_URL },
+    { label: "Buy me a coffee", why: "Optional, and it keeps the updates coming.", open: "Open Buy Me a Coffee", url: SUPPORT_URL },
+  ].filter(Boolean);
+  for (const way of ways) {
+    const row = cgEl("div", "pg-support-way");
+    const text = cgEl("div", "pg-support-text");
+    text.appendChild(cgEl("div", "pg-support-label", way.label));
+    text.appendChild(cgEl("div", "pg-support-why", way.why));
+    row.appendChild(text);
+    row.appendChild(button(way.open, "ghost small", () => openExternal(way.url)));
+    pad.appendChild(row);
+  }
+  card.appendChild(pad);
+  return card;
+}
+
 async function renderSwitchPage() {
   await refreshFlow();
   const body = document.getElementById("switch-body");
@@ -382,17 +408,14 @@ async function renderSwitchPage() {
     return;
   }
   if (st.switch.done) {
-    // All done: no checklist any more (it's finished). Back goes to the previous step, with a nudge to support the app beside it, and
-    // the troubleshooting tips stay here for anyone who finds it isn't working after all.
+    // All done: no checklist any more (it's finished). Back goes to the previous step, then the ways to support the app (like, star,
+    // donate), and the troubleshooting tips stay here for anyone who finds it isn't working after all.
     body.appendChild(statusCard("ok", "🎉", "All done - your mods work on your Switch",
       "If you change your mods later, the steps above will light up again and you can come back here."));
     const row = cgEl("div", "pg-cta pg-done-actions");
     row.appendChild(button("Back", "ghost", () => goStep("commit")));
-    const support = cgEl("div", "pg-support");
-    support.appendChild(cgEl("span", null, "Enjoying your mods? This app is free. If it saved you some time, you can chip in for a coffee."));
-    support.appendChild(button("Support creator", "ghost small", openSupportPage));
-    row.appendChild(support);
     body.appendChild(row);
+    body.appendChild(supportCard());
     body.appendChild(buildTroubleshooting());
     return;
   } else {

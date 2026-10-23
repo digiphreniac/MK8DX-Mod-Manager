@@ -72,3 +72,9 @@ was, so `last_commit` also records `content`: a fingerprint of the name, size an
 committed" are false once it differs. It is a separate field, not part of `sig`, so a commit made before it existed (no `content`)
 is never called stale because of it.
 `flowNextTarget()` in the frontend decides what Next says from the page you're on.
+
+The **All done** page (Copy to Switch, once the user has said it worked) ends with an "Enjoying your mods?" card (`supportCard()` in
+`flow.js`): like the page on GameBanana (the more likes it has, the more people see it), star the repository on GitHub, buy a coffee. Each
+row opens its address in the browser (`open_external_url`). The addresses are constants in `state-and-helpers.js` (`GAMEBANANA_PAGE_URL`,
+`GITHUB_URL`, `SUPPORT_URL`); an empty `GAMEBANANA_PAGE_URL` hides the GameBanana row. The footer's "Support creator" link still goes to
+the donation page.
