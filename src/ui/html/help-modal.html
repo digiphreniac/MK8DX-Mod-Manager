@@ -9,7 +9,7 @@
         <div class="modal-card-header"><span class="modal-card-title">How this app works</span></div>
         <div class="settings-body">
           <div class="settings-hint">
-            For each character/course: search or paste a GameBanana link, download the file(s) you want, then tick them in the card's Mods list. Once everything you want is checked, press the <strong>Next</strong> button (bottom right) or open the <strong>Commit</strong> step in the bar at the top - it combines every checked mod's files into one romfs tree (plus any checked code patches, under <code>atmosphere/exefs_patches/</code>) at <code>sd-card-staging/</code>, next to your master directory, ready to copy onto your SD card's existing <code>atmosphere/</code> folder.
+            For each character/course: search or paste a GameBanana link, download the file(s) you want, then select them in the card's Mods list. Once everything you want is selected, press the <strong>Next</strong> button (bottom right) or open the <strong>Commit</strong> step in the bar at the top - it combines every selected mod's files into one romfs tree (plus any checked code patches, under <code>atmosphere/exefs_patches/</code>) at <code>sd-card-staging/</code>, next to your master directory, ready to copy onto your SD card's existing <code>atmosphere/</code> folder.
           </div>
         </div>
       </div>
@@ -18,7 +18,7 @@
         <div class="modal-card-header"><span class="modal-card-title">The five steps</span></div>
         <div class="settings-body">
           <div class="settings-hint">
-            The bar at the top always shows where you are: <strong>1 Setup</strong> (your game version, options and language - reopen it any time), <strong>2 Choose mods</strong> (the Character, Course, Vehicles, Items, More and Full List tabs), <strong>3 Commit</strong> (puts every ticked mod's files together and lets you settle any clashes), <strong>4 UI icons &amp; text</strong> (builds the combined menu pictures and names), and <strong>5 Copy to Switch</strong> (a short checklist). A green tick means that step is done; an amber number means something changed and it needs another look. The <strong>Next</strong> button in the bottom-right corner always says what to do next.
+            The bar at the top always shows where you are: <strong>1 Setup</strong> (your game version, options and language - reopen it any time), <strong>2 Choose mods</strong> (the Character, Course, Vehicles, Items, More and Full List tabs), <strong>3 Commit</strong> (puts every selected mod's files together and lets you settle any clashes), <strong>4 UI icons &amp; text</strong> (builds the combined menu pictures and names), and <strong>5 Copy to Switch</strong> (a short checklist). A green select means that step is done; an amber number means something changed and it needs another look. The <strong>Next</strong> button in the bottom-right corner always says what to do next.
           </div>
         </div>
       </div>
@@ -27,13 +27,13 @@
         <div class="modal-card-header"><span class="modal-card-title">Name and Icons: how a character, course or vehicle part looks in the menus</span></div>
         <div class="settings-body">
           <div class="settings-hint">
-            Once a mod is ticked, a character's, course's or vehicle part's card walks you through two short steps, <strong>Name</strong> and <strong>Icons</strong>, and shows a check mark on each when it is settled (its tile gets a small dot - amber while something needs a look, green when done). Villager, Inkling, Link and Metal Mario each share one tile with a second character: the card has a switch at the top (Boy | Girl; Classic | Breath of the Wild for Link, the game's two versions of him; Metal Mario | Gold Mario) - mods for one version are separate from mods for the other.
+            Once a mod is selected, a character's, course's or vehicle part's card walks you through two short steps, <strong>Name</strong> and <strong>Icons</strong>, and shows a check mark on each when it is settled (its tile gets a small dot - amber while something needs a look, green when done). Villager, Inkling, Link and Metal Mario each share one tile with a second character: the card has a switch at the top (Boy | Girl; Classic | Breath of the Wild for Link, the game's two versions of him; Metal Mario | Gold Mario) - mods for one version are separate from mods for the other.
             <br><br>
             <strong>Characters:</strong> Name is what the menus call the character (the mod's own, a guess from the mod's name that you can change, or the game's); Icons is the character-select, map and results pictures and where each comes from (a mod, you, or unchanged). If a mod doesn't ship an icon, pick one of its screenshots or a picture from your computer, drag the square over the part you want, and it becomes all three icons.
             <br><br>
             <strong>Courses:</strong> Name is what the menus call the course - the app suggests one from the mod's name; use it, type your own, or keep the game's. Icons is the picture on the course-select screen: a mod that brings its own needs no check; otherwise the game's own picture shows, or you can make one from one of the mod's screenshots.
             <br><br>
-            <strong>Vehicle parts:</strong> the same two steps for a body, wheel or glider. Name is what the parts menu calls it; Icons is its picture there. A mod that brings its own picture needs no check; otherwise the game's own picture shows, or you can choose your own - a mod screenshot or a picture from your computer, dragged to the part you want. A part's card also has <strong>Right part</strong>, which warns when a ticked mod's model file is really for a different part and offers to move it.
+            <strong>Vehicle parts:</strong> the same two steps for a body, wheel or glider. Name is what the parts menu calls it; Icons is its picture there. A mod that brings its own picture needs no check; otherwise the game's own picture shows, or you can choose your own - a mod screenshot or a picture from your computer, dragged to the part you want. A part's card also has <strong>Right part</strong>, which warns when a selected mod's model file is really for a different part and offers to move it.
             <br><br>
             Your choices are combined into the menu files in the Commit step, exactly like a mod's own changes.
           </div>
@@ -44,7 +44,7 @@
         <div class="modal-card-header"><span class="modal-card-title">Notes on mods</span></div>
         <div class="settings-body">
           <div class="settings-hint">
-            Every mod row has a small pencil button. Click it to write a <strong>note</strong> for yourself about that mod (what it changes, what to check, where you found it). When a mod you have ticked has a note, its character's / course's / part's tile shows a small pencil in the corner; hover it to read the note. Notes are for you only - they never go to your Switch. They stay with a mod if it is moved or downloaded again, and are forgotten if you remove it.
+            Every mod row has a small pencil button. Click it to write a <strong>note</strong> for yourself about that mod (what it changes, what to check, where you found it). When a mod you have selected has a note, its character's / course's / part's tile shows a small pencil in the corner; hover it to read the note. Notes are for you only - they never go to your Switch. They stay with a mod if it is moved or downloaded again, and are forgotten if you remove it.
           </div>
         </div>
       </div>
@@ -55,7 +55,7 @@
           <div class="settings-hint">
             Every character's card has a <strong>Voice</strong> row with <strong>Edit voice lines</strong>. It lists what the character says - character select, finishing first / mid-pack / last, overtaking, getting hit, items, boosts, the horn - each with a short description (some marked <em>guess</em>: play it to check). For any line you can <strong>Mute</strong> it, or <strong>Use my own</strong> sound: choose an audio file (mp3, wav, ogg, m4a...), pick the part you want, and the app converts it to the game's format (up to 8 seconds). Each line is really several sounds in the game's file (variations and tails); they are always changed together. <strong>Mute all</strong> (at the bottom of the window) silences every line of the character at once - the character-select sound and the horns too - keeping any line you gave your own sound; undo single lines with their <strong>Muted</strong> button, or everything with <strong>Undo all changes</strong>. A character whose whole voice is muted shows a red crossed-out speaker on its tile.
             <br><br>
-            Like Name and Icons, the row is dimmed ("Comes after you pick a mod") until the character has a ticked mod; the button appears once one is ticked. The result is saved as a mod called <strong>Custom voice</strong> under that character - tick, untick or remove it like any other, and Commit merges it. Changing one line means writing out the character's whole voice file, so the app starts from the voice you'd otherwise get: a voice mod you've ticked for that character, or else the game's own file, from the copy of your game's files that Setup made. If you tick a different voice mod later, your changes move onto it.
+            Like Name and Icons, the row is dimmed ("Comes after you pick a mod") until the character has a selected mod; the button appears once one is selected. The result is saved as a mod called <strong>Custom voice</strong> under that character - select, deselect or remove it like any other, and Commit merges it. Changing one line means writing out the character's whole voice file, so the app starts from the voice you'd otherwise get: a voice mod you've selected for that character, or else the game's own file, from the copy of your game's files that Setup made. If you select a different voice mod later, your changes move onto it.
           </div>
         </div>
       </div>
@@ -90,9 +90,9 @@
           <div class="help-status-term">UI art only</div>
           <div class="help-status-def">UI art (PNG/texture icon sets) or a packed common.sarc/menu.sarc, with no romfs folder - not a mergeable romfs mod. See "UI Icon Worklist" in Settings for what to do with these.</div>
           <div class="help-status-term">Code patch (badge on a mod)</div>
-          <div class="help-status-def">An exefs patch (.ips files named after a game build id) that patches the game's executable instead of adding romfs files - most Mechanics mods are this. Commit copies it to <code>atmosphere/exefs_patches/</code> in the staging folder (never selected by "Select All" - tick each one yourself). It only works on the exact game version it was built for and does nothing, silently, on any other; set your game's build ID in Settings to be warned about mismatches. Two patches that overwrite the same bytes conflict and can't both be checked.</div>
+          <div class="help-status-def">An exefs patch (.ips files named after a game build id) that patches the game's executable instead of adding romfs files - most Mechanics mods are this. Commit copies it to <code>atmosphere/exefs_patches/</code> in the staging folder (never selected by "Select All" - select each one yourself). It only works on the exact game version it was built for and does nothing, silently, on any other; set your game's build ID in Settings to be warned about mismatches. Two patches that overwrite the same bytes conflict and can't both be selected.</div>
           <div class="help-status-term">Packed archive only (badge on a mod)</div>
-          <div class="help-status-def">The mod has a romfs, but everything in it is a packed .sarc (common/menu/message) - a commit never copies those in, since they'd overwrite every other icon or text entry. On its own, ticking it does nothing - it takes effect through the UI icons &amp; text step.</div>
+          <div class="help-status-def">The mod has a romfs, but everything in it is a packed .sarc (common/menu/message) - a commit never copies those in, since they'd overwrite every other icon or text entry. On its own, selecting it does nothing - it takes effect through the UI icons &amp; text step.</div>
           <div class="help-status-term">Missing romfs wrapper</div>
           <div class="help-status-def">Extracted, but the mod folders (Driver/Kart/Audio/...) sit at the top level instead of under a "romfs" folder - create a "romfs" folder there and move them into it.</div>
           <div class="help-status-term">Needs manual fix</div>
@@ -106,7 +106,7 @@
         <div class="modal-card-header"><span class="modal-card-title">Conflicts &amp; left-out files</span></div>
         <div class="settings-body">
           <div class="settings-hint">
-            A conflict (a "clash") means two ticked mods write genuinely different content to the same file - byte-identical coincidences don't count. You settle each clash on the Commit step (or from a mod's popup) with one click: keep one mod's version, use the game's own files, or untick a mod. Either way only the clashing files are affected - the rest of each mod still works. Behind the scenes that just means those files are "left out" of one mod; every mod's popup has a <strong>Files</strong> button to see everything it ships and leave out any single file yourself, and Settings lists every leave-out with an "Include again" button. Choices are remembered, even across re-downloads. Two code patches that overlap can't be split like this - one of them has to be unticked.</div>
+            A conflict (a "clash") means two selected mods write genuinely different content to the same file - byte-identical coincidences don't count. You settle each clash on the Commit step (or from a mod's popup) with one click: keep one mod's version, use the game's own files, or deselect a mod. Either way only the clashing files are affected - the rest of each mod still works. Behind the scenes that just means those files are "left out" of one mod; every mod's popup has a <strong>Files</strong> button to see everything it ships and leave out any single file yourself, and Settings lists every leave-out with an "Include again" button. Choices are remembered, even across re-downloads. Two code patches that overlap can't be split like this - one of them has to be deselected.</div>
         </div>
       </div>
 

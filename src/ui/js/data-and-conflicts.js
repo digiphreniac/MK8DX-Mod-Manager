@@ -190,7 +190,7 @@ function buildConflictCard(group, opts) {
       !group.suggested);
   }
   for (const m of group.mods) {
-    addChoice("untick:" + m, `Don't use ${labelOf(m)} at all`, "Unticks that mod", !group.can_exclude && m === group.mods[group.mods.length - 1]);
+    addChoice("untick:" + m, `Don't use ${labelOf(m)} at all`, "Deselects that mod", !group.can_exclude && m === group.mods[group.mods.length - 1]);
   }
   for (const x of radios) x.row.classList.toggle("selected", x.r.checked);
   card.appendChild(choices);
@@ -220,7 +220,7 @@ function buildConflictCard(group, opts) {
     card.replaceChildren(cgEl("div", "cg-done", "✓ Settled - " + (
       v.startsWith("keep:") ? `keeping ${labelOf(v.slice(5))}'s version.`
         : v === "none" ? "using the game's own files."
-        : `${labelOf(v.slice(7))} is unticked.`)));
+        : `${labelOf(v.slice(7))} is deselected.`)));
     card.classList.remove("code");
     card.classList.add("settled");
     onSettled();
@@ -254,7 +254,7 @@ function buildFilesPanel(modKey, onChange) {
   head.appendChild(includeAll);
   panel.appendChild(head);
   panel.appendChild(cgEl("div", "cg-note",
-    "Untick a file to leave it out of the merge - handy when it clashes with another mod and you'd rather keep the other one's. The rest of the mod is unaffected."));
+    "Deselect a file to leave it out of the merge - handy when it clashes with another mod and you'd rather keep the other one's. The rest of the mod is unaffected."));
   const list = cgEl("div", "files-list");
   panel.appendChild(list);
   let data = null;

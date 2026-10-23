@@ -1560,7 +1560,7 @@ def ui_icons_status_text(mod_root: Path):
     count = sum(1 for f in ui_icons_romfs.rglob("*") if f.is_file()) if ui_icons_romfs.is_dir() else 0
     if count:
         return f"Combined UI icons & text: {count} file(s) in ui-icons/romfs/ — always included, not a checkbox"
-    return "Combined UI icons & text: none yet — built automatically the next time you commit, if any ticked mod needs it"
+    return "Combined UI icons & text: none yet — built automatically the next time you commit, if any selected mod needs it"
 
 
 # The game's internal "Driver" names (romfs/Driver/<name>.szs, and the voice/menu-sound
@@ -5378,8 +5378,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if res.missing:
             warnings.append({
                 "kind": "missing", "severity": "warn",
-                "title": f"{len(res.missing)} ticked mod{'s' if len(res.missing) != 1 else ''} can't be found on disk",
-                "detail": "Their files are gone (deleted or moved). Untick them or download them again - they aren't part of this commit.",
+                "title": f"{len(res.missing)} selected mod{'s' if len(res.missing) != 1 else ''} can't be found on disk",
+                "detail": "Their files are gone (deleted or moved). Deselect them or download them again - they aren't part of this commit.",
                 "mods": short(res.missing), "action": "open-mod",
             })
         if res.ui_archives_skipped:

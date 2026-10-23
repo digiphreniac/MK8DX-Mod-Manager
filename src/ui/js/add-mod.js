@@ -310,7 +310,7 @@ async function confirmAddModPerFile(link, errEl, confirmBtn) {
     if (!row.querySelector(".amf-include").checked) continue;
     const part = row.querySelector(".amf-part").value;
     if (!part) {
-      errEl.textContent = "Pick a part for every ticked file (or untick the ones you don't want).";
+      errEl.textContent = "Pick a part for every selected file (or deselect the ones you don't want).";
       errEl.hidden = false;
       return;
     }
@@ -318,7 +318,7 @@ async function confirmAddModPerFile(link, errEl, confirmBtn) {
     groups.get(part).push(Number(row.dataset.fileId));
   }
   if (groups.size === 0) {
-    errEl.textContent = "Tick at least one file to add.";
+    errEl.textContent = "Select at least one file to add.";
     errEl.hidden = false;
     return;
   }

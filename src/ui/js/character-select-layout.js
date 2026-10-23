@@ -59,14 +59,14 @@ function buildVariantSwitch(item, current) {
       }
       const text = cgEl("span", "variant-text");
       text.appendChild(cgEl("b", null, label));
-      let sub = look.name || (total === 0 ? (entry.gb_attempted ? "needs attention" : "no mods yet") : `${ticked}/${total} ticked`);
+      let sub = look.name || (total === 0 ? (entry.gb_attempted ? "needs attention" : "no mods yet") : `${ticked}/${total} selected`);
       const small = cgEl("small", total === 0 && entry.gb_attempted && !look.name ? "attention" : null, sub);
       text.appendChild(small);
       btn.appendChild(text);
       if (reviewApplicable(rev)) {
         const todo = !reviewFinished(rev);
         const mark = cgEl("span", "variant-mark " + (todo ? "todo" : "done"), todo ? "" : "\u2713");
-        mark.title = todo ? "Ticked - open it to finish its name and icons" : "Completed";
+        mark.title = todo ? "Mod selected - open it to finish its name and icons" : "Completed";
         btn.appendChild(mark);
       }
       btn.title = `${item.group} (${label})` + (look.name ? ` - shown in the menus as ${look.name}` : "");

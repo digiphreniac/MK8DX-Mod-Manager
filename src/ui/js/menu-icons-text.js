@@ -283,14 +283,14 @@ async function renderGameFilesBlock(container, onChange, compact) {
         + `icons and text in ${st.locales.length} language${st.locales.length === 1 ? "" : "s"}, voice for ${st.voice_found} of ${st.voice_total} characters.`));
     }
     if (st.problems.length) container.appendChild(cgEl("div", "uis-warn", `${st.problems.length} file${st.problems.length === 1 ? "" : "s"} in that copy looked wrong and ${st.problems.length === 1 ? "was" : "were"} skipped: ${st.problems.join("; ")}`));
-    if (st.voice_found < st.voice_total) container.appendChild(cgEl("div", "uis-note", `${st.voice_total - st.voice_found} character${st.voice_total - st.voice_found === 1 ? "" : "s"}' voice ${st.voice_total - st.voice_found === 1 ? "wasn't" : "weren't"} found in that folder - muting/replacing their default voice needs a ticked voice mod for now instead.`));
+    if (st.voice_found < st.voice_total) container.appendChild(cgEl("div", "uis-note", `${st.voice_total - st.voice_found} character${st.voice_total - st.voice_found === 1 ? "" : "s"}' voice ${st.voice_total - st.voice_found === 1 ? "wasn't" : "weren't"} found in that folder - muting/replacing their default voice needs a selected voice mod for now instead.`));
     const refresh = async () => { await renderGameFilesBlock(container, onChange, compact); if (onChange) onChange(); };
     const row = cgEl("div", "uis-actions");
     row.appendChild(button("Update from a new dump...", "small", async () => { if (await chooseGameFiles()) await refresh(); }));
     container.appendChild(row);
     container.appendChild(gameFilesPathRow(refresh));
   } else {
-    if (!compact) container.appendChild(cgEl("p", "uis-p", "Menu icons, menu text, and every character's own default voice are all built on the game's own files. Choose them once and it works everywhere - no mod has to include them, and every character can be edited even with no voice mod ticked."));
+    if (!compact) container.appendChild(cgEl("p", "uis-p", "Menu icons, menu text, and every character's own default voice are all built on the game's own files. Choose them once and it works everywhere - no mod has to include them, and every character can be edited even with no voice mod selected."));
     const refresh = async () => { await renderGameFilesBlock(container, onChange, compact); if (onChange) onChange(); };
     const row = cgEl("div", "uis-actions");
     row.appendChild(button("Choose the folder...", "primary small", async () => { if (await chooseGameFiles()) await refresh(); }));

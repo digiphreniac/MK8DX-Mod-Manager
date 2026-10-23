@@ -19,7 +19,7 @@ function flowStepInfo(key, st) {
   if (key === "mods") {
     const left = unfinishedCount();
     return { state: st.mods.ticked > 0 ? (left ? "attention" : "done") : "idle",
-             sub: st.mods.ticked > 0 ? plural(st.mods.ticked, "mod") + " ticked" + (left ? ` \u00b7 ${left} to finish` : "") : "Tick mods you want" };
+             sub: st.mods.ticked > 0 ? plural(st.mods.ticked, "mod") + " selected" + (left ? ` \u00b7 ${left} to finish` : "") : "Select mods you want" };
   }
   if (key === "commit") {
     if (st.mods.conflicts) return { state: "attention", sub: plural(st.mods.conflicts, "clash") + " to settle" };
@@ -59,8 +59,8 @@ function renderStepBar() {
   hint.hidden = !(flow.step === "mods" && first);
   if (!hint.hidden) {
     hint.textContent = st.mods.ticked
-      ? "Step 2 - keep ticking the mods you want on each tab. When you're happy with your picks, press Next (bottom right)."
-      : "Step 2 - tick the mods you want on each tab (open a character, course or vehicle to add and tick mods). When you're done, press Next (bottom right).";
+      ? "Step 2 - keep selecting the mods you want on each tab. When you're happy with your picks, press Next (bottom right)."
+      : "Step 2 - select the mods you want on each tab (open a character, course or vehicle to add and select mods). When you're done, press Next (bottom right).";
   }
   FLOW_STEPS.forEach((s, i) => {
     if (i > 0) bar.appendChild(cgEl("span", "step-sep", "›"));
@@ -177,7 +177,7 @@ async function renderCommitPage() {
   const body = document.getElementById("commit-body");
   body.replaceChildren();
   pageHead(body, "Commit your mods",
-    "Committing gathers every ticked mod's files into one set, ready to copy to your Switch. Nothing on the Switch changes until you copy it there yourself.");
+    "Committing gathers every selected mod's files into one set, ready to copy to your Switch. Nothing on the Switch changes until you copy it there yourself.");
   body.appendChild(loadingNote("Checking your mods..."));
   const keys = allKeys().filter(k => state.checked[k]);
   const [preview, status] = await Promise.all([pywebview.api.preview_commit(keys), pywebview.api.get_flow_status()]);
@@ -222,9 +222,9 @@ function drawCommitPage() {
   const pv = commitPage.preview;
   body.replaceChildren();
   pageHead(body, "Commit your mods",
-    "Committing gathers every ticked mod's files into one set, ready to copy to your Switch. Nothing on the Switch changes until you copy it there yourself.");
+    "Committing gathers every selected mod's files into one set, ready to copy to your Switch. Nothing on the Switch changes until you copy it there yourself.");
   if (!pv || pv.empty) {
-    body.appendChild(statusCard("wait", "☐", "No mods are ticked yet", "Pick the characters, courses and vehicles you want, then come back here."));
+    body.appendChild(statusCard("wait", "☐", "No mods are selected yet", "Pick the characters, courses and vehicles you want, then come back here."));
     body.appendChild(button("Choose mods", "primary", () => goStep("mods")));
     return;
   }
@@ -329,7 +329,7 @@ function buildTroubleshooting() {
   tb.style.fontSize = "12.5px";
   const items = [
     "The game crashes when it starts, or menus are blank: the most likely cause is a file made for a different game version. Open the UI icons & text step and click \"Undo\", commit again and copy to the SD card again - if the game runs now, the built UI files were the cause. Then try removing the oldest of your UI mods and building again. (Holding L while the game starts turns mods off for that launch.)",
-    "A mod doesn't show up at all: check it's ticked and that you committed after ticking it. Code patches only work on the exact game version they were made for (set yours in Setup).",
+    "A mod doesn't show up at all: check it's selected and that you committed after selecting it. Code patches only work on the exact game version they were made for (set yours in Setup).",
     "Icons show on the map but not on the select screen (or the other way round): that mod only changed one of the two files - nothing wrong on your side.",
     "Menu text is in the wrong language: open UI icons & text and pick the language your Switch is set to, then build again and re-copy.",
     "Some items in UI icons & text say they can't be added automatically: those mods' pictures don't fit the game's own (a different shape, or made for another game version - a picture that is just a different size is scaled to fit). The game just keeps its normal picture there; everything else still works.",

@@ -269,7 +269,7 @@ function buildPartLook(name, onLook) {
   // a part that comes in outfits (the Standard Kart has one picture per character): a ticked mod that supplies its own
   // outfit pictures - a character's - keeps them; yours is used for the rest
   function leftNote(p, wrap) {
-    if (p.left_to_mods) wrap.appendChild(cgEl("div", "cg-note", `${p.left_to_mods} outfit picture${p.left_to_mods === 1 ? " comes" : "s come"} from other mods you ticked (a character's, for instance) and ${p.left_to_mods === 1 ? "is" : "are"} left as ${p.left_to_mods === 1 ? "it is" : "they are"} - yours is used for all the others.`));
+    if (p.left_to_mods) wrap.appendChild(cgEl("div", "cg-note", `${p.left_to_mods} outfit picture${p.left_to_mods === 1 ? " comes" : "s come"} from other mods you selected (a character's, for instance) and ${p.left_to_mods === 1 ? "is" : "are"} left as ${p.left_to_mods === 1 ? "it is" : "they are"} - yours is used for all the others.`));
   }
 
   function drawIconsSummary(look) {
@@ -365,7 +365,7 @@ function assembleVehicleCard(ctx) {
   function drawFitBody(wrong) {
     fitStep.content.replaceChildren();
     if (!wrong.length) {
-      fitStep.content.appendChild(cgEl("div", "cg-note", `Nothing looks out of place: no ticked mod's model file is for a different part than ${name}.`));
+      fitStep.content.appendChild(cgEl("div", "cg-note", `Nothing looks out of place: no selected mod's model file is for a different part than ${name}.`));
       return;
     }
     for (const key of wrong) {
@@ -391,7 +391,7 @@ function assembleVehicleCard(ctx) {
           actions.appendChild(mv);
         }
       }
-      const untick = button("Untick it", "small", () => {
+      const untick = button("Deselect it", "small", () => {
         const row_ = modCheckboxes.find(x => x.key === key);
         state.checked[key] = false;
         if (row_) { row_.cb.checked = false; row_.row.classList.remove("checked"); }
@@ -418,8 +418,8 @@ function assembleVehicleCard(ctx) {
       modsCard.classList.toggle("show-all", manage || !some);
       modHint.hidden = some && !manage;
       modHint.textContent = !some
-        ? `None of these is in use yet. Tick the one${entry.units.length > 1 ? "s" : ""} you want for ${name}.`
-        : "Tick a mod to use it, untick it to stop. Two mods that replace the same part clash - the app shows you which files.";
+        ? `None of these is in use yet. Select the one${entry.units.length > 1 ? "s" : ""} you want for ${name}.`
+        : "Select a mod to use it, deselect it to stop. Two mods that replace the same part clash - the app shows you which files.";
       manageBtn.hidden = !(some && (entry.units.length > ticked.length || manage));
       manageBtn.textContent = manage ? "Done" : "Manage";
     }

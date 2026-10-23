@@ -96,12 +96,12 @@ async function renderUiSetupSettingsCard() {
 
   const conflictEls = d.archives.map(renderUiArchiveConflicts).filter(Boolean);
   if (conflictEls.length) {
-    body.appendChild(uisEl("p", "uis-note", "Two of your ticked mods change the exact same icon or name - pick which one should win (otherwise the first one, alphabetically, is used):"));
+    body.appendChild(uisEl("p", "uis-note", "Two of your selected mods change the exact same icon or name - pick which one should win (otherwise the first one, alphabetically, is used):"));
     for (const el of conflictEls) body.appendChild(el);
   }
 
   if (!d.any_sources) {
-    body.appendChild(uisEl("div", "settings-hint", "None of your currently ticked mods change menu icons or names, so there's nothing built right now. Tick one and this fills in."));
+    body.appendChild(uisEl("div", "settings-hint", "None of your currently selected mods change menu icons or names, so there's nothing built right now. Select one and this fills in."));
     return;
   }
 

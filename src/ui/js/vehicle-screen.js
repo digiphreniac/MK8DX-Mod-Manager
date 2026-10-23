@@ -151,7 +151,7 @@ function applyPartMarkers() {
     if (!r || !r.applicable) continue;
     const mark = document.createElement("div");
     mark.className = "tile-review-mark " + (r.finished ? "done" : "todo");
-    mark.title = r.finished ? "Completed" : "Ticked - open it to finish its name and picture";
+    mark.title = r.finished ? "Completed" : "Mod selected - open it to finish its name and picture";
     if (r.finished) mark.textContent = "\u2713";
     tile.appendChild(mark);
   }

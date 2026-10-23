@@ -52,9 +52,9 @@ async function finishRefile(info, opts) {
     item: info.to_item,
     text: auto
       ? (info.pack && info.pack.length > 1
-          ? `"${info.mod_name}" is a pack: it replaces ${joinNames(info.pack.map(refileLabel))}. It's listed on each of their cards - ticking it turns on all of them.`
+          ? `"${info.mod_name}" is a pack: it replaces ${joinNames(info.pack.map(refileLabel))}. It's listed on each of their cards - selecting it turns on all of them.`
           : `"${info.mod_name}" replaces ${to}${info.from_item === ITEMS_OTHER ? "" : `, not ${from}`}, so it is now under ${to}.`)
-        + (ticked ? " It's ticked - finish setting it up below." : "")
+        + (ticked ? " It's selected - finish setting it up below." : "")
       : `Moved "${info.mod_name}" from ${from} to ${to}.`,
     undo: { ...info, ticked },
   };
@@ -117,7 +117,7 @@ function openMoveDialog({ from, modName, modId, recordType }) {
   const dialog = cgEl("div", "mv-dialog");
   dialog.setAttribute("role", "dialog");
   dialog.appendChild(cgEl("h3", null, `Move "${modName}" to another ${noun}`));
-  dialog.appendChild(cgEl("p", "mv-note", `It is under ${refileLabel(from)} now. Pick the ${noun} it replaces - its files, its tick and its GameBanana record all move with it.`));
+  dialog.appendChild(cgEl("p", "mv-note", `It is under ${refileLabel(from)} now. Pick the ${noun} it replaces - its files, its selection and its GameBanana record all move with it.`));
   const select = document.createElement("select");
   select.appendChild(new Option(`Choose a ${noun}...`, ""));
   const groups = new Map();

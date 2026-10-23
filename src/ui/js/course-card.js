@@ -332,8 +332,8 @@ function assembleCourseCard(ctx) {
       modsCard.classList.toggle("show-all", manage || !some);
       modHint.hidden = some && !manage;
       modHint.textContent = !some
-        ? `None of these is in use yet. Tick the one${entry.units.length > 1 ? "s" : ""} you want for ${name}.`
-        : "Tick a mod to use it, untick it to stop. Two mods that replace the same course clash - the app shows you which files.";
+        ? `None of these is in use yet. Select the one${entry.units.length > 1 ? "s" : ""} you want for ${name}.`
+        : "Select a mod to use it, deselect it to stop. Two mods that replace the same course clash - the app shows you which files.";
       manageBtn.hidden = !(some && (entry.units.length > ticked.length || manage));
       manageBtn.textContent = manage ? "Done" : "Manage";
     }
