@@ -1,21 +1,19 @@
-<!--
-  This is the ONLY readme inside the downloaded zip (tools/build_release.py copies it to README.md in the
-  release folder). It is separate from the repository's README.md.
-  PLACEHOLDER: replace this whole file with your own text.
--->
-
 # Mario Kart 8 Deluxe Mod Manager
 
-(Placeholder - replace with your own text. Facts the final text may want to cover are below.)
+## Using the app: 
+### 1. Launch the app
+Double click the included exe file.
 
-- Run **MK8DX Mod Manager.exe**. Nothing needs installing; Python and 7-Zip are included.
-- Extract the whole zip first (not from inside it), to a short folder path such as `C:\MK8DX`. Avoid `Program Files`.
-- Windows may say "Windows protected your PC" because the app isn't code-signed: **More info**, then **Run anyway**.
-- Your mods and settings live in a **`data`** folder created next to the `.exe` on first launch. The finished SD card
-  files are built in **`sd-card-staging`**, also next to the `.exe`. Deleting the app folder deletes both.
-  (A different data folder can be chosen under Settings.)
-- On first launch the app asks for a folder extracted from your own copy of the game (the RomFS, containing
-  `UI\cmn\common.sarc`). It copies the few hundred MB it needs. The files belong to Nintendo and are never included.
-- To update: extract the new zip over the old folder. `data` and `sd-card-staging` are not in the zip, so they stay.
-- If something goes wrong, `mod-manager.log` (next to the `.exe`) says why.
-- Needs the Microsoft Edge WebView2 runtime (already on Windows 11 and up-to-date Windows 10).
+If Windows shows "Windows protected your PC", click More info, then Run anyway. This appears because the app isn't code-signed.
+
+### 2. Complete the first-time setup
+The first time you open the app you'll need to complete the following items:
+* Selecting a data-folder - Where the all will keep your downloaded mods and settings
+* Pick your game version
+* Point your app at your game files.
+  * You can get your game files by doing the following:
+  * Dump Mario Kart 8 Deluxe from your Switch (I recommend using a tool like NXDumpTool)
+  * Extract the game's RomFS. This can be done easily in Ryujinx or Eden. Alternatively hactool can be used.
+
+From there you can follow the instructions inside the app to install your first mods! After you've installed enough mods, you can then "commit" them (this just means the app checks for conflicts and moves them into a staging folder for you to easily copy/paste) and move them onto your SD card to play without any issues.
+
