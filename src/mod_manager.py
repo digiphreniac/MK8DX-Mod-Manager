@@ -233,8 +233,9 @@ _INVALID_FS_CHARS = re.compile(r'[<>:"/\\|?*]')
 
 
 def load_master_dir_pointer():
-    """Reads app-config.json from the app root. Returns the configured
-    master directory as a Path, or None if not set up yet."""
+    """Reads app-config.json from the app root. Returns the master directory
+    the user chose as a Path, or None when they never changed it (the app then
+    uses default_master_dir())."""
     config_path = APP_ROOT / APP_CONFIG_FILENAME
     if not config_path.exists():
         return None
@@ -244,6 +245,24 @@ def load_master_dir_pointer():
         return None
     raw = data.get("master_dir")
     return Path(raw) if raw else None
+
+
+DEFAULT_DATA_DIRNAME = "data"
+
+
+def default_master_dir():
+    """The folder used until the user picks another: `data` inside the app's own folder (next to the .exe in a packaged build),
+    created when missing. None when that place can't be written to (say the app sits in Program Files) - the app then asks
+    the user to choose a folder, as it always did."""
+    folder = APP_ROOT / DEFAULT_DATA_DIRNAME
+    try:
+        folder.mkdir(exist_ok=True)
+        probe = folder / ".write-test"
+        probe.write_text("")
+        probe.unlink()
+    except OSError:
+        return None
+    return folder
 
 
 def save_master_dir_pointer(path: Path):
@@ -370,13 +389,57 @@ EXEFS_PATCHES_DIRNAME = "exefs_patches"
 # a re-merge clears exactly its own previous output and never touches other
 # patch sets (sigpatches, ...) already on the user's SD card.
 EXEFS_STAGING_PREFIX = "mk8dxmm_"
-# Build id -> game version. Deliberately tiny: only ids whose version is
-# confirmed by a source (a mod's own readme / a cheat database); an unlisted
-# id is shown as just its raw id rather than guessed at.
+# Build id -> game version, keyed by the build id's first BUILD_ID_LEN hex characters (the way cheat databases and
+# version tables name a build; use build_key()). An id missing from this table is shown as just its raw id rather
+# than guessed at.
+BUILD_ID_LEN = 16
 KNOWN_BUILD_IDS = {
-    "6A85262F21B903649BD7C62628D26E43": "3.0.3",
-    "9EF5CAA2D5B933C772358C5AA6FABA15": "3.0.1",
+    # Confirmed by a source (a mod's own readme / a cheat database):
+    "6A85262F21B90364": "3.0.3",
+    "9EF5CAA2D5B933C7": "3.0.1",
+    # Inferred, not confirmed: the ids come from HamletDuFromage/switch-cheats-db (versions/0100152000022000.json), which
+    # pairs each with a Nintendo update number (one per release, in steps of 65536). The versions are those releases counted
+    # in order from the Mario Wiki's update history, with the China-only 3.0.2 taking no number - which is what makes the two
+    # confirmed ids above come out right. Releases with no exefs change have no id of their own here.
+    "B5C39B5B7C62A88E": "1.0.0",   # update 0
+    "FE1B230800D4933C": "1.7.1",   # update 589824
+    "4792ABA465F04534": "1.7.2",   # 655360
+    "937E57FF64D21ECD": "2.0.0",   # 720896
+    "BDA8F5E6A0F87F36": "2.1.0",   # 786432
+    "60C8343AFBA2588F": "2.2.0",   # 851968
+    "381F6BF6894F3C33": "2.2.1",   # 917504
+    "13296B64DFA7A131": "2.3.0",   # 983040
+    "4B7A0BB5AE57E627": "2.4.0",   # 1048576
+    "FE941ED5BA14BE5D": "3.0.5",   # 1376256
+    "2C336A9BCF79C304": "4.0.0",   # 1441792
 }
+
+
+def build_key(build_id):
+    """The part of a build id that is compared: its first BUILD_ID_LEN hex characters, upper-case."""
+    return (build_id or "").strip().upper()[:BUILD_ID_LEN]
+
+
+def build_in(mine, build_ids):
+    """Whether `mine` (the user's build id, either length) is one of `build_ids` (a patch's ids, usually 32 hex long)."""
+    return any(build_key(b) == build_key(mine) for b in build_ids)
+
+
+# game_version value for "Not listed (probably newer)": the user's build is none of KNOWN_BUILD_IDS.
+NEWER_VERSION = "newer"
+
+
+def patch_fit(mine, game_version, build_ids):
+    """How a code patch's build ids fit the user's game: "wrong" (their build id is set and none of these is it), "maybe" (they
+    said their game is newer than any listed version, and every id here is a listed - so older - build: it may or may not still
+    work, since a game update often leaves the executable alone), or None (fits, or nothing is known to say otherwise)."""
+    if not build_ids:
+        return None
+    if mine:
+        return None if build_in(mine, build_ids) else "wrong"
+    if game_version == NEWER_VERSION and all(build_key(b) in KNOWN_BUILD_IDS for b in build_ids):
+        return "maybe"
+    return None
 
 
 def find_exefs_units(extracted_root: Path):
@@ -1497,7 +1560,7 @@ def ui_icons_status_text(mod_root: Path):
     count = sum(1 for f in ui_icons_romfs.rglob("*") if f.is_file()) if ui_icons_romfs.is_dir() else 0
     if count:
         return f"Combined UI icons & text: {count} file(s) in ui-icons/romfs/ — always included, not a checkbox"
-    return "Combined UI icons & text: none yet — built automatically the next time you commit, if any ticked mod needs it"
+    return "Combined UI icons & text: none yet — built automatically the next time you commit, if any selected mod needs it"
 
 
 # The game's internal "Driver" names (romfs/Driver/<name>.szs, and the voice/menu-sound
@@ -1594,6 +1657,10 @@ class Api(VoiceEditMixin, ModNotesMixin):
         self._state_lock = threading.RLock()   # (every read-modify-write of the ticked mods happens under it)
         self._root_epoch = ""                   # (names the folder a page loaded its ticks from - see save_checked)
         self._desc_fetch_lock = threading.Lock()
+        self._prefetch_lock = threading.Lock()     # (guards the four below - see gb_prefetch)
+        self._prefetch_pending = None              # the newest request waiting its turn: (category, item name)
+        self._prefetch_busy = False                # a worker thread is running
+        self._prefetched = {}                      # what was fetched ahead and when: key -> time.monotonic()
         self._gb_desc_cache = {}  # mod id -> description, for the browse lists that read the text (vehicles, items, courses)
         self._configure_root(mod_root)
 
@@ -1747,6 +1814,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return {
             "configured": self.mod_root is not None,
             "path": str(self.mod_root) if self.mod_root else None,
+            "default_path": str(APP_ROOT / DEFAULT_DATA_DIRNAME),
         }
 
     def pick_master_dir(self):
@@ -3962,6 +4030,70 @@ class Api(VoiceEditMixin, ModNotesMixin):
         result["subcategory_id"] = sub_id
         return result
 
+    _GB_PREFETCH_DELAY = 1.0   # seconds a card has to stay open before anything is fetched for it (flicking through cards fetches nothing)
+
+    def gb_prefetch(self, category, item_name):
+        """Fetches the first page of the Browse GameBanana list for a card (a character, course, vehicle part or item) in the
+        background, so the window opens with it already there: the page itself is kept (gamebanana_api's page cache) and so are the
+        descriptions it needs (the description cache). Called when a card opens. Returns at once. It waits a moment first, only ever
+        works on the newest card, and fetches a given list once (it is shared by every part of a kind) for a few minutes - flicking
+        through cards doesn't pile up requests. Asks for what the window would: the saved sort, the same page, descriptions included."""
+        with self._prefetch_lock:
+            self._prefetch_pending = (category, item_name)
+            if self._prefetch_busy:
+                return {"started": False}   # (the running worker takes the newest request when it is done)
+            self._prefetch_busy = True
+        threading.Thread(target=self._prefetch_worker, daemon=True, name="gb-prefetch").start()
+        return {"started": True}
+
+    def _prefetch_worker(self):
+        while True:
+            time.sleep(self._GB_PREFETCH_DELAY)
+            with self._prefetch_lock:
+                request, self._prefetch_pending = self._prefetch_pending, None
+                if request is None:
+                    self._prefetch_busy = False
+                    return
+            try:
+                self._prefetch_one(*request)
+            except Exception:   # (an optimisation: whatever goes wrong here, the window just asks for itself)
+                pass
+
+    def _browse_sort(self, tagged):
+        """The sort the Browse window starts on: the one the user picked last, else the kind's own default (see gb-browse.js)."""
+        saved = self._load_settings().get("gb_browse_sort")
+        return saved if saved in gamebanana_api.SORT_ALIASES else ("most_viewed" if tagged else "most_liked")
+
+    def _prefetch_one(self, category, item_name):
+        tagged = category in VEHICLE_SECTIONS or category == ITEMS_CATEGORY
+        sort = self._browse_sort(tagged)
+        if category == "characters":
+            key = ("characters", item_name)
+        elif category == "courses":
+            key = ("courses", item_name)
+        elif category == ITEMS_CATEGORY:
+            key = ("items", sort)   # (one list for every item)
+        elif category in VEHICLE_SECTIONS:
+            section, item = self._vehicle_item(item_name)
+            if item is None:
+                return
+            key = ("vehicles", self._vehicle_gb_category_id(section, item), sort)   # (one list per kind of part)
+        else:
+            return
+        now = time.monotonic()
+        with self._prefetch_lock:
+            if now - self._prefetched.get(key, -1e9) < gamebanana_api.PAGE_CACHE_TTL:
+                return
+            self._prefetched[key] = now
+        if category == "characters":
+            self.gb_browse(item_name, 1, sort)
+        elif category == "courses":
+            self.gb_browse_course(item_name, 1)
+        elif category == ITEMS_CATEGORY:
+            self.gb_browse_item(item_name, 1, sort)
+        else:
+            self.gb_browse_vehicle(item_name, 1, sort)
+
     def gb_browse_course(self, course_name, page=1, quick=False):
         """Courses have no per-item GameBanana subcategory the way characters
         do, so this searches by the base course name instead (stripped of any
@@ -5066,7 +5198,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
     @staticmethod
     def _build_id_label(build_id):
-        version = KNOWN_BUILD_IDS.get(build_id)
+        version = KNOWN_BUILD_IDS.get(build_key(build_id))
         return f"{build_id[:8]}... (v{version})" if version else f"{build_id[:8]}..."
 
     def get_exefs_unit_info(self, unit_keys):
@@ -5075,15 +5207,18 @@ class Api(VoiceEditMixin, ModNotesMixin):
         user has told the app their game's build id (Settings) and none of the
         unit's patches target it - a patch for another build silently does
         nothing, which is otherwise invisible."""
-        mine = (self._load_settings().get("game_build_id") or "").strip().upper()
+        settings = self._load_settings()
+        mine = (settings.get("game_build_id") or "").strip().upper()
         info = {}
         for key in unit_keys:
             if not self._is_exefs_unit(key):
                 continue
             patches, _ignored = self._exefs_files(key)
+            fit = patch_fit(mine, settings.get("game_version"), patches)
             info[key] = {
-                "ids": [{"id": bid, "version": KNOWN_BUILD_IDS.get(bid)} for bid in patches],
-                "inert": bool(mine) and mine not in patches,
+                "ids": [{"id": bid, "version": KNOWN_BUILD_IDS.get(build_key(bid))} for bid in patches],
+                "inert": fit == "wrong",
+                "maybe": fit == "maybe",
             }
         return info
 
@@ -5311,8 +5446,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if res.missing:
             warnings.append({
                 "kind": "missing", "severity": "warn",
-                "title": f"{len(res.missing)} ticked mod{'s' if len(res.missing) != 1 else ''} can't be found on disk",
-                "detail": "Their files are gone (deleted or moved). Untick them or download them again - they aren't part of this commit.",
+                "title": f"{len(res.missing)} selected mod{'s' if len(res.missing) != 1 else ''} can't be found on disk",
+                "detail": "Their files are gone (deleted or moved). Deselect them or download them again - they aren't part of this commit.",
                 "mods": short(res.missing), "action": "open-mod",
             })
         if res.ui_archives_skipped:
@@ -5357,11 +5492,13 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "mods": [], "action": None,
             })
         if exefs_keys:
-            wrong = []
+            wrong, maybe = [], []
             for key in exefs_keys:
-                ids = list(self._exefs_files(key)[0])
-                if mine and ids and mine not in ids:
+                fit = patch_fit(mine, settings.get("game_version"), list(self._exefs_files(key)[0]))
+                if fit == "wrong":
                     wrong.append(key)
+                elif fit == "maybe":
+                    maybe.append(key)
             if wrong:
                 warnings.append({
                     "kind": "exefs-version", "severity": "warn",
@@ -5369,7 +5506,17 @@ class Api(VoiceEditMixin, ModNotesMixin):
                     "detail": f"They're built for another version than yours ({mine[:8]}...) and will do nothing on your game.",
                     "mods": wrong, "action": "open-mod",
                 })
-            elif not mine:
+            if maybe:
+                warnings.append({
+                    "kind": "exefs-version-maybe", "severity": "todo",
+                    "title": f"{len(maybe)} code patch{'es were' if len(maybe) != 1 else ' was'} made for an older game version",
+                    "detail": "You said your game isn't one of the listed versions (probably newer), so these might not work on it. "
+                              "A game update often leaves the executable alone, in which case they still do. "
+                              "If one does nothing in the game, look for a newer version of the mod. "
+                              "Entering your exact build ID in Settings lets the app check for sure.",
+                    "mods": maybe, "action": "open-mod",
+                })
+            if not mine and settings.get("game_version") != NEWER_VERSION:
                 warnings.append({
                     "kind": "exefs-version-unknown", "severity": "info",
                     "title": f"{len(exefs_keys)} code patch{'es' if len(exefs_keys) != 1 else ''} - game version not set",
@@ -5583,17 +5730,24 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "always merged in)"
             )
         if staged_patches:
-            mine = (self._load_settings().get("game_build_id") or "").strip().upper()
+            settings = self._load_settings()
+            mine = (settings.get("game_build_id") or "").strip().upper()
             lines.append(f"Code patches staged: {len(staged_patches)}")
             for key, ids in staged_patches:
                 label = ", ".join(self._build_id_label(b) for b in ids) or "nothing usable"
                 lines.append(f"  - {key.split('/', 1)[1]}: {label}")
-                if mine and ids and mine not in ids:
+                fit = patch_fit(mine, settings.get("game_version"), ids)
+                if fit == "wrong":
                     lines.append(
                         f"    WARNING: built for a different game version than your build id "
                         f"({mine[:8]}...) - it will do nothing on your game."
                     )
-            if not mine:
+                elif fit == "maybe":
+                    lines.append(
+                        "    NOTE: made for an older game version than yours (you chose \"not listed, probably newer\") "
+                        "- it might not work on your game."
+                    )
+            if not mine and settings.get("game_version") != NEWER_VERSION:
                 lines.append(
                     "  (A code patch only works on the exact game version it was built for - set "
                     "your game's build id in Settings to be warned about mismatches.)"
@@ -5627,9 +5781,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
     # --- guided flow: where the user is and what to do next ------------------
 
     def get_game_versions(self):
-        """The game versions the app can recognise a code patch for (build ids
-        confirmed by a source - see KNOWN_BUILD_IDS), newest first, for the
-        first-run setup and Settings."""
+        """The game versions the app can recognise a code patch for (see
+        KNOWN_BUILD_IDS), newest first, for the first-run setup and Settings."""
         return [
             {"version": v, "build_id": b}
             for b, v in sorted(KNOWN_BUILD_IDS.items(), key=lambda kv: [int(x) for x in kv[1].split(".")], reverse=True)
@@ -5641,7 +5794,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
     def set_game_version(self, version):
         """Records the user's game version; a known one also sets the exact
-        build id the code-patch checks use. "" = don't know (no checks)."""
+        build id the code-patch checks use. "" = don't know (no checks);
+        NEWER_VERSION = not a listed version (patches for a listed one are flagged "maybe")."""
         build = next((b for b, v in KNOWN_BUILD_IDS.items() if v == version), "")
         self.save_settings({"game_version": version or "", "game_build_id": build})
         return {"game_version": version or "", "game_build_id": build}
@@ -6475,8 +6629,14 @@ class Api(VoiceEditMixin, ModNotesMixin):
     def get_base_files_status(self):
         """{"done", "source" (shown for reference only - it doesn't need to still exist), "copied_at", "icons",
         "locales", "voice_found", "voice_total", "problems"} - the app's own local copy of the base game's files
-        (see game_files.py), which both "UI icons & text" and default-voice muting are built on."""
-        return game_files.status(self.mod_root)
+        (see game_files.py), which both "UI icons & text" and default-voice muting are built on. Plus "copy_dir" (the
+        folder holding the copy) and "source_exists" (whether the folder it was made from is still there), for the
+        "you can delete your original dump" message."""
+        st = game_files.status(self.mod_root)
+        if self.mod_root is not None:
+            st["copy_dir"] = str(self.mod_root / game_files.DIRNAME)
+        st["source_exists"] = bool(st.get("source")) and Path(st["source"]).is_dir()
+        return st
 
     def set_base_files_source(self, path):
         """Copies the base game files from `path` (both the pristine and working copies - see game_files.py),
@@ -6963,7 +7123,7 @@ def report_startup_failure(log_path):
 
 
 def main():
-    api = Api(load_master_dir_pointer())
+    api = Api(load_master_dir_pointer() or default_master_dir())
     window_w, window_h = default_window_size()
     window = webview.create_window(
         "Mario Kart 8 Mod Manager",

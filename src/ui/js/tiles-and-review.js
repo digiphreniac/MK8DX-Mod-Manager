@@ -88,11 +88,11 @@ function buildTile(displayName, units, onClick, gbAttempted, opts) {
   } else if (overlayCount && opts.showCount === false) {
     // Counts are switched off (Settings > Character Select). One state is still worth a quiet cue:
     // mods are downloaded but none is ticked yet. The numbers stay in the tile's tooltip.
-    tile.dataset.countNote = `${selected} of ${total} mod${total === 1 ? "" : "s"} ticked`;
+    tile.dataset.countNote = `${selected} of ${total} mod${total === 1 ? "" : "s"} selected`;
     if (selected === 0) {
       const ring = document.createElement("div");
       ring.className = "tile-pending-dot";
-      ring.title = `${total} mod${total === 1 ? "" : "s"} downloaded - none ticked yet`;
+      ring.title = `${total} mod${total === 1 ? "" : "s"} downloaded - none selected yet`;
       tile.appendChild(ring);
     }
   } else if (overlayCount) {
@@ -270,7 +270,7 @@ function applyReviewMarker(ref, review) {
   const todo = rs.some(r => !reviewFinished(r));
   const mark = document.createElement("div");
   mark.className = "tile-review-mark " + (todo ? "todo" : "done");
-  mark.title = todo ? "Ticked - open it to finish its name and icons" : "Completed";
+  mark.title = todo ? "Mod selected - open it to finish its name and icons" : "Completed";
   if (!todo) mark.textContent = "\u2713";
   tile.appendChild(mark);
 }

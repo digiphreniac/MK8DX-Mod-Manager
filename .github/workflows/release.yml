@@ -82,6 +82,8 @@ jobs:
                          "_internal\7zip\7z.exe", "_internal\7zip\7z.dll") {
             if (-not (Test-Path "$app\$f")) { throw "Package is missing $f" }
           }
+          $readmes = @(Get-ChildItem $app -File | Where-Object { $_.Name -match 'read\s*me' })
+          if ($readmes.Count -ne 1) { throw "Expected exactly one readme in the package, found $($readmes.Count)" }
           (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + "  " + (Split-Path $zip -Leaf) | Set-Content "$zip.sha256"
 
       - name: Start the packaged app once

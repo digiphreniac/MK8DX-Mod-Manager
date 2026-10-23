@@ -4,6 +4,9 @@ function looksLikeModRef(text) {
 }
 
 function buildGameBananaCard(itemName, category, opts) {
+  // Opening a card is a good sign the Browse window comes next: have the backend fetch its first page now, so it opens ready.
+  // (Nothing waits on this; the backend does it a moment later, once, and only for the newest card.)
+  pywebview.api.gb_prefetch(category, itemName).catch(() => {});
   const card = document.createElement("div");
   card.className = "modal-card";
 
@@ -364,7 +367,7 @@ function buildGameBananaCard(itemName, category, opts) {
         fileCheckboxes.forEach(cb => { cb.checked = pick.has(Number(cb.dataset.fileId)) || pick.has(cb.dataset.fileId); });
         const note = document.createElement("div");
         note.className = "settings-hint";
-        note.textContent = `Suggested file${pick.size === 1 ? "" : "s"} ticked (the newest / fullest / one named for ${itemName}). Tick any others you also want - a mod often has a companion file (audio, UI) as well.`;
+        note.textContent = `Suggested file${pick.size === 1 ? "" : "s"} selected (the newest / fullest / one named for ${itemName}). Select any others you also want - a mod often has a companion file (audio, UI) as well.`;
         blockBody.appendChild(note);
       }
     }
@@ -404,7 +407,7 @@ function buildGameBananaCard(itemName, category, opts) {
         return anyRedownload ? "Re-download selected" : "Download selected";
       }
       dlBtn.textContent = dlBtnLabel();
-      const NO_FILE_TICKED_MSG = "Tick at least one file to download.";
+      const NO_FILE_TICKED_MSG = "Select at least one file to download.";
       fileCheckboxes.forEach(cb => cb.addEventListener("change", () => {
         dlBtn.textContent = dlBtnLabel();
         if (modError.textContent === NO_FILE_TICKED_MSG) modError.hidden = true; // they've fixed it

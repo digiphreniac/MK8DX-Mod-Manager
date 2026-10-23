@@ -177,7 +177,7 @@ function buildPackBadge(key, cardName) {
   const badge = document.createElement("span");
   badge.className = "linked-badge";
   badge.textContent = others.length === 1 ? `Pack \u00b7 also ${refileLabel(others[0])}` : `Pack \u00b7 ${names.length} things`;
-  badge.title = `This mod replaces ${names.map(refileLabel).join(", ")}. It is listed on each of their cards; ticking it turns on all of them. Click to open ${refileLabel(others[0])}.`;
+  badge.title = `This mod replaces ${names.map(refileLabel).join(", ")}. It is listed on each of their cards; selecting it turns on all of them. Click to open ${refileLabel(others[0])}.`;
   badge.addEventListener("click", (e) => {
     e.stopPropagation();
     showRefileTarget(others[0]);
@@ -251,7 +251,7 @@ function renderMoreList() {
     } else {
       const text = document.createElement("div");
       text.className = "more-status-text";
-      text.textContent = `${total} ${total === 1 ? "mod" : "mods"} · ${selected} ticked`;
+      text.textContent = `${total} ${total === 1 ? "mod" : "mods"} · ${selected} selected`;
       status.appendChild(text);
       const bar = document.createElement("div");
       bar.className = "more-bar";
@@ -460,7 +460,7 @@ async function renderCourseStrip(cupName) {
       const conflictBadge = document.createElement("div");
       conflictBadge.className = "char-conflict-badge";
       conflictBadge.textContent = "!";
-      conflictBadge.title = "This course's checked mod conflicts with another checked mod in this cup - open a course here to see which files.";
+      conflictBadge.title = "This course's selected mod conflicts with another selected mod in this cup - open a course here to see which files.";
       tile.appendChild(conflictBadge);
     }
     // Shows the mod's own actual course-select picture when it has one, so
@@ -529,7 +529,7 @@ function applyCourseMarkers() {
     if (!r || !r.applicable) continue;
     const mark = document.createElement("div");
     mark.className = "tile-review-mark " + (r.finished ? "done" : "todo");
-    mark.title = r.finished ? "Completed" : "Ticked - open it to finish its name and picture";
+    mark.title = r.finished ? "Completed" : "Selected - open it to finish its name and picture";
     if (r.finished) mark.textContent = "\u2713";
     tile.appendChild(mark);
   }

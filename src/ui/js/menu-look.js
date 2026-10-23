@@ -42,11 +42,11 @@ function unitSlotBadges(key, itemName) {
   if (!u) return out;
   if (u.mismatch) {
     const b = cgEl("span", "packed-badge", "replaces " + u.characters.join(" / "));
-    b.title = `This one replaces ${u.characters.join(" / ")}'s slot, not ${itemName}'s. "Select All" skips it - tick it yourself if that's what you want.`;
+    b.title = `This one replaces ${u.characters.join(" / ")}'s slot, not ${itemName}'s. "Select All" skips it - select it yourself if that's what you want.`;
     out.push(b);
   } else if (u.twins > 1) {
     const b = cgEl("span", "packed-badge", `one of ${u.twins} variants`);
-    b.title = `${u.twins} versions of this mod write exactly the same files (colours / options) - they'd clash if ticked together. "Select All" ticks only the first.`;
+    b.title = `${u.twins} versions of this mod write exactly the same files (colours / options) - they'd clash if selected together. "Select All" selects only the first.`;
     out.push(b);
   }
   return out;

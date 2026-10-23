@@ -162,7 +162,7 @@ function buildCharacterLook(name, onLook) {
     const r = A.look.review;
     if (!r.icons_applicable) {
       iconsMode = "summary";
-      wrap.appendChild(cgEl("div", "cg-note", "Nothing to check: the ticked mods don't change how " + name + " looks in the menus."));
+      wrap.appendChild(cgEl("div", "cg-note", "Nothing to check: the selected mods don't change how " + name + " looks in the menus."));
       return;
     }
     const walk = iconsView === "walk" || (iconsView === null && !r.icons_done);
@@ -601,8 +601,8 @@ function assembleCharacterCard(ctx) {
       modsCard.classList.toggle("show-all", manage || !some);
       modHint.hidden = some && !manage;
       modHint.textContent = !some
-        ? `None of these is in use yet. Tick the one${entry.units.length > 1 ? "s" : ""} you want for ${name}.`
-        : "Tick a mod to use it, untick it to stop. Mods that replace the same character, and variants of the same files (colours or options), are pick-one: ticking one unticks the other.";
+        ? `None of these is in use yet. Select the one${entry.units.length > 1 ? "s" : ""} you want for ${name}.`
+        : "Select a mod to use it, deselect it to stop. Mods that replace the same character, and variants of the same files (colours or options), are pick-one: selecting one deselects the other.";
       manageBtn.hidden = !(some && (entry.units.length > ticked.length || manage));
       manageBtn.textContent = manage ? "Done" : "Manage";
     }
@@ -1110,6 +1110,12 @@ function openCharacterModal(name) {
           warn.className = "packed-badge";
           warn.textContent = "wrong game version";
           warn.title = "None of this patch's build ids match the game build id set in Settings - it would do nothing on your game.";
+          row.insertBefore(warn, firstButton);
+        } else if (patch.maybe) {
+          const warn = document.createElement("span");
+          warn.className = "packed-badge";
+          warn.textContent = "might not match your game";
+          warn.title = "This patch was made for an older game version than yours (you chose \"Not listed, probably newer\"). A game update often leaves the executable alone, so it may still work - if it does nothing, look for a newer version of the mod. Entering your exact build ID in Settings lets the app check for sure.";
           row.insertBefore(warn, firstButton);
         }
       }

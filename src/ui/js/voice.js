@@ -373,12 +373,12 @@ async function openVoiceEditor(character, onClose) {
     const noBase = !st.bases.length;
     const box = cgEl("div", "ve-base" + (noBase || st.suspended ? " warn" : ""));
     if (st.suspended) {
-      box.appendChild(document.createTextNode("Your changes are saved but paused: the voice mod they were made from isn't ticked any more, and there's no other voice file to start from. Tick a voice mod for this character, or choose your game's files folder, and they come back."));
+      box.appendChild(document.createTextNode("Your changes are saved but paused: the voice mod they were made from isn't selected any more, and there's no other voice file to start from. Select a voice mod for this character, or choose your game's files folder, and they come back."));
     } else if (noBase) {
-      box.appendChild(document.createTextNode("The app has no copy of this character's voice to start from. Choose your game's files folder (the \u2018romfs\u2019 you extracted from your game) so it can start from the game's own sound, or tick a voice mod for this character."));
+      box.appendChild(document.createTextNode("The app has no copy of this character's voice to start from. Choose your game's files folder (the \u2018romfs\u2019 you extracted from your game) so it can start from the game's own sound, or select a voice mod for this character."));
     } else {
       const from = [...new Set(st.bases.map(b => b.source === "game" ? "the game's own files" : b.label))];
-      box.appendChild(document.createTextNode(`Starting from: ${from.join(" and ")}. If you tick a different voice mod for this character, your changes move onto it.`));
+      box.appendChild(document.createTextNode(`Starting from: ${from.join(" and ")}. If you select a different voice mod for this character, your changes move onto it.`));
     }
     if (noBase || st.suspended) {
       const act = cgEl("div", "ve-base-act");

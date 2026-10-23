@@ -11,7 +11,7 @@
           <div id="setting-master-dir-path" class="settings-path-display"></div>
           <button id="btn-change-master-dir" class="small">Change&hellip;</button>
           <div class="settings-hint">
-            Where this app keeps your downloads and all its own settings/cache files. Changing it lets you optionally bring your existing files along to the new folder.
+            Where this app keeps your downloaded mods, settings and caches. Unless you change it, that is a folder called <code>data</code> next to the app. Changing it lets you optionally bring your existing files along to the new folder.
           </div>
         </div>
       </div>
@@ -31,16 +31,15 @@
       <div class="modal-card">
         <div class="modal-card-header"><span class="modal-card-title">Game version</span></div>
         <div class="settings-body">
+          <label for="setting-game-version">Which version is your game?</label>
+          <select id="setting-game-version" class="settings-text-input"></select>
           <label for="setting-game-build-id">Game build ID (optional)</label>
           <input type="text" id="setting-game-build-id" class="settings-text-input" list="known-build-ids"
-                 maxlength="32" spellcheck="false" placeholder="32 hex characters, e.g. 6A85262F21B903649BD7C62628D26E43">
-          <datalist id="known-build-ids">
-            <option value="6A85262F21B903649BD7C62628D26E43">v3.0.3</option>
-            <option value="9EF5CAA2D5B933C772358C5AA6FABA15">v3.0.1</option>
-          </datalist>
+                 maxlength="32" spellcheck="false" placeholder="32 hex characters (or the first 16), e.g. 6A85262F21B903649BD7C62628D26E43">
+          <datalist id="known-build-ids"></datalist>
           <div id="setting-game-build-id-error" class="settings-hint" style="color: var(--danger);" hidden></div>
           <div class="settings-hint">
-            Code patches (exefs .ips files, e.g. most Mechanics mods) only work on the exact game version they were built for, and do nothing - with no error - on any other. Enter your game's build ID (the name of its <code>.ips</code> patch files / cheat files, found on cheat databases for your version) to have patches for a different version flagged as "wrong game version". Leave empty to skip the check.
+            Code patches (exefs .ips files, e.g. most Mechanics mods) only work on the exact game version they were built for, and do nothing - with no error - on any other. Enter your game's build ID (the name of its <code>.ips</code> patch files / cheat files, found on cheat databases for your version) to have patches for a different version flagged as "wrong game version". If you only know your game is newer than the listed versions, choose "Not listed (probably newer)" above and patches made for older versions are flagged as "might not match". Choose "I'm not sure" to skip the check.
           </div>
         </div>
       </div>
@@ -68,14 +67,14 @@
             Show mod counts on character tiles
           </label>
           <div class="settings-hint">
-            Off by default. When on, each character tile shows a badge like 1/4 (mods ticked / mods downloaded). When off, a tile that has mods downloaded but none ticked gets a small hollow ring instead, and hovering a tile still tells you the numbers.
+            Off by default. When on, each character tile shows a badge like 1/4 (mods selected / mods downloaded). When off, a tile that has mods downloaded but none selected gets a small hollow ring instead, and hovering a tile still tells you the numbers.
           </div>
           <label class="settings-checkbox-label" style="margin-top: 14px;">
             <input type="checkbox" id="setting-play-select-voice">
             Play a character's select sound
           </label>
           <div class="settings-hint">
-            On by default. Each time you click a character's tile, and when a character's mod becomes finished (its name and icons checked, or nothing to check), the app plays the character-select voice from its ticked mods - the sound the game makes when you pick it - and the speaker on its tile lights up while it plays. Nothing plays for a character whose mods don't include one.
+            On by default. Each time you click a character's tile, and when a character's mod becomes finished (its name and icons checked, or nothing to check), the app plays the character-select voice from its selected mods - the sound the game makes when you pick it - and the speaker on its tile lights up while it plays. Nothing plays for a character whose mods don't include one.
           </div>
         </div>
       </div>
@@ -95,7 +94,7 @@
         <div class="modal-card-header"><span class="modal-card-title">Conflicts &amp; left-out files</span></div>
         <div class="settings-body">
           <div class="settings-hint">
-            When two checked mods change the same file you can keep one mod's copy, use the game's own file, or leave just those files out of one mod - the rest of the mod still works. Leave-outs are remembered, even across re-downloads, and every mod's popup has a "Files" button (in a character's mod list it is "Edit included files" in the row's ... menu) to leave out any single file.
+            When two selected mods change the same file you can keep one mod's copy, use the game's own file, or leave just those files out of one mod - the rest of the mod still works. Leave-outs are remembered, even across re-downloads, and every mod's popup has a "Files" button (in a character's mod list it is "Edit included files" in the row's ... menu) to leave out any single file.
           </div>
           <div id="conflicts-body"><div class="conflicts-empty">Loading&hellip;</div></div>
         </div>

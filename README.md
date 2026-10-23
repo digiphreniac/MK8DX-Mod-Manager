@@ -29,8 +29,8 @@ Your mods stay on your computer. The app only talks to GameBanana to browse and 
 1. Download `MK8DX-Mod-Manager-v<version>-windows.zip` from the releases page.
 2. **Extract the whole zip** to a short path you want to keep it in, such as
    `C:\MK8DX-Mod-Manager`. Don't run it from inside the zip, avoid very long folder paths
-   (Windows refuses to load the app from them), and avoid `Program Files`, since the app saves a
-   small settings file next to itself.
+   (Windows refuses to load the app from them), and avoid `Program Files`, since the app saves its
+   data next to itself.
 3. Double-click **`MK8DX Mod Manager.exe`**.
 
 Nothing else needs installing: Python and 7-Zip (for `.rar` and `.7z` mods) are included.
@@ -49,12 +49,14 @@ internet connection. A console window stays open while it runs, so any error mes
 
 ## First run
 
+The app keeps your downloaded mods, settings and caches in a **`data`** folder that it creates next to
+itself (next to the `.exe`, or in the repository folder when run from source). You can pick a different
+folder later under **Settings**. If the app is somewhere it can't write to, it asks you to choose a folder instead.
+
 On first launch, a short setup wizard asks for:
 
-1. **A folder for your mod data.** Pick somewhere with plenty of free space. Downloaded mods,
-   settings and caches all live there.
-2. **Your game version** and a few options (language, adult-content filter, advanced mode).
-3. **Your game's files.** Dump Mario Kart 8 Deluxe from your own Switch (for example with NXDumpTool)
+1. **Your game version** and a few options (language, adult-content filter, advanced mode).
+2. **Your game's files.** Dump Mario Kart 8 Deluxe from your own Switch (for example with NXDumpTool)
    and extract its RomFS (in Ryujinx: right-click the game, then *Extract Data*, then *RomFS*; or use
    `hactool`). Choose the extracted folder, the one that contains `UI/cmn/common.sarc`. The app
    copies only the few hundred MB it needs, so you can delete the extraction afterward.
@@ -71,8 +73,8 @@ The four steps are shown across the top of the window:
    the combined files. Nothing on your SD card is touched.
 4. **Copy to Switch** - copy the staged files onto your SD card.
 
-The built files appear in a folder called **`sd-card-staging`**, created **next to** the mod
-data folder you chose, in `sd-card-staging\atmosphere\contents\0100152000022000\`. The
+The built files appear in a folder called **`sd-card-staging`**, created **next to** the
+`data` folder, in `sd-card-staging\atmosphere\contents\0100152000022000\`. The
 app can open it for you. Copy the `atmosphere` folder from there onto the root of your SD card,
 merging when asked. The in-app **Help** button explains each screen in more detail.
 

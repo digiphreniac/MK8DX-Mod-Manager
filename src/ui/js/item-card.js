@@ -73,7 +73,7 @@ function assembleItemCard(ctx) {
     const keys = entry.units.filter(k => ids[k]);
     if (!keys.length) return;
     moveBody.replaceChildren();
-    moveBody.appendChild(cgEl("div", "cg-note", `These mods don't replace one single listed item. Pick the item each one replaces and move it there - its files, its tick and its GameBanana record all move with it.`));
+    moveBody.appendChild(cgEl("div", "cg-note", `These mods don't replace one single listed item. Pick the item each one replaces and move it there - its files, its selection and its GameBanana record all move with it.`));
     for (const key of keys) {
       const row = cgEl("div", "cc-move-row");
       const modName = key.split("/").slice(2).join("/");
@@ -108,8 +108,8 @@ function assembleItemCard(ctx) {
       modsCard.classList.toggle("show-all", manage || !some);
       modHint.hidden = some && !manage;
       modHint.textContent = !some
-        ? `None of these is in use yet. Tick the one${entry.units.length > 1 ? "s" : ""} you want${catchAll ? "" : ` for ${label}`}.`
-        : "Tick a mod to use it, untick it to stop. Two mods that replace the same item clash - the app shows you which files.";
+        ? `None of these is in use yet. Select the one${entry.units.length > 1 ? "s" : ""} you want${catchAll ? "" : ` for ${label}`}.`
+        : "Select a mod to use it, deselect it to stop. Two mods that replace the same item clash - the app shows you which files.";
       manageBtn.hidden = !(some && (entry.units.length > ticked.length || manage));
       manageBtn.textContent = manage ? "Done" : "Manage";
     }

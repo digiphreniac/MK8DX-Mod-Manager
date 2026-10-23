@@ -96,12 +96,12 @@ async function renderUiSetupSettingsCard() {
 
   const conflictEls = d.archives.map(renderUiArchiveConflicts).filter(Boolean);
   if (conflictEls.length) {
-    body.appendChild(uisEl("p", "uis-note", "Two of your ticked mods change the exact same icon or name - pick which one should win (otherwise the first one, alphabetically, is used):"));
+    body.appendChild(uisEl("p", "uis-note", "Two of your selected mods change the exact same icon or name - pick which one should win (otherwise the first one, alphabetically, is used):"));
     for (const el of conflictEls) body.appendChild(el);
   }
 
   if (!d.any_sources) {
-    body.appendChild(uisEl("div", "settings-hint", "None of your currently ticked mods change menu icons or names, so there's nothing built right now. Tick one and this fills in."));
+    body.appendChild(uisEl("div", "settings-hint", "None of your currently selected mods change menu icons or names, so there's nothing built right now. Select one and this fills in."));
     return;
   }
 
@@ -188,13 +188,22 @@ document.getElementById("setting-show-nsfw").addEventListener("change", async (e
   await pywebview.api.save_settings(state.settings);
 });
 
+document.getElementById("setting-game-version").addEventListener("change", async (e) => {
+  await pywebview.api.set_game_version(e.target.value);
+  state.settings = await pywebview.api.get_settings();
+  document.getElementById("setting-game-build-id").value = state.settings.game_build_id || "";
+  document.getElementById("setting-game-build-id-error").hidden = true;
+  flow.status = await pywebview.api.get_flow_status();
+  renderStepBar();
+});
+
 document.getElementById("setting-game-build-id").addEventListener("change", async (e) => {
   const errEl = document.getElementById("setting-game-build-id-error");
   const value = e.target.value.trim().toUpperCase();
-  // Empty (check off) or exactly 32 hex characters - anything else is a typo
+  // Empty (check off), 32 hex characters, or just the first 16 (how the app matches them) - anything else is a typo
   // that would otherwise silently flag every patch as the wrong version.
-  if (value !== "" && !/^[0-9A-F]{32}$/.test(value)) {
-    errEl.textContent = "A build ID is exactly 32 hex characters (0-9, A-F).";
+  if (value !== "" && !/^([0-9A-F]{16}|[0-9A-F]{32})$/.test(value)) {
+    errEl.textContent = "A build ID is 32 hex characters (0-9, A-F), or just its first 16.";
     errEl.hidden = false;
     return;
   }
