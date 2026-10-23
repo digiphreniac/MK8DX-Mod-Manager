@@ -38,6 +38,9 @@ Windows may show a "Windows protected your PC" notice the first time because the
 code-signed; choose **More info**, then **Run anyway**. If you'd rather check what you're running, the
 full source is in this repository.
 
+To update, extract the new zip over your old folder. Your mods and settings live in the `data` folder next to the
+app (or the folder you chose in Settings), which isn't part of the zip, so they're kept.
+
 ### Running from source (optional)
 
 If you'd rather not use the packaged build, install
@@ -46,6 +49,8 @@ If you'd rather not use the packaged build, install
 **`Run Mod Manager.bat`** in the repository. The first launch creates a private Python environment in a
 `.venv` folder and downloads the two libraries the app needs (`pywebview` and `Pillow`), which needs an
 internet connection. A console window stays open while it runs, so any error messages are visible.
+
+Design notes for contributors, including how to build the release, are in [docs/DEVELOPERS.md](docs/DEVELOPERS.md).
 
 ## First run
 
@@ -98,12 +103,6 @@ merging when asked. The in-app **Help** button explains each screen in more deta
   to rebuild it.
 - **Debug mode** (from source) - run `Run Mod Manager (Dev).bat` to turn on the browser developer tools.
 
-## Updating
-
-Extract the new release over the old folder (or delete the old `_internal` folder and the `.exe`
-first, then extract). Your mod data lives in the folder you chose in setup, so it is not affected.
-`app-config.json` in the app folder remembers where that is, so keep it.
-
 ## Disclaimer
 
 This is an unofficial fan tool. It is not affiliated with or endorsed by Nintendo. Mario Kart is a
@@ -116,10 +115,5 @@ game you legally own.
 Mods are by their creators on [GameBanana](https://gamebanana.com/). The app builds on
 [pywebview](https://pywebview.flowrl.com/) and [Pillow](https://python-pillow.org/), and its
 reference data draws on the MK8DX modding community's research, including the MK8DX Information
-Dump spreadsheet.
-
-## License
-
-[MIT](LICENSE). The packaged build includes the 7-Zip command-line tool (GNU LGPL, see
-`_internal\7zip\License.txt`). The internal design notes for contributors, including how to build the
-release, are in [docs/DEVELOPERS.md](docs/DEVELOPERS.md).
+Dump spreadsheet. The packaged build includes the 7-Zip command-line tool (GNU LGPL; its license is in
+`_internal\7zip\License.txt`).

@@ -78,6 +78,9 @@
   .ve-base.warn { background: var(--warn-soft); border-color: var(--warn); color: var(--text); }
   .ve-base .ve-base-act { margin-top: 6px; }
   .ve-err { font-size: 12.5px; color: var(--danger); background: var(--danger-soft); border-radius: 8px; padding: 7px 10px; margin-bottom: 8px; }
+  .ve-size { font-size: 12.5px; line-height: 1.45; padding: 4px 10px; border-radius: 9px; margin-bottom: 8px; color: var(--text-dim); }
+  .ve-size.warn { padding: 8px 10px; background: var(--warn-soft); border: 1px solid var(--warn); color: var(--text); }
+  .ve-size.over { padding: 8px 10px; background: var(--danger-soft); border: 1px solid var(--danger); color: var(--text); }
   /* search + category pills, standing in for what used to be several separate collapsed sections */
   .ve-search { margin: 0 0 8px 0; }
   .ve-search input { width: 100%; box-sizing: border-box; padding: 7px 11px; border-radius: 8px; border: 1px solid var(--panel-border); background: var(--panel); color: var(--text); font-size: 13px; }
@@ -110,13 +113,19 @@
   .ve-desc.unknown { opacity: 0.6; font-style: italic; }
   .ve-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
   .ve-chip { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--thumb-bg); color: var(--text-dim); }
+  .ve-chip.warn { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+  /* an edited line's current state - "pressed" coloring, same as the toggle buttons elsewhere, but a plain (non-clickable)
+     chip now: the trash-can button below is the only thing on the row that changes anything. */
+  .ve-chip.toggle-on { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+  .ve-chip.toggle-on.custom { background: var(--accent-soft); color: var(--accent); }
   .ve-orig { font-size: 11.5px; color: var(--accent); background: none; border: none; box-shadow: none; padding: 0 2px; cursor: pointer; }
   .ve-orig:hover { text-decoration: underline; background: none; border: none; }
-  /* an edited line's Mute/Use-my-own button IS its state - "pressed" rather than a plain button plus a separate chip */
-  button.toggle-on { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); font-weight: 600; }
-  button.toggle-on:hover { background: var(--warn); color: #fff; }
-  button.toggle-on.custom { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-  button.toggle-on.custom:hover { background: var(--accent); color: #fff; }
+  .ve-del {
+    appearance: none; flex: 0 0 auto; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; background: var(--thumb-bg); color: var(--text-dim);
+  }
+  .ve-del svg { width: 11px; height: 11px; display: block; fill: currentColor; }
+  .ve-del:hover, .ve-del:focus-visible { background: var(--danger-soft); color: var(--danger); }
   .ve-row .voice-err { grid-column: 1 / -1; }
   .ve-row.busy .ve-acts { opacity: 0.5; pointer-events: none; }
   @media (max-width: 760px) {
@@ -124,10 +133,13 @@
     .ve-row { grid-template-columns: 1fr; gap: 4px; padding: 9px 2px; }
   }
   /* "Use my own sound": choose a file, pick the part, preview, use */
-  .gate-card.ve-custom { max-width: 620px; max-height: 92vh; overflow-y: auto; }
+  .gate-card.ve-custom { max-width: 620px; max-height: 92vh; overflow-y: auto; transition: box-shadow 0.12s ease, background-color 0.12s ease; }
   .ve-custom .ve-note { margin-bottom: 10px; }
-  .ve-drop { border: 2px dashed var(--panel-border); border-radius: 12px; padding: 16px; text-align: center; font-size: 13px; color: var(--text-dim); }
-  .ve-drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .ve-drop { border: 2px dashed var(--panel-border); border-radius: 12px; padding: 36px 16px; text-align: center; font-size: 13.5px; color: var(--text-dim); }
+  /* the whole dialog is the real drop target (see openCustomAudio's window-level listeners) - this box is just
+     where the instructions and file picker live, so the highlight belongs on the dialog, not the box. */
+  .gate-card.ve-custom.drop-target { box-shadow: 0 0 0 3px var(--accent); background: var(--accent-soft); }
+  .gate-card.ve-custom.drop-target .ve-drop { border-color: var(--accent); }
   .ve-file { font-size: 12.5px; margin: 10px 0 4px 0; overflow-wrap: anywhere; }
   .ve-wave { position: relative; height: 84px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--bg-soft); cursor: crosshair; overflow: hidden; touch-action: none; user-select: none; }
   .ve-wave canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -138,6 +150,12 @@
   .ve-opts label { display: flex; align-items: center; gap: 8px; }
   .ve-len { font-size: 12.5px; color: var(--text-dim); margin-left: auto; }
   .ve-len.bad { color: var(--danger); font-weight: 600; }
+  .ve-loud { font-size: 12px; color: var(--text-dim); margin: 0 0 6px 0; }
+  .ve-loud.quiet { color: var(--warn); font-weight: 600; }
+  .ve-gain { display: flex; align-items: center; gap: 8px; font-size: 12.5px; margin: 0 0 6px 0; }
+  .ve-gain input[type=range] { flex: 1 1 auto; min-width: 80px; }
+  .ve-gain-val { font-variant-numeric: tabular-nums; min-width: 4.5em; text-align: right; color: var(--text-dim); }
+  .ve-gain.disabled { opacity: 0.45; }
   .mod-row .mod-name { flex: 1 1 12em; min-width: 8em; overflow-wrap: anywhere; cursor: pointer; }
   .modal-card.gb-slim { border: 1px dashed var(--panel-border); background: transparent; margin: 8px 0 0 0; }
   .gb-slim .modal-card-header { background: transparent; border-bottom: none; cursor: pointer; padding: 9px 12px; }

@@ -5781,9 +5781,16 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if staged_patches:
             lines.append(f"Code patches: {patches_root}")
         lines.append("")
-        lines.append("Next step: copy the contents of:")
+        lines.append("Next step: on your SD card (or emulator mod folder), DELETE this folder first if it already exists:")
+        lines.append(f"  atmosphere/contents/{TITLE_ID}/romfs")
+        lines.append("Then copy the contents of:")
         lines.append(f"  {staging_root}")
-        lines.append("onto your SD card root (merging into its existing atmosphere/ folder).")
+        lines.append("onto your SD card root.")
+        lines.append(
+            "(Don't just copy on top of the old romfs folder - a mod you've since deselected would leave its old "
+            "files sitting there, which is why a deselected course can keep showing its old picture or name "
+            "in-game even after a fresh commit.)"
+        )
 
         counts, warnings = self._commit_summary(checked_keys, res, exefs_keys, exefs_conflicts, exefs_problems)
         now = datetime.now().isoformat(timespec="seconds")

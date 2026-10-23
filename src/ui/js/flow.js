@@ -342,6 +342,7 @@ function buildTroubleshooting() {
     "The game crashes on startup, or the menus are blank. This is usually a file made for a different game version. Open Settings > UI icons & text and click \"Undo\", then commit and copy again. (Tip: hold L while the game starts to turn all mods off for that launch.)",
     "A mod doesn't show up. Make sure it's selected and that you committed after selecting it. Code patches only work on the game version they were made for, so check your version in Setup.",
     "Menu text is in the wrong language. Open Settings > UI icons & text, pick the language your Switch uses, then commit and copy again.",
+    "A course or character still shows its old picture or name after you deselected its mod. Copying onto an SD card only adds and replaces files, so the old ones stay behind. Delete atmosphere/contents/0100152000022000/romfs on the SD card (or your emulator's mod folder), then copy the staging folder over fresh.",
   ];
   const ul = document.createElement("ul");
   ul.style.margin = "4px 0 0 0";
@@ -402,8 +403,9 @@ async function renderSwitchPage() {
   }));
   li1.appendChild(t1);
   ol.appendChild(li1);
-  ol.appendChild(cgEl("li", null, "Copy everything inside it onto the root of your Switch's SD card (put the SD card in your computer). If asked, say yes to merge folders and replace files."));
-  ol.appendChild(cgEl("li", null, "Put the SD card back in your Switch. Fully close Mario Kart 8 Deluxe if it was running (not just the Home button), then start it again."));
+  ol.appendChild(cgEl("li", null, "On the SD card, delete atmosphere/contents/0100152000022000/romfs if it's already there from an earlier copy - don't just copy on top of it. (A mod you've since deselected would leave its old files behind otherwise, which is why a deselected course or character can keep showing its old picture or name in-game.)"));
+  ol.appendChild(cgEl("li", null, "Copy everything inside the staging folder onto the root of your Switch's SD card. If asked, say yes to merge folders and replace files - that's fine now that the old romfs folder is gone."));
+  ol.appendChild(cgEl("li", null, "Plug the SD card back in your Switch. Fully close Mario Kart 8 Deluxe if it was running (not just the Home button), then start it again."));
   ol.appendChild(cgEl("li", null, st.ui.needed
     ? "Check it: your modded characters and courses should show their new pictures and names on the select screens, and the mods themselves should be in the game."
     : "Check it: start a race and look for your mods."));
