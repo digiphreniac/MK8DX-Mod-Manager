@@ -10,7 +10,7 @@ const FLOW_STEPS = [
   { key: "switch", label: "Copy to Switch" },
 ];
 const FLOW_PAGES = { commit: "view-commit", switch: "view-switch" };
-const flow = { step: "mods", status: null, timer: null, lastModsView: "characters" };
+const flow = { step: "mods", status: null, timer: null, lastModsView: "characters", hintDismissed: false };   // (hintDismissed: only until the app is next started)
 
 function flowStepInfo(key, st) {
   if (!st || !st.commit) return { state: "idle", sub: "" };
@@ -56,11 +56,14 @@ function renderStepBar() {
   const st = flow.status;
   const hint = document.getElementById("step-hint");
   const first = st && st.commit && !st.commit.done;
-  hint.hidden = !(flow.step === "mods" && first);
+  hint.hidden = !(flow.step === "mods" && first) || flow.hintDismissed;
   if (!hint.hidden) {
-    hint.textContent = st.mods.ticked
-      ? "Step 2 - keep selecting the mods you want on each tab. When you're happy with your picks, press Next (bottom right)."
-      : "Step 2 - select the mods you want on each tab (open a character, course or vehicle to add and select mods). When you're done, press Next (bottom right).";
+    const close = cgEl("button", "hint-close", "×");
+    close.type = "button";
+    close.title = "Hide this tip";
+    close.setAttribute("aria-label", "Hide this tip");
+    close.addEventListener("click", () => { flow.hintDismissed = true; hint.hidden = true; });
+    hint.replaceChildren(cgEl("span", "hint-text", "Select the mods you want on each tab. When you're ready, click Next in the bottom right."), close);
   }
   FLOW_STEPS.forEach((s, i) => {
     if (i > 0) bar.appendChild(cgEl("span", "step-sep", "›"));

@@ -25,6 +25,10 @@
   #stepbar .step.current { color: var(--text); background: var(--accent-soft); border-color: var(--accent); }
   #stepbar .step.current .num { background: var(--accent); color: white; }
   #step-hint { background: var(--accent-soft); color: var(--text); font-size: 13px; padding: 8px 20px; border-bottom: 1px solid var(--panel-border); flex-shrink: 0; }
+  #step-hint:not([hidden]) { display: flex; align-items: center; gap: 12px; }
+  #step-hint .hint-text { flex: 1 1 auto; }
+  #step-hint .hint-close { flex: none; width: 24px; height: 24px; padding: 0; border: none; border-radius: 6px; background: transparent; box-shadow: none; color: var(--text-dim); font-size: 18px; line-height: 1; cursor: pointer; }
+  #step-hint .hint-close:hover { background: var(--divider); color: var(--text); }
   #stepbar .step-sep { color: var(--panel-border); flex: 0 0 auto; padding: 0 2px; }
   /* The Next button, as in the game: flush with the window's right edge, a rectangle with barely rounded corners
      whose left side leans - the bottom-left corner sticks out further left than the top-left one (--slant). The
