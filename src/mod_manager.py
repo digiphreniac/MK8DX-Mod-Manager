@@ -1641,6 +1641,25 @@ def slot_characters(folder: Path) -> set:
     return found
 
 
+def describe_ui_build(results):
+    """Plain log lines saying what became of the two shared icon files (common.sarc, menu.sarc) in a menu icons & text build, so a
+    missing file never has to be guessed at. `results` is what Api._build_ui_archives() returns under "results"."""
+    by_id = {r["archive"]: r for r in results}
+    lines = []
+    for archive_id, name in (("common", "common.sarc"), ("menu", "menu.sarc")):
+        r = by_id.get(archive_id)
+        if r is None:
+            lines.append(f"  {name}: not made - no selected mod ships it and the app has no copy of the game's own to start from "
+                         f"(check the Game files step in the setup wizard).")
+        elif r.get("error"):
+            lines.append(f"  {name}: could not be made (see the warning below).")
+        elif r.get("nothing"):
+            lines.append(f"  {name}: not made - no selected mod changes anything in it, so the game's own is used.")
+        else:
+            lines.append(f"  {name}: built.")
+    return lines
+
+
 class Api(VoiceEditMixin, ModNotesMixin):
     def __init__(self, mod_root: Path | None):
         # Leading underscore matters: pywebview's inject_pywebview() auto-exposes
@@ -5548,6 +5567,15 @@ class Api(VoiceEditMixin, ModNotesMixin):
                     "detail": f"{mod_label(key)}: {reason}. It was skipped.", "mods": [key], "action": "open-mod",
                 })
         _auto, needs = self._auto_icons()
+        if not self._ui_build_needed(checked_keys) and any(k.startswith("characters/") for k in checked_keys):
+            warnings.append({
+                "kind": "no-menu-icons", "severity": "info",
+                "title": "No menu icons or names will change",
+                "detail": "None of your selected mods changes a character's menu pictures or name in a way the app can use, so "
+                          "the game's own are kept (no common.sarc or menu.sarc is made). If a mod should have its own icons, open "
+                          "that character and check its Menu look card.",
+                "mods": [], "action": None,
+            })
         guessed = self._guessed_names()
         if guessed:
             warnings.append({
@@ -5613,7 +5641,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
                     build_locales.append(other)
             ui_build = self._build_ui_archives(build_locales)
             if ui_build.get("success"):
-                lines.append(f"Menu icons & text: built for {', '.join(build_locales)}.")
+                lines.append(f"Menu icons & text: checked for {', '.join(build_locales)}.")
+                lines.extend(describe_ui_build(ui_build["results"]))
                 for r in ui_build["results"]:
                     if r.get("error"):
                         lines.append(f"  WARNING - {r['archive']}: {r['error']}")
@@ -5621,6 +5650,13 @@ class Api(VoiceEditMixin, ModNotesMixin):
                         lines.append(f"  WARNING - {r['archive']}: only {r['verify']['ok']} of {r['verify']['total']} changes are in it")
             else:
                 lines.append(f"Menu icons & text: couldn't build - {ui_build.get('error')}")
+            lines.append("")
+        else:
+            earlier = self.mod_root / "ui-icons" / "romfs"
+            kept = sum(1 for f in earlier.rglob("*") if f.is_file()) if earlier.is_dir() else 0
+            lines.append("Menu icons & text: nothing to build - no selected mod changes menu pictures or names the app can use, "
+                         "so no common.sarc or menu.sarc is made"
+                         + (f". {kept} file(s) built earlier in ui-icons/ are still included." if kept else " and the game's own are used."))
             lines.append("")
 
         res = self._compute_claims(checked_keys)

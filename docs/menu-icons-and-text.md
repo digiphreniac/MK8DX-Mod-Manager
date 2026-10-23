@@ -11,6 +11,14 @@ combining (`_ui_build_needed()`: a ticked mod's own `common.sarc`/`menu.sarc`/`m
 current language, or the user's own icon/name overrides). No outside tools, and nothing to run
 first - committing is enough.
 
+**Saying what happened.** No `common.sarc`/`menu.sarc` in the output is normal when no selected mod changes anything in
+them (the game's own are used), but it looks the same as a failed build, so the commit log always says which it was:
+`describe_ui_build()` adds one line per file ("built", "not made - no selected mod changes anything in it", "not made - no copy of
+the game's own to start from"), and when `_ui_build_needed()` is false the log says "nothing to build" (and how many files built
+earlier in `ui-icons/` are still included). The Commit page shows an info card, `"no-menu-icons"`, when character mods are selected
+but none changes a menu picture or name the app can use. When someone reports missing icons, ask for the commit log (the Copy log
+button on the Commit page), not only `mod-manager.log`.
+
 The Commit page itself only shows a lightweight, informational warning when there's something to
 combine (`"ui-archives"` in `_commit_summary()`) - no card, no controls. Language is a set-once,
 rarely-touched preference (already asked once during the Setup wizard), not something worth a
