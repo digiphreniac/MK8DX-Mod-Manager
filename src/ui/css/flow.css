@@ -54,6 +54,11 @@
   .flow-body details[open] > summary { margin-bottom: 8px; }
   .flow-body .modal-card details { background: var(--panel); }
   .flow-body .pg-warn { background: var(--bg-soft); }
+  /* "Copy log" sits at the far right of the "Details (full log)" row, whether the log is open or not */
+  .pg-log-summary { position: relative; padding-right: 96px; }
+  .pg-copy-log { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+  /* a step of the checklist with a button: the text on the left, the button at the far right */
+  .pg-checklist li > .pg-step-row { flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .flow-body button.ghost { background: var(--bg-soft); border: 1px solid var(--panel-border); }
   .flow-body button.ghost:hover:not(:disabled) { background: var(--hover-bg); border-color: var(--hover-border); }
   .flow-body .modal-card button.ghost, .flow-body details button.ghost { background: var(--panel); }

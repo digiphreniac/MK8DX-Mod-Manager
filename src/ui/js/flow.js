@@ -285,13 +285,7 @@ function drawCommitPage() {
     (committedNow || pv.already) && !pv.groups.length ? "ghost" : "primary", doCommit);
   commitBtn.disabled = !canCommit;
   if (!pv.can_commit) commitBtn.title = "Settle the clashes above first";
-  cta.appendChild(commitBtn);
-  if (pv.already || committedNow) {
-    cta.appendChild(button("Open staging folder", "ghost", async () => {
-      const r = await pywebview.api.open_staging_folder();
-      if (!r.success) alert(r.error);
-    }));
-  }
+  cta.appendChild(commitBtn);   // (the staging folder is opened from the next page, which walks through what to do with it)
   body.appendChild(cta);
 
   if (res && res.conflict === false && !res.staged) {
@@ -306,14 +300,17 @@ function drawCommitPage() {
 
   if (res && res.lines) {
     const det = document.createElement("details");
-    det.appendChild(cgEl("summary", null, "Details (full log)"));
-    det.appendChild(cgEl("div", "pg-log", res.lines.join("\n")));
-    const copy = button("Copy log", "ghost small", async () => {
+    const summary = cgEl("summary", "pg-log-summary", "Details (full log)");
+    const copy = button("Copy log", "ghost small pg-copy-log", async (e) => {
+      e.preventDefault();    // (the button sits in the summary: a click on it must not fold or unfold the log)
+      e.stopPropagation();
       try { await navigator.clipboard.writeText(res.lines.join("\n")); copy.textContent = "Copied!"; }
-      catch (e) { copy.textContent = "Copy failed"; }
+      catch (err) { copy.textContent = "Copy failed"; }
       setTimeout(() => { copy.textContent = "Copy log"; }, 1500);
     });
-    det.appendChild(copy);
+    summary.appendChild(copy);
+    det.appendChild(summary);
+    det.appendChild(cgEl("div", "pg-log", res.lines.join("\n")));
     body.appendChild(det);
   }
 }
@@ -342,11 +339,11 @@ function buildTroubleshooting() {
   const tb = cgEl("div", "uis-note");
   tb.style.fontSize = "12.5px";
   const items = [
-    "The game crashes when it starts, or menus are blank: the most likely cause is a file made for a different game version. Open the UI icons & text step and click \"Undo\", commit again and copy to the SD card again - if the game runs now, the built UI files were the cause. Then try removing the oldest of your UI mods and building again. (Holding L while the game starts turns mods off for that launch.)",
-    "A mod doesn't show up at all: check it's selected and that you committed after selecting it. Code patches only work on the exact game version they were made for (set yours in Setup).",
-    "Icons show on the map but not on the select screen (or the other way round): that mod only changed one of the two files - nothing wrong on your side.",
-    "Menu text is in the wrong language: open UI icons & text and pick the language your Switch is set to, then build again and re-copy.",
-    "Some items in UI icons & text say they can't be added automatically: those mods' pictures don't fit the game's own (a different shape, or made for another game version - a picture that is just a different size is scaled to fit). The game just keeps its normal picture there; everything else still works.",
+    "The game crashes on startup, or the menus are blank. This is usually a file made for a different version of the game. Open Settings > UI icons & text and click \"Undo\", then commit and copy to your SD card again. If the game runs now, one of your menu-picture mods was the cause, so try removing your newest ones. (Tip: hold L while the game starts to turn all mods off for that launch.)",
+    "A mod doesn't show up at all. Make sure it's selected and that you committed after selecting it. Code patches only work on the game version they were made for, so check your game version in Setup.",
+    "Icons show on the map but not on the select screen (or the other way around). That mod only changes one of the two, so nothing is wrong on your end.",
+    "Menu text is in the wrong language. Open Settings > UI icons & text, pick the language your Switch uses, then commit and copy to your SD card again.",
+    "A mod says its pictures can't be added automatically. Its pictures don't fit the game's (a different shape, or made for another game version), so the game keeps its normal picture there. Everything else in the mod still works. A picture that is only a different size is fine, since the app scales it.",
   ];
   const ul = document.createElement("ul");
   ul.style.margin = "4px 0 0 0";
@@ -389,8 +386,8 @@ async function renderSwitchPage() {
   const pad = cgEl("div", "uis-pad");
   const ol = cgEl("ol", "pg-checklist");
   const li1 = cgEl("li");
-  const t1 = cgEl("div");
-  t1.appendChild(document.createTextNode("Open the staging folder - it holds everything to copy. "));
+  const t1 = cgEl("div", "pg-step-row");
+  t1.appendChild(document.createTextNode("Open the staging folder - it holds everything to copy."));
   t1.appendChild(button("Open staging folder", "ghost small", async () => {
     const r = await pywebview.api.open_staging_folder();
     if (!r.success) alert(r.error);
