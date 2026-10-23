@@ -81,3 +81,5 @@
   .wiz-guide code, .wiz-guide pre { font-family: var(--mono); font-size: 12px; }
   .wiz-guide pre { margin: 6px 0; padding: 8px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--panel-border); color: var(--text); overflow-x: auto; }
   .wiz-link { color: var(--accent); text-decoration: underline; cursor: pointer; }
+  .wiz-guide .wiz-field { margin: 0 0 10px 0; }
+  .wiz-guide .wiz-field select { width: auto; min-width: 180px; }

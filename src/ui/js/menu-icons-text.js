@@ -231,36 +231,60 @@ function wizFolderLink(text, path) {
   return a;
 }
 
+// The tools the guide covers, and the one chosen last (kept until the app is closed, so Settings shows the same one as Setup).
+const GAME_DATA_TOOLS = [["ryujinx", "Ryujinx"], ["eden", "Eden"], ["hactool", "hactool"]];
+let gameDataTool = "ryujinx";
+
+// Steps 2 and 3 of the guide for one tool: how to extract the RomFS, and what the folder to select looks like.
+function gameDataToolSteps(tool) {
+  const tree = wizEl("pre", null, "romfs\n├─ Audio\n├─ Course\n├─ UI\n│  └─ cmn\n│     └─ common.sarc\n└─ ...");
+  const holds = "It should hold folders like Audio, Course and UI:";
+  if (tool === "eden") {
+    return [
+      wizEl("li", null, "Extract the game data's RomFS in ", wizExtLink("Eden", "https://eden-emu.dev"),
+        ": right click the game > Dump RomFS, and choose the Full dump mode when asked. Eden puts the result in ",
+        wizEl("code", null, "%APPDATA%\\eden\\dump\\<title id>\\romfs"), "."),
+      wizEl("li", null, "Select the extracted folder. With Eden it might look something like ",
+        wizEl("code", null, "C:\\Users\\<you>\\AppData\\Roaming\\eden\\dump\\0100152000022000\\romfs"), ". " + holds, tree),
+    ];
+  }
+  if (tool === "hactool") {
+    return [
+      wizEl("li", null, "Extract the game data's RomFS with ", wizExtLink("hactool", "https://github.com/SciresM/hactool"),
+        " (it needs your Switch's keys file): ", wizEl("code", null, "hactool -k prod.keys -t nca --romfsdir=C:\\mk8d\\romfs <the game's .nca file>"),
+        ". If the game has an update, extract the update's .nca file instead and add ", wizEl("code", null, "--basenca=<the base game's .nca file>"), "."),
+      wizEl("li", null, "Select the extracted folder. With hactool, it is the folder you gave to ", wizEl("code", null, "--romfsdir"),
+        ", for example ", wizEl("code", null, "C:\\mk8d\\romfs"), ". " + holds, tree),
+    ];
+  }
+  return [
+    wizEl("li", null, "Extract the game data's RomFS in ", wizExtLink("Ryujinx", "https://ryujinx.app"), ": right click the game > Extract Data > RomFS."),
+    wizEl("li", null, "Select the extracted folder. With Ryujinx, that is the folder you chose to extract into, for example ",
+      wizEl("code", null, "C:\\Users\\<you>\\Documents\\MK8D\\romfs"), ". " + holds, tree),
+  ];
+}
+
 function gameDataInstructions() {
   const guide = wizEl("div", "wiz-guide");
   guide.append(wizEl("p", null, "These files will come from your copy of Mario Kart 8 Deluxe (they can't be included in the app, since they belong to Nintendo)."));
   guide.append(wizEl("h3", null, "Getting the game data"));
+
+  const pick = wizEl("div", "wiz-field");
+  const toolSelect = document.createElement("select");
+  for (const [key, label] of GAME_DATA_TOOLS) toolSelect.append(new Option(label, key));
+  toolSelect.value = gameDataTool;
+  pick.append(wizEl("label", "t", "Which tool will you use to extract the RomFS?"), toolSelect);
+  guide.append(pick);
+
   const steps = wizEl("ol");
-
-  steps.append(wizEl("li", null, "Dump the game data from your Switch using a tool like ",
-    wizExtLink("NXDumpTool", "https://github.com/DarkMatterCore/nxdumptool"), "."));
-
-  const extract = wizEl("ol");
-  extract.type = "a";
-  extract.append(
-    wizEl("li", null, "In ", wizExtLink("Ryujinx", "https://ryujinx.app"), ": right click the game > Extract Data > RomFS."),
-    wizEl("li", null, "In Eden: right click the game > Dump RomFS, and choose the Full dump mode when asked. Eden puts the result in ",
-      wizEl("code", null, "%APPDATA%\\eden\\dump\\<title id>\\romfs"), "."),
-    wizEl("li", null, "With ", wizExtLink("hactool", "https://github.com/SciresM/hactool"),
-      " (it needs your Switch's keys file): ", wizEl("code", null, "hactool -k prod.keys -t nca --romfsdir=C:\\mk8d\\romfs <the game's .nca file>"),
-      ". If the game has an update, extract the update's .nca file instead and add ", wizEl("code", null, "--basenca=<the base game's .nca file>"), "."));
-  steps.append(wizEl("li", null, "Extract the game data's RomFS", extract));
-
-  const pick = wizEl("ol");
-  pick.type = "a";
-  pick.append(
-    wizEl("li", null, "The folder you pick should hold folders like Audio, Course and UI:",
-      wizEl("pre", null, "romfs\n├─ Audio\n├─ Course\n├─ UI\n│  └─ cmn\n│     └─ common.sarc\n└─ ...")),
-    wizEl("li", null, "With Ryujinx, that is the folder you chose to extract into, for example ", wizEl("code", null, "C:\\Users\\<you>\\Documents\\MK8D\\romfs"), "."),
-    wizEl("li", null, "With Eden, it might look something like ", wizEl("code", null, "C:\\Users\\<you>\\AppData\\Roaming\\eden\\dump\\0100152000022000\\romfs"), "."),
-    wizEl("li", null, "With hactool, it is the folder you gave to ", wizEl("code", null, "--romfsdir"), ", for example ", wizEl("code", null, "C:\\mk8d\\romfs"), "."));
-  steps.append(wizEl("li", null, "Select the extracted folder", pick));
-
+  const drawSteps = () => {
+    steps.replaceChildren(
+      wizEl("li", null, "Dump the game data from your Switch using a tool like ",
+        wizExtLink("NXDumpTool", "https://github.com/DarkMatterCore/nxdumptool"), "."),
+      ...gameDataToolSteps(gameDataTool));
+  };
+  toolSelect.addEventListener("change", () => { gameDataTool = toolSelect.value; drawSteps(); });
+  drawSteps();
   guide.append(steps);
   return guide;
 }

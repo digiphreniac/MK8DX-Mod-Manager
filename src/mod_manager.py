@@ -1810,6 +1810,10 @@ class Api(VoiceEditMixin, ModNotesMixin):
             state.update(new_state)
         self._update_state(rekey)
 
+    def get_app_version(self):
+        """The app's own version (src/version.py), for the footer."""
+        return APP_VERSION
+
     def get_master_dir_status(self):
         return {
             "configured": self.mod_root is not None,

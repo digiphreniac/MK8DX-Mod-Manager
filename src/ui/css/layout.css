@@ -100,11 +100,12 @@
     flex-shrink: 0;
   }
   #stats-footer .stat-item strong { color: var(--footer-text-strong); font-weight: 600; }
-  #help-link {
-    margin-left: auto;
+  #footer-right { margin-left: auto; display: flex; align-items: center; gap: 18px; }
+  #app-version { color: var(--footer-text); opacity: 0.8; }
+  #help-link, #support-link {
     color: var(--footer-text);
     text-decoration: underline;
     cursor: pointer;
   }
-  #help-link:hover { color: var(--accent-hover); }
+  #help-link:hover, #support-link:hover { color: var(--accent-hover); }
 

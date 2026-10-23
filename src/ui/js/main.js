@@ -1,4 +1,5 @@
 window.addEventListener("pywebviewready", async () => {
+  pywebview.api.get_app_version().then(v => { document.getElementById("app-version").textContent = "v" + v; }).catch(() => {});
   const dirStatus = await pywebview.api.get_master_dir_status();
   if (!dirStatus.configured) {
     document.getElementById("setup-overlay").hidden = false;

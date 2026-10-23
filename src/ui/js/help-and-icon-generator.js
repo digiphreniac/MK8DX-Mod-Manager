@@ -5,6 +5,7 @@ function closeHelpModal() {
   document.getElementById("help-modal-backdrop").hidden = true;
 }
 document.getElementById("help-link").addEventListener("click", openHelpModal);
+document.getElementById("support-link").addEventListener("click", () => { pywebview.api.open_external_url("https://buymeacoffee.com/digiphreniac"); });
 document.getElementById("btn-help-modal-close").addEventListener("click", closeHelpModal);
 document.getElementById("help-modal-backdrop").addEventListener("click", (e) => {
   if (e.target.id === "help-modal-backdrop") closeHelpModal();
