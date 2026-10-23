@@ -119,6 +119,11 @@ names a version that has no release yet:
    (tag at that commit, auto-generated notes, the zip plus a `.sha256` file attached).
 3. A push that doesn't change the version finds `v<version>` already released and does nothing.
 
+The workflow also runs the packaged app with `--self-check` (no window; `mod_manager.self_check()`): it checks the page files, the data files,
+Pillow with WebP, 7-Zip and the backend, and exits non-zero if one is missing from the package. That step is `continue-on-error` until it has
+passed on a runner once - then delete that line in `release.yml` so a broken package stops the release. `.github/workflows/tests.yml` runs the
+unit tests on every pull request and push to `master`.
+
 To test the build without releasing, run the workflow by hand (Actions > Release > Run workflow): it builds and
 attaches the zip to the run as an artifact only. To redo a release, delete the release and its tag on GitHub,
 then re-run the workflow on that commit (or bump the patch version instead).

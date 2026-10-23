@@ -490,7 +490,7 @@ async function confirmAddMod() {
     }
     confirmBtn.disabled = true;
     confirmBtn.textContent = "Adding...";
-    const result = await pywebview.api.gb_fetch_mod(target, link);
+    const result = await diag.attempt(() => pywebview.api.gb_fetch_mod(target, link));
     confirmBtn.disabled = false;
     confirmBtn.textContent = "Add this mod";
     if (!result.success) {
@@ -519,7 +519,7 @@ async function confirmAddMod() {
     // normal way, not auto-downloaded.
     confirmBtn.disabled = true;
     confirmBtn.textContent = "Adding...";
-    const result = await pywebview.api.gb_fetch_mod(simpleTarget.label, link);
+    const result = await diag.attempt(() => pywebview.api.gb_fetch_mod(simpleTarget.label, link));
     confirmBtn.disabled = false;
     confirmBtn.textContent = "Add this mod";
     if (!result.success) {
@@ -546,7 +546,7 @@ async function confirmAddMod() {
   const label = document.getElementById("add-mod-other-label").value.trim() || addModIdentified.mod.name;
   confirmBtn.disabled = true;
   confirmBtn.textContent = "Adding...";
-  const fetchResult = await pywebview.api.gb_fetch_mod(label, link);
+  const fetchResult = await diag.attempt(() => pywebview.api.gb_fetch_mod(label, link));
   if (!fetchResult.success) {
     confirmBtn.disabled = false;
     confirmBtn.textContent = "Add this mod";
@@ -562,9 +562,14 @@ async function confirmAddMod() {
     errEl.hidden = false;
     return;
   }
-  const dlResult = await pywebview.api.gb_download_files("other", label, fetchResult.mod.mod_id, fileIds, fetchResult.mod.record_type);
+  const dlResult = await diag.attempt(() => pywebview.api.gb_download_files("other", label, fetchResult.mod.mod_id, fileIds, fetchResult.mod.record_type));
   confirmBtn.disabled = false;
   confirmBtn.textContent = "Add this mod";
+  if (dlResult.success === false) {
+    errEl.textContent = dlResult.error;
+    errEl.hidden = false;
+    return;
+  }
   const failed = (dlResult.results || []).filter(r => r.status === "error");
   if (failed.length > 0) {
     errEl.textContent = `Fetched, but ${failed.length} file(s) failed to download: ${failed.map(f => f.error).join("; ")}`;

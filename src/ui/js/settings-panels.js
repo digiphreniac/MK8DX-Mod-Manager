@@ -279,7 +279,7 @@ function renderMasterDirConfirmStep(container, chosenPath, onSuccess, onChooseAg
     bringBtn.disabled = true;
     resultBox.hidden = true;
     (moveExisting ? bringBtn : startFreshBtn).textContent = moveExisting ? "Moving files..." : "Setting up...";
-    const result = await pywebview.api.set_master_dir(chosenPath, moveExisting);
+    const result = await diag.attempt(() => pywebview.api.set_master_dir(chosenPath, moveExisting));
     if (!result.success) {
       resultBox.className = "clear-all-result err";
       resultBox.textContent = result.error;

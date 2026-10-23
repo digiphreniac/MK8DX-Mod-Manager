@@ -4,7 +4,9 @@
 //   - every call to the backend is wrapped: a call that throws, one that answers {error: "..."}, and one slower than 3 s are noted
 //     (never the arguments or the answer: they can be big, or private);
 //   - if the backend never says it is ready, a message on the page says where to find the log.
-// Other scripts use it as  diag.error(kind, message) / diag.warn / diag.info.  Docs: docs/diagnostics.md.
+// Other scripts use it as  diag.error(kind, message) / diag.warn / diag.info;  diag.describe(e) (a sentence for the user);
+// diag.attempt(() => call) (the answer, or {success: false, error} when the call threw: for code that already shows result.error);
+// diag.banner(kind, message, retry) (a bar across the top of the page).  Docs: docs/diagnostics.md.
 const diag = (function () {
   const MAX_QUEUE = 50, MAX_RECENT = 50, BATCH = 20, FLUSH_MS = 1000, SLOW_MS = 3000, GIVE_UP_MS = 120000, WATCHDOG_MS = 20000;
   const queue = [], recent = [];
@@ -45,9 +47,48 @@ const diag = (function () {
     record("error", "js-error", e.message + " (" + baseName(e.filename) + ":" + e.lineno + ":" + e.colno + ")" + (e.error ? "\n" + stackTop(e.error, 5) : ""));
   }, true);
 
+  // A sentence for the user about an error that was thrown (a backend error's name is the Python exception's).
+  function describe(e) {
+    const name = e && e.name && e.name !== "Error" ? e.name + ": " : "";
+    return "Something went wrong (" + name + clip(e && e.message ? e.message : e, 200) + "). The app's log has the details: Help > Copy details.";
+  }
+
+  // The answer of `fn`, or {success: false, error} when it threw - for the many places that already show result.error.
+  async function attempt(fn) {
+    try { return await fn(); } catch (e) { return { success: false, error: describe(e) }; }
+  }
+
+  function showBanner(message, retry) {
+    let bar = document.getElementById("diag-banner");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "diag-banner";
+      bar.className = "diag-banner";
+      bar.setAttribute("role", "alert");
+      (document.body || document.documentElement).prepend(bar);
+    }
+    bar.replaceChildren();
+    const text = document.createElement("span");
+    text.className = "diag-banner-text";
+    text.textContent = message;
+    bar.appendChild(text);
+    const add = (label, onclick) => {
+      const b = document.createElement("button");
+      b.className = "ghost small";
+      b.textContent = label;
+      b.addEventListener("click", onclick);
+      bar.appendChild(b);
+    };
+    if (retry) add("Try again", () => { bar.remove(); retry(); });
+    add("Dismiss", () => bar.remove());
+  }
+
   window.addEventListener("unhandledrejection", (e) => {
     const r = e.reason;
     record("error", "unhandled-rejection", (r && r.name ? r.name + ": " : "") + (r && r.message ? r.message : String(r)) + (r && r.stack ? "\n" + stackTop(r, 5) : ""));
+    // Nothing caught it, so nothing told the user: a setting that didn't save, a screen that didn't load. (A sound that was
+    // interrupted or isn't allowed to start is not worth a message.)
+    if (!(r && (r.name === "AbortError" || r.name === "NotAllowedError"))) { try { showBanner(describe(r)); } catch (err) { /* (the log has it) */ } }
   });
 
   // Every backend method gets a thin wrapper. It runs before api-coalesce.js's (which listens for the same event later), so
@@ -94,6 +135,8 @@ const diag = (function () {
   }, WATCHDOG_MS);
 
   return {
+    describe, attempt,
+    banner: (kind, message, retry) => { record("error", "banner-" + kind, message); showBanner(message, retry); },
     error: (kind, msg) => record("error", kind, msg),
     warn: (kind, msg) => record("warn", kind, msg),
     info: (kind, msg) => record("info", kind, msg),

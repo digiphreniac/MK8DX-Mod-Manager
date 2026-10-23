@@ -428,7 +428,7 @@ function buildGameBananaCard(itemName, category, opts) {
         const bar = document.createElement("div");
         bar.className = "indet";
         actions.appendChild(bar);
-        const result = await pywebview.api.gb_download_files(category, itemName, mod.mod_id, fileIds, mod.record_type);
+        const result = await diag.attempt(() => pywebview.api.gb_download_files(category, itemName, mod.mod_id, fileIds, mod.record_type));
         bar.remove();
         if (!result.success) {
           setSectionDisabled(false);

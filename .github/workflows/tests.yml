@@ -1,0 +1,29 @@
+name: Tests
+
+# Runs the unit tests on every pull request and every push to master/main, so a change that breaks them is visible
+# before it is released. (The release workflow builds the package; this one only checks the code.)
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the app's requirements
+        run: pip install -r requirements.txt
+
+      - name: Run the tests
+        run: python -m unittest discover -s tests

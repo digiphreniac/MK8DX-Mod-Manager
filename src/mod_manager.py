@@ -57,7 +57,7 @@ import voice_edit
 import game_files
 import gb_desc_cache
 from version import VERSION as APP_VERSION
-from voice_api import VoiceEditMixin, VOICE_EDITS_FILENAME
+from voice_api import VoiceEditMixin, VOICE_EDITS_FILENAME, VOICE_CUSTOM_DIRNAME
 from mod_notes import ModNotesMixin, NOTES_FILENAME
 
 TITLE_ID = "0100152000022000"  # Mario Kart 8 Deluxe
@@ -231,7 +231,12 @@ MASTER_DIR_ITEMS = [
     EXCLUDED_FILES_FILENAME, SETTINGS_FILENAME, MODS_DIRNAME, "ui-icons", COURSE_ICONS_DIRNAME, PART_ICONS_DIRNAME,
     "ui-icons-backups", "ui-setup-cache.json", image_cache.DIRNAME,
     ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME, NOTES_FILENAME,
+    # (these were missing, so "Bring my files" left them behind: the setup wizard came back and Custom voice mods lost their record)
+    game_files.DIRNAME, VOICE_EDITS_FILENAME, VOICE_CUSTOM_DIRNAME, LOOK_REVIEWS_FILENAME,
 ]
+# ...and the previous good copy each app-owned file keeps beside it (see safe_io.write_json_atomic)
+MASTER_DIR_ITEMS += [name + ".bak" for name in (STATE_FILENAME, GB_MODS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME, EXCLUDED_FILES_FILENAME,
+                                                 SETTINGS_FILENAME, NOTES_FILENAME)]
 _INVALID_FS_CHARS = re.compile(r'[<>:"/\\|?*]')
 
 
@@ -1983,12 +1988,25 @@ class Api(VoiceEditMixin, ModNotesMixin):
                     moved.append(item)
                 except OSError as e:
                     errors.append(f"{item}: {e}")
+                    break   # (going on would only spread the data over two folders)
             if errors:
+                # Put back what was already moved, so the data isn't left split between two folders.
+                still_there = []
+                for item in reversed(moved):
+                    try:
+                        shutil.move(str(new_path / item), str(old_root / item))
+                    except OSError as e:
+                        still_there.append(item)
+                        errors.append(f"{item} couldn't be put back: {e}")
+                diag.log("data-folder", f"moving {old_root} to {new_path} failed: {'; '.join(errors)}; "
+                                        f"moved before it failed: {moved}; not put back: {still_there}")
                 return {
                     "success": False,
-                    "error": "Some items couldn't be moved: " + "; ".join(errors),
-                    "moved": moved,
+                    "error": "Some items couldn't be moved: " + "; ".join(errors)
+                             + ("" if still_there else " Everything that had already been moved was put back, so nothing is split between the two folders."),
+                    "moved": still_there,
                 }
+            diag.log("data-folder", f"moved {len(moved)} item(s) from {old_root} to {new_path}")
 
         save_master_dir_pointer(new_path)
         self._configure_root(new_path)
@@ -7404,9 +7422,84 @@ def main():
     webview.start(debug=os.environ.get("MK8DX_DEBUG") == "1")
 
 
+def self_check():
+    """`--self-check` (the release workflow runs it on the packaged app): opens no window and touches none of the user's data. Checks the
+    pieces that work from source but only show up as a blank screen when they are missing from a package. One log line each; returns how
+    many failed."""
+    import tempfile
+    failures = []
+
+    def check(name, fn):
+        try:
+            detail = fn()
+        except Exception as e:   # noqa: BLE001
+            failures.append(name)
+            diag.log("self-check", f"FAILED {name}: {type(e).__name__}: {e}")
+        else:
+            diag.log("self-check", f"ok {name}" + (f": {detail}" if detail else ""))
+
+    def data_file(name, minimum, key=None):
+        data = json.loads((SCRIPT_DIR / name).read_text(encoding="utf-8"))
+        if key is not None:
+            data = data[key]
+        if len(data) < minimum:
+            raise ValueError(f"only {len(data)} entries")
+        return f"{len(data)} entries"
+
+    def page():
+        for rel in ("index.html", "js/bootstrap.js", "js/diagnostics.js", "css/base.css", "html/help-modal.html"):
+            if not (SCRIPT_DIR / "ui" / rel).is_file():
+                raise FileNotFoundError(f"ui/{rel}")
+
+    def pictures():
+        import PIL
+        from PIL import Image, features
+        if not features.check("webp"):
+            raise RuntimeError("Pillow has no WebP support")
+        buf = io.BytesIO()
+        Image.new("RGBA", (8, 8), (255, 0, 0, 255)).save(buf, "PNG")
+        Image.open(io.BytesIO(buf.getvalue())).load()
+        return f"Pillow {PIL.__version__}"
+
+    def sevenzip():
+        path = gamebanana_api.find_7zip()
+        if not path:
+            raise FileNotFoundError("no 7z.exe found" + (" (a release build bundles one)" if app_paths.FROZEN else ""))
+        done = subprocess.run([str(path), "i"], capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL,
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if done.returncode != 0:
+            raise RuntimeError(f"`7z i` exited with {done.returncode}")
+        return str(path)
+
+    def backend():
+        with tempfile.TemporaryDirectory(prefix="mk8dx-selfcheck-", ignore_cleanup_errors=True) as folder:
+            data = Path(folder) / "data"
+            data.mkdir()
+            api = Api(data)
+            if "Mod Manager" not in api.get_diagnostics(True):
+                raise RuntimeError("the details came back empty")
+            roster = api._load_roster()
+            if not roster:
+                raise ValueError("the roster is empty")
+            return f"{len(roster)} characters"
+
+    check("version", lambda: APP_VERSION)
+    check("page files", page)
+    check("roster.json", lambda: data_file(ROSTER_FILENAME, 10, "characters"))
+    check("name-labels.json", lambda: data_file("name-labels.json", 2))
+    check("known-shared-files.json", lambda: data_file(KNOWN_SHARED_FILES_FILENAME, 1))
+    check("pictures", pictures)
+    check("7-Zip", sevenzip)
+    check("backend", backend)
+    diag.log("self-check", "all checks passed" if not failures else f"{len(failures)} check(s) FAILED: {', '.join(failures)}")
+    return len(failures)
+
+
 if __name__ == "__main__":
     if LOG_PATH:
         diag.log("startup", f"Mod Manager {APP_VERSION}, Python {sys.version.split()[0]}, {diag.system_line()}")
+    if "--self-check" in sys.argv:
+        sys.exit(1 if self_check() else 0)
     try:
         main()
     except Exception:

@@ -79,9 +79,36 @@ but MISSING on disk), `warn: ... couldn't be read` lines (a settings file that w
 - **Errors that used to vanish** (the warm-up, the GameBanana look-ahead, naming a character after its mod, keeping Custom voice mods up to
   date) are logged once each with their traceback.
 
+## When the page would otherwise be stuck or stale
+
+Every backend call is already logged when it fails (the wrapper above), including the ones whose `catch` only sets a fallback, so those need no
+line of their own. What the user can't see is the effect, so:
+
+- `diag.banner(kind, message, retry)` puts a bar across the top of the page (Try again / Dismiss). It is used when the app can't finish starting
+  (`main.js`: `startApp()`, and `loadMods()` / `loadSettings()` that used to be started and forgotten, which left "Loading mods..." for ever) and
+  when a selection couldn't be saved (`saveChecked()`).
+- **Any unhandled promise rejection** shows the same bar (except an interrupted sound): nothing caught it, so nothing told the user - a setting
+  that didn't save, a screen that didn't load.
+- `diag.attempt(() => call)` returns the answer, or `{success: false, error}` when the call threw, for code that already shows `result.error`:
+  downloads and fetching a mod (`gamebanana.js`, `add-mod.js`: the section is enabled again and the message shown), the data-folder change
+  (`settings-panels.js`, `setup-wizard.js`) and finishing setup. `diag.describe(e)` is the sentence it uses, with the Python exception's name.
+- The Commit page says "Couldn't check your mods" with Try again instead of "Checking your mods..." for ever.
+
+## Changing the data folder
+
+"Bring my files" moves every item in `MASTER_DIR_ITEMS`: besides the mods, caches and settings, that now includes `game-files/` (without it the
+setup wizard came back), `voice-edits.json`, `voice-custom/`, `look-reviews.json` and the `.bak` copies. It stops at the first item that can't be
+moved and **puts back** what it had already moved, so the data is never split between two folders; the log has the old and new folder and every
+error. When you add a file the app keeps in its data folder, add it to that list.
+
+## The packaged app checks itself
+
+`MK8DX Mod Manager.exe --self-check` opens no window and uses a temporary folder: it logs one line per check (version, page files, `roster.json`,
+`name-labels.json`, `known-shared-files.json`, Pillow with WebP, 7-Zip runs, the backend starts) and exits non-zero if any failed. The release
+workflow runs it on the unzipped package (see `docs/DEVELOPERS.md`). From source: `python src/mod_manager.py --self-check`.
+
 ## Not done yet
 
-Still silent or thin: the page's own `catch` blocks that only set a fallback (about 18), a per-mod count of files staged by a commit,
-what makes a commit "stale" (a mod updated in place), the voice editor's per-line encode details and its non-atomic rebuild, the "Bring my
-files along" list when changing the data folder (it leaves `game-files/` behind), the cached "no icons found" results in
-`ui-setup-cache.json`, and the release workflow not running the tests. Each is a small, local change.
+Still silent or thin: a per-mod count of files staged by a commit, what makes a commit "stale" (a mod updated in place), the voice editor's per-line
+encode details and its non-atomic rebuild, the cached "no icons found" results in `ui-setup-cache.json` (no version number, so a bad entry
+stays), and the self-check step of the release workflow not blocking yet. Each is a small, local change.

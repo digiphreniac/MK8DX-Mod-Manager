@@ -192,9 +192,19 @@ async function renderCommitPage() {
   body.replaceChildren();
   pageHead(body, "Commit your mods",
     "Committing gathers every selected mod's files into one set, ready to copy to your Switch. Nothing on the Switch changes until you copy it there yourself.");
-  body.appendChild(loadingNote("Checking your mods..."));
+  const loading = loadingNote("Checking your mods...");
+  body.appendChild(loading);
   const keys = allKeys().filter(k => state.checked[k]);
-  const [preview, status] = await Promise.all([pywebview.api.preview_commit(keys), pywebview.api.get_flow_status()]);
+  let preview, status;
+  try {
+    [preview, status] = await Promise.all([pywebview.api.preview_commit(keys), pywebview.api.get_flow_status()]);
+  } catch (e) {   // (without this the page said "Checking your mods..." for ever)
+    const failed = cgEl("div");
+    failed.appendChild(statusCard("bad", "!", "Couldn't check your mods", diag.describe(e)));
+    failed.appendChild(button("Try again", "ghost", renderCommitPage));
+    loading.replaceWith(failed);
+    return;
+  }
   commitPage.preview = preview;
   flow.status = status;
   if (!commitPage.preview.already && !commitPage.busy) commitPage.result = null;

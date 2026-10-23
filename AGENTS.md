@@ -9,8 +9,8 @@ notes, measurements and rules live in `docs/` (index below).
 
 - Install: `pip install -r requirements.txt` (pywebview, Pillow). Run: `python src/mod_manager.py`; `MK8DX_DEBUG=1` opens the
   webview dev tools. On this machine use the project's `.venv/bin/python` (the system Python has no `webview`).
-- The only automated tests are `tests/test_tick_state.py` (`python -m unittest discover -s tests`): they guard the ticked mods
-  against loss. Everything else is verified by calling the backend directly (`Api(Path(master_root))` - it takes a
+- Automated tests: `python -m unittest discover -s tests` (the `tests/` folder; `.github/workflows/tests.yml` runs them on every pull
+  request). `tests/test_tick_state.py` guards the ticked mods against loss. For the rest, verify by calling the backend directly (`Api(Path(master_root))` - it takes a
   `Path`, not a `str`) and by loading `src/ui` in a browser with `pywebview.api` stubbed to those calls. State what you
   did and did not exercise; the real pywebview bridge is easy to leave untested.
 - The frontend is served from `src/ui/`; everything the page loads must live there.
