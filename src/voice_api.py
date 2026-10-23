@@ -38,6 +38,11 @@ VOICE_CUSTOM_DIRNAME = "voice-custom"
 UNIT_MOD_NAME = "Custom voice"
 MAX_CUSTOM_SECONDS = 8.0
 KIND_PREFIX = {"race": ("Audio", "Driver", "Driver_"), "menu": ("Audio", "DriverMenu", "MenuDriver_")}
+# A rebuilt archive bigger than the largest one the game itself ships with a character's own voice going
+# completely silent, original lines included (confirmed on Eden 2026-09-30: a 2.23 MB Driver_Iggy.bars, 15% over
+# the 1.94 MB vanilla max, played nothing at all in-race; trimmed to 1.92 MB, just under it, and it worked). There's
+# no known lower bound the game guarantees, so the vanilla max is the only real number to warn against.
+SIZE_WARN_FRACTION = 0.85
 
 
 def _mm():
@@ -195,6 +200,21 @@ class VoiceEditMixin:
         if array("h", [1]).tobytes() != b"\x01\x00":
             samples.byteswap()
         return rate, [samples[c::nch] for c in range(nch)]
+
+    def _voice_write_custom(self, ed, rate, chans):
+        """Overwrites an existing custom line's saved .wav in place with new PCM (same file `_voice_read_custom` reads) -
+        for re-gaining a line (voice_boost_line/voice_boost_all) without going through _voice_store_custom's
+        length/rate validation, which the audio already passed once when it was first saved."""
+        path = self.mod_root / Path(*ed["file"].split("/"))
+        nch, n = len(chans), len(chans[0])
+        interleaved = array("h", bytes(2 * n * nch))
+        for c in range(nch):
+            interleaved[c::nch] = chans[c]
+        with wave.open(str(path), "wb") as w:
+            w.setnchannels(nch)
+            w.setsampwidth(2)
+            w.setframerate(rate)
+            w.writeframes(interleaved.tobytes())
 
     # ---------------------------------------------------------------- building the Custom voice mod
     @mutates_library
@@ -444,6 +464,86 @@ class VoiceEditMixin:
         import game_files
         return game_files.status(self.mod_root)
 
+    def _voice_size_ceiling(self, kind):
+        """The largest vanilla archive of this kind (in bytes) among the app's own game-files copy, or None if that
+        copy isn't set up - see SIZE_WARN_FRACTION. Read fresh every call (a handful of stat()s on ~59 files - cheap
+        enough that caching isn't worth the staleness risk after "update from a new dump")."""
+        import game_files
+        sub1, sub2, _ = KIND_PREFIX[kind]
+        folder = self.mod_root / game_files.DIRNAME / "current" / sub1 / sub2
+        try:
+            sizes = [f.stat().st_size for f in folder.glob("*.bars") if f.is_file()]
+        except OSError:
+            sizes = []
+        return max(sizes) if sizes else None
+
+    # Only "race" (Driver_*.bars) has a confirmed failure mode past the vanilla max (see SIZE_WARN_FRACTION). "menu"
+    # (MenuDriver_*.bars) doesn't get the same warning yet: CJ's own rebuilt menu archive sat at 102% of the vanilla
+    # menu max and played fine on Eden, so the same threshold plainly isn't the right one for it - flagging it anyway
+    # would just be a false alarm until a real menu-archive failure turns up to calibrate against.
+    _SIZE_CHECKED_KINDS = ("race",)
+
+    def _voice_sizes(self, character):
+        """[{"kind", "stem", "bytes", "ceiling", "fraction", "level"}] for each race archive this character's Custom
+        voice mod currently has written - "level" is "ok", "warn" (>= SIZE_WARN_FRACTION of the vanilla max) or
+        "over" (at or past it, where the whole archive is known to go silent - see SIZE_WARN_FRACTION)."""
+        rec = self._voice_load()["characters"].get(character)
+        if not rec:
+            return []
+        unit_dir = self._unit_dir(rec.get("unit") or self._voice_unit_key(character))
+        romfs = unit_dir / "romfs"
+        if not romfs.is_dir():
+            return []
+        out = []
+        ceilings = {}
+        for stem in self._voice_stems(character):
+            for kind in self._SIZE_CHECKED_KINDS:
+                sub1, sub2, prefix = KIND_PREFIX[kind]
+                path = romfs / sub1 / sub2 / f"{prefix}{stem}.bars"
+                if not path.is_file():
+                    continue
+                if kind not in ceilings:
+                    ceilings[kind] = self._voice_size_ceiling(kind)
+                ceiling = ceilings[kind]
+                size = path.stat().st_size
+                fraction = (size / ceiling) if ceiling else None
+                level = "ok" if fraction is None else "over" if fraction >= 1 else "warn" if fraction >= SIZE_WARN_FRACTION else "ok"
+                out.append({"kind": kind, "stem": stem, "bytes": size, "ceiling": ceiling, "fraction": fraction, "level": level})
+        return out
+
+    def _voice_loudness(self, character):
+        """{line key: dBFS} measured from the Custom voice mod's own written archive (what actually plays), for every
+        line currently in "custom" mode - vanilla/muted lines aren't measured, since LOUD_TARGET_DBFS was itself
+        measured from vanilla lines and a mute is silent by design. See ve.loudness_dbfs, voice_dsp.LOUD_TARGET_DBFS."""
+        rec = self._voice_load()["characters"].get(character)
+        if not rec:
+            return {}
+        custom_keys = {k for k, e in (rec.get("edits") or {}).items() if e.get("mode") == "custom"}
+        if not custom_keys:
+            return {}
+        romfs = self._unit_dir(rec.get("unit") or self._voice_unit_key(character)) / "romfs"
+        if not romfs.is_dir():
+            return {}
+        out = {}
+        for stem in self._voice_stems(character):
+            for kind in ("race", "menu"):
+                sub1, sub2, prefix = KIND_PREFIX[kind]
+                path = romfs / sub1 / sub2 / f"{prefix}{stem}.bars"
+                if not path.is_file():
+                    continue
+                try:
+                    blob = path.read_bytes()
+                    ents = ve.parse(blob)
+                except (OSError, ve.VoiceEditError):
+                    continue
+                for key, idx in ve.group_lines(ents).items():
+                    if key not in custom_keys or key in out:
+                        continue
+                    d = ve.loudness_dbfs(ve.sound_bytes(blob, ents[idx[0]]))
+                    if d is not None:
+                        out[key] = d
+        return out
+
     def get_voice_editor(self, character):
         """Everything the voice editor window shows for a character (see ui/js/voice.js, openVoiceEditor)."""
         stems = self._voice_stems(character)
@@ -478,14 +578,18 @@ class VoiceEditMixin:
                 line["count"] += len(idx)
                 line["seconds"] = max(line["seconds"], max(secs))
                 line["silent"] = line["silent"] and silent
+        loudness = self._voice_loudness(character)
         out = []
         for key, info in lines.items():
             d = ve.describe(key)
             ed = edits.get(key)
             state = ed["mode"] if ed else ("silent" if info["silent"] else "normal")
+            loud_dbfs = loudness.get(key) if state == "custom" else None
+            loud_level = None if loud_dbfs is None else ("quiet" if loud_dbfs < ve.LOUD_TARGET_DBFS - ve.QUIET_DBFS_MARGIN else "ok")
             d.update(kind=info["kind"], count=info["count"], seconds=round(info["seconds"], 2), state=state, available=True,
                      custom=({"name": ed.get("name", ""), "seconds": ed.get("seconds"), "rate": ed.get("rate"), "channels": ed.get("channels")}
-                             if ed and ed["mode"] == "custom" else None))
+                             if ed and ed["mode"] == "custom" else None),
+                     loud_dbfs=round(loud_dbfs, 1) if loud_dbfs is not None else None, loud_level=loud_level)
             out.append(d)
         for key in ve.MOMENTS:                     # the important moments are listed even when there is nothing to start from
             if key not in lines:
@@ -493,14 +597,15 @@ class VoiceEditMixin:
                 ed = edits.get(key)
                 d.update(kind=ve.line_kind(key), count=0, seconds=0, state=ed["mode"] if ed else "normal", available=False,
                          reason="file" if infos else "base",
-                         custom=({"name": ed.get("name", ""), "seconds": ed.get("seconds")} if ed and ed["mode"] == "custom" else None))
+                         custom=({"name": ed.get("name", ""), "seconds": ed.get("seconds")} if ed and ed["mode"] == "custom" else None),
+                         loud_dbfs=None, loud_level=None)
                 out.append(d)
         cat_rank = {c: i for i, c in enumerate(ve.CATEGORIES)}
         moment_rank = {k: i for i, k in enumerate(ve.MOMENTS)}
         out.sort(key=lambda d: (0 if d["moment"] else 1, moment_rank.get(d["key"], 0), cat_rank.get(d["category"], 99), d["label"], d["key"]))
         unit_key = rec.get("unit") or self._voice_unit_key(character)
         return {"success": True, "character": character, "known": True, "stems": stems, "lines": out, "bases": infos,
-                "problems": problems, "game": self._voice_base_files_status(),
+                "problems": problems, "game": self._voice_base_files_status(), "sizes": self._voice_sizes(character),
                 "unit": unit_key if (self._unit_dir(unit_key) / "romfs").is_dir() else None,
                 "unit_ticked": bool(self._load_state().get(unit_key)), "suspended": bool(rec.get("suspended"))}
 
@@ -620,6 +725,53 @@ class VoiceEditMixin:
         """Undoes every edit for a character (removes its Custom voice mod)."""
         self._voice_drop(character)
         return self.get_voice_editor(character)
+
+    @_locked
+    def voice_boost_line(self, character, key):
+        """Re-gains one already-custom line to the game's own median loudness (voice_dsp.boost_to_game_loudness,
+        via the "quiet" flag get_voice_editor sets) and rebuilds the archive - the fix for a line the editor flags
+        quiet without making the user redo it from the original file. Returns the editor's new state, like voice_set_line."""
+        data = self._voice_load()
+        ed = ((data["characters"].get(character) or {}).get("edits") or {}).get(key)
+        if not ed or ed.get("mode") != "custom":
+            return {"success": False, "error": "This line doesn't have your own sound on it."}
+        try:
+            rate, chans = self._voice_read_custom(ed)
+            self._voice_write_custom(ed, rate, ve.boost_to_game_loudness(chans, rate))
+        except (OSError, va.VoiceError) as e:
+            return {"success": False, "error": f"Couldn't boost this line: {e}"}
+        try:
+            res = self._voice_build(character)
+        except (ve.VoiceEditError, OSError, va.VoiceError) as e:
+            return {"success": False, "error": f"Couldn't write the voice file: {e}"}
+        state = self.get_voice_editor(character)
+        state["build_problems"] = res["problems"]
+        return state
+
+    @_locked
+    def voice_boost_all(self, character):
+        """voice_boost_line for every currently-custom line the editor flags "quiet", in one rewrite of the Custom
+        voice mod. Returns the editor's new state, like voice_set_line."""
+        quiet = [d["key"] for d in self.get_voice_editor(character).get("lines", []) if d.get("loud_level") == "quiet"]
+        if not quiet:
+            return self.get_voice_editor(character)
+        edits = (self._voice_load()["characters"].get(character) or {}).get("edits") or {}
+        try:
+            for key in quiet:
+                ed = edits.get(key)
+                if not ed or ed.get("mode") != "custom":
+                    continue
+                rate, chans = self._voice_read_custom(ed)
+                self._voice_write_custom(ed, rate, ve.boost_to_game_loudness(chans, rate))
+        except (OSError, va.VoiceError) as e:
+            return {"success": False, "error": f"Couldn't boost these lines: {e}"}
+        try:
+            res = self._voice_build(character)
+        except (ve.VoiceEditError, OSError, va.VoiceError) as e:
+            return {"success": False, "error": f"Couldn't write the voice file: {e}"}
+        state = self.get_voice_editor(character)
+        state["build_problems"] = res["problems"]
+        return state
 
     def get_voice_line_clip(self, character, key, which="current"):
         """One sound of a line as a playable .wav: {"success", "wav", "seconds", "name", "silent"}. `which` "original" is the

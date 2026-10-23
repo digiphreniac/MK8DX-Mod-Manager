@@ -11,6 +11,7 @@ silent sound a mod known to work on a Switch uses (see voice_edit.SILENT_FWAV, a
 
 Pure Python, no dependencies. A few seconds of audio take a few seconds to encode.
 """
+import math
 import struct
 from array import array
 
@@ -205,3 +206,84 @@ def encode_sound(rate: int, channels_pcm: list, want_channels: int) -> bytes:
     elif want_channels == 2 and len(ch) == 1:
         ch = [ch[0], ch[0]]
     return make_fwav(rate, ch)
+
+
+# ------------------------------------------------------------------------------------------------ matching loudness
+# The game's own race voice lines were measured (on the user's real mods) at a median -14.7 dBFS RMS with a crest
+# factor (peak / average) of about 4.7 - they are mastered/compressed, not just loud at their single loudest instant.
+# webui.html's matchGameLoudness() (ui/js/voice.js) applies this same pipeline client-side to a freshly recorded
+# clip before it is ever sent to the app; boost_to_game_loudness() below is the same math, ported to Python, so an
+# already-saved custom line can be re-gained without asking the user to redo it in the file picker (e.g. one that
+# predates this feature, or was saved with "Match the game's own voice volume" unticked).
+LOUD_TARGET_RMS = 0.185
+LOUD_TARGET_DBFS = 20 * math.log10(LOUD_TARGET_RMS)   # ~ -14.65 dBFS
+LOUD_CEILING = 0.97
+LOUD_THRESHOLD = 0.07
+LOUD_RATIO = 8
+LOUD_ATTACK_MS = 3
+LOUD_RELEASE_MS = 70
+LOUD_MAX_GAIN = 14
+# How far under the target counts as "quiet" in the editor - some slack, since the target is a median across real
+# lines and plenty of them naturally sit a bit under it without anyone noticing.
+QUIET_DBFS_MARGIN = 6.0
+
+
+def rms_dbfs(channels_pcm) -> float | None:
+    """RMS loudness of int16 PCM (one array per channel), in dBFS. None for a channel set too quiet to measure
+    meaningfully (at or near digital silence) - a caller checking for "quiet" should treat that as its own case
+    (voice_edit.is_silent), not as "very quiet"."""
+    total, count = 0.0, 0
+    for c in channels_pcm:
+        for v in c:
+            f = v / 32768.0
+            total += f * f
+        count += len(c)
+    if not count:
+        return None
+    rms = math.sqrt(total / count)
+    if rms <= 1e-6:
+        return None
+    return 20 * math.log10(rms)
+
+
+def boost_to_game_loudness(channels_pcm, rate: int) -> list:
+    """Re-gains already-decoded int16 PCM (one array per channel) to the game's own median voice-line loudness:
+    a soft compressor (one shared envelope across channels, so stereo content isn't pulled out of balance) brings
+    the peak-to-average ratio down near the game's own, then the gain that follows is searched for (a single-shot
+    guess would be eaten into by the limiter below), then a smooth (tanh) limiter catches whatever peaks remain
+    without turning them into an audible crackle. Mirrors ui/js/voice.js matchGameLoudness()/customPcm() exactly,
+    minus the trim/fade (this operates on audio already trimmed when it was first saved). Returns new int16 arrays,
+    one per channel."""
+    nch = len(channels_pcm)
+    n = len(channels_pcm[0]) if nch else 0
+    if not n:
+        return [array("h", c) for c in channels_pcm]
+    floats = [[v / 32768.0 for v in c] for c in channels_pcm]
+    attack = math.exp(-1 / (rate * LOUD_ATTACK_MS / 1000))
+    release = math.exp(-1 / (rate * LOUD_RELEASE_MS / 1000))
+    comp = [[0.0] * n for _ in range(nch)]
+    env = 0.0
+    for i in range(n):
+        a = max(abs(floats[c][i]) for c in range(nch))
+        env = a + (env - a) * (attack if a > env else release)
+        g = (LOUD_THRESHOLD + (env - LOUD_THRESHOLD) / LOUD_RATIO) / env if env > LOUD_THRESHOLD else 1.0
+        for c in range(nch):
+            comp[c][i] = floats[c][i] * g
+
+    def rms_of(chans):
+        total = sum(v * v for c in chans for v in c)
+        return math.sqrt(total / (nch * n)) if nch * n else 0.0
+
+    def soft_limit(chans, gain):
+        return [[LOUD_CEILING * math.tanh((v * gain) / LOUD_CEILING) for v in c] for c in chans]
+
+    rms0 = rms_of(comp)
+    gain = min(LOUD_MAX_GAIN, LOUD_TARGET_RMS / rms0) if rms0 > 1e-6 else 1.0
+    out = soft_limit(comp, gain)
+    for _ in range(5):
+        r1 = rms_of(out)
+        if abs(r1 - LOUD_TARGET_RMS) < 0.003 or gain >= LOUD_MAX_GAIN:
+            break
+        gain = min(LOUD_MAX_GAIN, gain * (LOUD_TARGET_RMS / max(r1, 1e-6)))
+        out = soft_limit(comp, gain)
+    return [array("h", (max(-32768, min(32767, round(v * 32767))) for v in c)) for c in out]

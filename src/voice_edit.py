@@ -132,6 +132,16 @@ def sound_format(fwav: bytes) -> tuple:
     return rate, nchan, (n / rate if rate else 0.0)
 
 
+def loudness_dbfs(fwav: bytes):
+    """RMS loudness of one sound's actual audio, in dBFS (see voice_dsp.rms_dbfs) - what a "quiet" flag in the editor
+    is measured against (LOUD_TARGET_DBFS, QUIET_DBFS_MARGIN). None if it can't be decoded or is silence."""
+    try:
+        _rate, _nchan, chans = va.decode_bfwav(fwav)
+    except va.VoiceError:
+        return None
+    return rms_dbfs(chans)
+
+
 # ------------------------------------------------------------------------------------------------------- the lines
 # A "line" is what a player thinks of as one thing the character says ("Finish first"). In the archive it is often
 # several sounds - a base one, numbered alternatives (GOL_TOP2) and a tail (GOL_TOP_END) - and which of them the game plays,
@@ -250,4 +260,4 @@ def group_lines(entries: list) -> dict:
 
 # ------------------------------------------------------------------------------------------------------- new sounds
 # Audio the user chose is turned into a sound the game plays by voice_dsp.py (DSP-ADPCM, the format of every voice in the game).
-from voice_dsp import EncodeError, encode_sound, make_fwav  # noqa: E402,F401
+from voice_dsp import EncodeError, encode_sound, make_fwav, rms_dbfs, boost_to_game_loudness, LOUD_TARGET_DBFS, QUIET_DBFS_MARGIN  # noqa: E402,F401

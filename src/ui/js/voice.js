@@ -25,6 +25,26 @@ function voiceGlyph(kind) {
   svg.appendChild(p);
   return svg;
 }
+// A small trash-can icon for a line's own delete/remove-edit button - a dedicated control, separate from the chip
+// that just says what's currently on the line, so "what is this" and "undo it" aren't the same clickable thing.
+function trashGlyph() {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = '<rect x="3" y="4" width="10" height="1.4" rx="0.7"/><rect x="6.2" y="1.6" width="3.6" height="1.4" rx="0.7"/>'
+    + '<path d="M4.2 5.6h7.6l-.6 8.2a1 1 0 01-1 .9H5.8a1 1 0 01-1-.9L4.2 5.6z"/>';
+  return svg;
+}
+function delButton(title, onClick) {
+  const b = cgEl("button", "ve-del");
+  b.type = "button";
+  b.title = title;
+  b.setAttribute("aria-label", title);
+  b.appendChild(trashGlyph());
+  b.addEventListener("click", (e) => { e.stopPropagation(); onClick(); });
+  return b;
+}
 function setPlayState(btn, state, msg) {
   btn.dataset.state = state;
   btn.replaceChildren(voiceGlyph(state === "playing" ? "stop" : "play"));
@@ -118,7 +138,7 @@ async function openVoiceLines(unitKey, modLabel) {
   card.appendChild(cgEl("h3", null, "Voice lines"));
   card.appendChild(cgEl("div", "voice-sub", modLabel));
   const list = cgEl("div", "voice-list");
-  list.appendChild(cgEl("div", "voice-empty", "Reading the voice files\u2026"));
+  list.appendChild(loadingNote("Reading the voice files\u2026"));
   card.appendChild(list);
   const acts = cgEl("div", "gate-actions");
   const close = () => { voiceStop(); back.remove(); document.removeEventListener("keydown", onKey, true); };
@@ -182,6 +202,8 @@ async function openVoiceEditor(character, onClose) {
   card.appendChild(cgEl("div", "ve-note", "Mute a line or use your own sound for it. Your changes are saved as a mod called \u201cCustom voice\u201d that Commit merges like any other."));
   const baseBox = cgEl("div");
   card.appendChild(baseBox);
+  const sizeBox = cgEl("div");
+  card.appendChild(sizeBox);
   const errBox = cgEl("div");
   card.appendChild(errBox);
   // a search box (filters every line below by label/description) and, once lines are in, one pill per category to
@@ -203,7 +225,7 @@ async function openVoiceEditor(character, onClose) {
   thead.appendChild(cgEl("span", null, "Actions"));
   card.appendChild(thead);
   const list = cgEl("div", "ve-list");
-  list.appendChild(cgEl("div", "voice-empty", "Reading the voice files\u2026"));
+  list.appendChild(loadingNote("Reading the voice files\u2026"));
   card.appendChild(list);
   const noMatch = cgEl("div", "voice-empty");
   noMatch.hidden = true;
@@ -234,7 +256,22 @@ async function openVoiceEditor(character, onClose) {
   });
   muteAllBtn.title = "Silence every line of this character's voice (lines with your own sound are kept). Undo one line at a time, or use Undo all changes.";
   muteAllBtn.hidden = true;
+  const boostAllBtn = button("Boost quiet lines", "ghost", async () => {
+    boostAllBtn.disabled = true;
+    showError(null);
+    let r;
+    try { r = await pywebview.api.voice_boost_all(character); } catch (e) { r = { success: false, error: String(e) }; }
+    boostAllBtn.disabled = false;
+    if (!back.isConnected) return;
+    if (!r || !r.success) { showError((r && r.error) || "That didn't work."); return; }
+    changed = true;
+    render(r);
+    if (r.build_problems && r.build_problems.length) showError(r.build_problems.join(" "));
+  });
+  boostAllBtn.title = "Re-gain every custom line the app measures as noticeably quieter than the game's own average.";
+  boostAllBtn.hidden = true;
   acts.appendChild(muteAllBtn);
+  acts.appendChild(boostAllBtn);
   acts.appendChild(resetBtn);
   const closeBtn = button("Close", "primary", close);
   acts.appendChild(closeBtn);
@@ -327,8 +364,9 @@ async function openVoiceEditor(character, onClose) {
     row.appendChild(sound);
     // column 2: Description - what the line means (dimmed when nobody's traced what it actually is)
     row.appendChild(cgEl("div", "ve-desc" + (l.description === "Unknown." ? " unknown" : ""), l.description));
-    // column 3: Actions - its current state and what you can do to it, as one row: an edited line's state is the
-    // button itself (a pressed "Muted \u2715" / "Your sound... \u2715" toggle), not a separate chip plus a separate button
+    // column 3: Actions - its current state and what you can do to it, as one row: a "pressed" chip says what's
+    // currently on the line (Muted / the file name), and its own trash-can button undoes it - kept apart so the
+    // one destructive action here (deleting a saved custom sound) is never a side effect of reading what it is.
     const a = cgEl("div", "ve-acts");
     if (!l.available) {
       a.appendChild(cgEl("span", "ve-chip", l.state === "normal" ? (l.reason === "file" ? "not in this voice file" : "needs a voice file") : (l.state === "mute" ? "muted (paused)" : "replaced (paused)")));
@@ -341,11 +379,31 @@ async function openVoiceEditor(character, onClose) {
         a.appendChild(o);
       }
       if (l.state === "silent") a.appendChild(cgEl("span", "ve-chip", "Already silent"));
+      if (l.state === "custom" && l.loud_level === "quiet") {
+        const chip = cgEl("span", "ve-chip warn", `Quiet (${l.loud_dbfs} dBFS)`);
+        chip.title = `Measured at ${l.loud_dbfs} dBFS; the game's own lines average about ${LOUD_TARGET_DBFS.toFixed(1)} dBFS.`;
+        a.appendChild(chip);
+        a.appendChild(button("Boost", "small", async () => {
+          showError(null);
+          row.classList.add("busy");
+          let r;
+          try { r = await pywebview.api.voice_boost_line(character, l.key); } catch (e) { r = { success: false, error: String(e) }; }
+          if (!back.isConnected) return;
+          if (!r || !r.success) { row.classList.remove("busy"); showError((r && r.error) || "That didn't work."); return; }
+          changed = true;
+          render(r);
+        }));
+      }
       if (l.state === "mute") {
-        a.appendChild(button("Muted \u2715", "small toggle-on", () => setLine(l, "normal", row)));
+        a.appendChild(cgEl("span", "ve-chip toggle-on", "Muted"));
+        a.appendChild(delButton("Undo the mute", () => setLine(l, "normal", row)));
       } else if (l.state === "custom") {
-        const label = `Your sound${l.custom && l.custom.name ? ": " + l.custom.name : ""}${l.custom && l.custom.seconds ? " \u00b7 " + l.custom.seconds + " s" : ""} \u2715`;
-        a.appendChild(button(label, "small toggle-on custom", () => setLine(l, "normal", row)));
+        const label = (l.custom && l.custom.name ? l.custom.name : "Your sound") + (l.custom && l.custom.seconds ? ` \u00b7 ${l.custom.seconds} s` : "");
+        a.appendChild(cgEl("span", "ve-chip toggle-on custom", label));
+        a.appendChild(delButton("Delete this sound", () => {
+          if (!confirm(`Delete your sound for \u201c${l.label}\u201d? This removes the saved audio file and can't be undone.`)) return;
+          setLine(l, "normal", row);
+        }));
       } else {
         a.appendChild(button("Mute", "small", () => setLine(l, "mute", row)));
       }
@@ -359,13 +417,14 @@ async function openVoiceEditor(character, onClose) {
     const scroll = list.scrollTop;
     showError(null);
     baseBox.replaceChildren();
+    sizeBox.replaceChildren();
     if (!st || !st.success) {
-      status.hidden = thead.hidden = searchWrap.hidden = catPills.hidden = muteAllBtn.hidden = true;
+      status.hidden = thead.hidden = searchWrap.hidden = catPills.hidden = muteAllBtn.hidden = boostAllBtn.hidden = true;
       list.replaceChildren(cgEl("div", "voice-empty", (st && st.error) || "Couldn't read this character's voice."));
       return;
     }
     if (!st.known) {
-      status.hidden = thead.hidden = searchWrap.hidden = catPills.hidden = muteAllBtn.hidden = true;
+      status.hidden = thead.hidden = searchWrap.hidden = catPills.hidden = muteAllBtn.hidden = boostAllBtn.hidden = true;
       list.replaceChildren(cgEl("div", "voice-empty", "The app doesn't know this character's voice files yet, so their voice can't be edited."));
       return;
     }
@@ -390,12 +449,33 @@ async function openVoiceEditor(character, onClose) {
     baseBox.appendChild(box);
     for (const p of st.problems || []) baseBox.appendChild(cgEl("div", "ve-err", p));
 
+    // the archive size: always shown (how much of the game's own largest-ever archive this character is using), so
+    // it's visible well before it becomes a problem, not just once it's close. A rebuilt archive bigger than the
+    // largest one the game itself ships with plays nothing at all in-game (confirmed on hardware/Eden - see project
+    // notes) - that's the "over" tier below; "warn" is the same number while there's still time to do something about it.
+    const SIZE_KIND_LABEL = { race: "Race voice file", menu: "Character-select voice file" };
+    const mb = (n) => (n / (1024 * 1024)).toFixed(2) + " MB";
+    for (const s of st.sizes || []) {
+      if (s.ceiling == null) continue;
+      const pct = Math.round(s.fraction * 100);
+      const sb = cgEl("div", "ve-size " + s.level);
+      const base = `${SIZE_KIND_LABEL[s.kind] || s.kind}: ${mb(s.bytes)} of ${mb(s.ceiling)} (${pct}%) – the largest the game itself ships for one character's voice`;
+      sb.appendChild(document.createTextNode(s.level === "over"
+        ? `${base}. An archive this size is known to go completely silent in-game, even on lines you didn't touch - mute or shorten a few lines to bring it back under that.`
+        : s.level === "warn"
+        ? `${base}. Getting close to the size where the game has been seen to stop playing it at all; worth trimming a line or two for some margin.`
+        : base));
+      sizeBox.appendChild(sb);
+    }
+
     thead.hidden = searchWrap.hidden = !st.lines.length;
     status.hidden = false;
     const mutedCount = st.lines.filter(l => l.state === "mute").length;
     const customCount = st.lines.filter(l => l.state === "custom").length;
+    const quietCount = st.lines.filter(l => l.loud_level === "quiet").length;
     status.textContent = (mutedCount || customCount)
-      ? [mutedCount ? `${VE_LINE_WORD(mutedCount)} muted` : "", customCount ? `${VE_LINE_WORD(customCount)} replaced` : ""].filter(Boolean).join(" · ")
+      ? [mutedCount ? `${VE_LINE_WORD(mutedCount)} muted` : "", customCount ? `${VE_LINE_WORD(customCount)} replaced` : "",
+         quietCount ? `${VE_LINE_WORD(quietCount)} quiet` : ""].filter(Boolean).join(" · ")
       : "Nothing changed yet";
 
     list.replaceChildren();
@@ -418,6 +498,7 @@ async function openVoiceEditor(character, onClose) {
     resetBtn.hidden = !st.lines.some(l => l.state === "mute" || l.state === "custom");
     muteAllBtn.hidden = !st.lines.some(l => l.available);
     muteAllBtn.disabled = !st.lines.some(l => l.available && l.state === "normal");
+    boostAllBtn.hidden = !quietCount;
   }
 
   let st;
@@ -459,6 +540,16 @@ function rmsOf(chans) {
   for (const c of chans) { for (let i = 0; i < c.length; i++) sum += c[i] * c[i]; count += c.length; }
   return count ? Math.sqrt(sum / count) : 0;
 }
+const LOUD_TARGET_DBFS = 20 * Math.log10(LOUD_TARGET_RMS);   // ~ -14.65 dBFS - see voice_dsp.py's copy of this number
+// The loudness of an already-interleaved int16 clip (what customPcm() hands back), for the live meter in "Use your own
+// sound" - the same target every custom line is measured against once it's saved (voice_api.get_voice_editor's "quiet" flag).
+function pcmRmsDbfs(int16) {
+  if (!int16.length) return null;
+  let sum = 0;
+  for (let i = 0; i < int16.length; i++) { const v = int16[i] / 32768; sum += v * v; }
+  const rms = Math.sqrt(sum / int16.length);
+  return rms > 1e-6 ? 20 * Math.log10(rms) : null;
+}
 function softLimitChan(chan, gain, ceiling) {
   const out = new Float32Array(chan.length);
   for (let i = 0; i < chan.length; i++) out[i] = ceiling * Math.tanh((chan[i] * gain) / ceiling);
@@ -488,7 +579,13 @@ function matchGameLoudness(chans, n0, n1, rate) {
   }
   return out;
 }
-function customPcm(buf, start, end, normalise) {
+// extraGainDb: the manual volume control, as an ALTERNATIVE to `normalise` - never both. Ignored whenever normalise
+// is on (the UI disables the slider then too, but this is the actual guarantee: whichever produced the level is the
+// only one that did). 0 by default, so nothing changes unless the user has both turned matching off and moved the
+// slider. Only soft-limited (instead of hard-clamped) when it's pushing volume UP past the raw level, so turning it
+// down never sounds different from a plain volume drop, and turning it up clips the way matchGameLoudness's own
+// limiter does rather than as a harsh digital clip.
+function customPcm(buf, start, end, normalise, extraGainDb) {
   const n0 = Math.max(0, Math.floor(start * CUSTOM_RATE)), n1 = Math.min(buf.length, Math.ceil(end * CUSTOM_RATE));
   const n = Math.max(0, n1 - n0);
   const nch = Math.min(2, buf.numberOfChannels);
@@ -497,13 +594,14 @@ function customPcm(buf, start, end, normalise) {
   let peak = 0;
   for (let c = 0; c < nch; c++) for (let i = n0; i < n1; i++) { const a = Math.abs(chans[c][i]); if (a > peak) peak = a; }
   const matched = normalise ? matchGameLoudness(chans, n0, n1, buf.sampleRate) : null;
+  const extraGain = normalise ? 1 : Math.pow(10, (extraGainDb || 0) / 20);
   const out = new Int16Array(n * nch);
   const fade = Math.min(160, n >> 1);
   for (let i = 0; i < n; i++) {
     const f = i < fade ? i / fade : (n - 1 - i) < fade ? (n - 1 - i) / fade : 1;
     for (let c = 0; c < nch; c++) {
-      const raw = matched ? matched[c][i] : chans[c][n0 + i];
-      const v = Math.max(-1, Math.min(1, raw * f));
+      const raw = (matched ? matched[c][i] : chans[c][n0 + i]) * extraGain;
+      const v = extraGain > 1 ? LOUD_CEILING * Math.tanh((raw * f) / LOUD_CEILING) : Math.max(-1, Math.min(1, raw * f));
       out[i * nch + c] = Math.round(v * 32767);
     }
   }
@@ -552,32 +650,79 @@ function openCustomAudio(character, line, onDone) {
   const mkOpt = (text, on) => { const l = cgEl("label"); const c = document.createElement("input"); c.type = "checkbox"; c.checked = on; l.append(c, document.createTextNode(text)); opts.appendChild(l); return c; };
   const trimOpt = mkOpt("Cut the quiet parts at the start and end", true);
   const normOpt = mkOpt("Match the game's own voice volume (fixes a quiet recording)", true);
+  // A live readout of how loud the chosen part will actually be, next to the same number every saved custom line is
+  // later measured against (see voice_api.get_voice_editor's "quiet" flag) - so a still-too-quiet result is visible
+  // before it's saved, not discovered later in the editor or, worse, in the game itself.
+  const loudBox = cgEl("div", "ve-loud");
+  // Manual control, as an alternative to "Match the game's own voice volume" above - not on top of it. Only one
+  // of the two ever sets the level: the slider is disabled while auto-matching is on (see its "change" handler
+  // below), so there's never a question of which number actually won. A slider instead of a plain number so it
+  // can be nudged by ear: drag, release, hear it, drag again. Auto-plays on release (not while dragging, which
+  // would overlap a new sound every few pixels).
+  const gainRow = cgEl("div", "ve-gain");
+  const gainLabel = cgEl("span", null, "Volume");
+  const gainSlider = document.createElement("input");
+  gainSlider.type = "range";
+  gainSlider.min = "-12";
+  gainSlider.max = "12";
+  gainSlider.step = "0.5";
+  gainSlider.value = "0";
+  const fmtDb = (v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`;
+  const gainVal = cgEl("span", "ve-gain-val", fmtDb(0));
+  const gainReset = button("Reset", "ve-orig", () => {
+    if (gainSlider.value === "0") return;
+    gainSlider.value = "0";
+    gainSlider.dispatchEvent(new Event("input"));
+    gainSlider.dispatchEvent(new Event("change"));
+  });
+  const setGainEnabled = (on) => {
+    gainSlider.disabled = gainReset.disabled = !on;
+    gainRow.classList.toggle("disabled", !on);
+    gainRow.title = on ? "" : "Turn off “Match the game's own voice volume” above to set this by hand instead.";
+  };
+  gainRow.append(gainLabel, gainSlider, gainVal, gainReset);
   const errBox = cgEl("div");
   const mid = cgEl("div");
   mid.hidden = true;
-  mid.append(fileInfo, wave, range, opts);
+  mid.append(fileInfo, wave, range, loudBox, gainRow, opts);
   card.append(mid, errBox);
 
   const acts = cgEl("div", "gate-actions");
-  let buf = null, fileName = "", start = 0, end = 0, previewUrl = null;
+  let buf = null, fileName = "", start = 0, end = 0, previewUrl = null, gainDb = 0;
   const cancel = () => {
     voiceStop(); if (previewUrl) URL.revokeObjectURL(previewUrl); back.remove();
     document.removeEventListener("keydown", onKey, true);
     window.removeEventListener("dragover", winOver);
+    window.removeEventListener("dragenter", winEnter);
+    window.removeEventListener("dragleave", winLeave);
     window.removeEventListener("drop", winDrop);
     window.removeEventListener("resize", onResize);
   };
   const isFiles = (e) => !!e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files");
+  // The whole dialog is a drop target, not just the dashed box - it's just the one place a file could usefully go
+  // while this is open, so there's no reason to make the user aim for a small rectangle. dragDepth counts entries
+  // vs. leaves (dragenter/dragleave bubble in matching pairs while the pointer moves between descendants of the
+  // same listener) so the highlight doesn't flicker off between child elements, only when the drag actually leaves.
+  let dragDepth = 0;
   const winOver = (e) => { if (isFiles(e)) e.preventDefault(); };
-  const winDrop = (e) => { if (isFiles(e)) { e.preventDefault(); load(e.dataTransfer.files[0]); } };
+  const winEnter = (e) => { if (isFiles(e)) { dragDepth++; card.classList.add("drop-target"); } };
+  const winLeave = (e) => { if (isFiles(e) && --dragDepth <= 0) { dragDepth = 0; card.classList.remove("drop-target"); } };
+  const winDrop = (e) => {
+    if (!isFiles(e)) return;
+    e.preventDefault();
+    dragDepth = 0; card.classList.remove("drop-target");
+    load(e.dataTransfer.files[0]);
+  };
   window.addEventListener("dragover", winOver);
+  window.addEventListener("dragenter", winEnter);
+  window.addEventListener("dragleave", winLeave);
   window.addEventListener("drop", winDrop);
   const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); cancel(); } };
   document.addEventListener("keydown", onKey, true);
-  const previewBtn = button("\u25B6 Preview", "", () => {
+  function playPreview() {
     voiceStop();
     if (!buf) return;
-    const r = customPcm(buf, start, end, normOpt.checked);
+    const r = customPcm(buf, start, end, normOpt.checked, gainDb);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = URL.createObjectURL(wavBlob(r.pcm, r.nch));
     const audio = new Audio(previewUrl);
@@ -585,12 +730,13 @@ function openCustomAudio(character, line, onDone) {
     voiceNow.audio = audio;
     audio.addEventListener("ended", () => { if (voiceNow.audio === audio) voiceStop(); });
     audio.play().catch(() => showError("Couldn't play the preview here."));
-  });
+  }
+  const previewBtn = button("\u25B6 Preview", "", playPreview);
   const useBtn = button("Use this sound", "primary", async () => {
     if (!buf) return;
     showError(null);
     useBtn.disabled = true;
-    const r = customPcm(buf, start, end, normOpt.checked);
+    const r = customPcm(buf, start, end, normOpt.checked, gainDb);
     let res;
     try {
       res = await pywebview.api.voice_set_line(character, line.key, "custom", { rate: CUSTOM_RATE, channels: r.nch, pcm: pcmToBase64(r.pcm), name: fileName });
@@ -600,9 +746,16 @@ function openCustomAudio(character, line, onDone) {
     cancel();
     onDone(res);
   });
+  // Equal RMS doesn't guarantee equal perceived loudness - a TTS or movie clip can measure the same average level as
+  // real game dialogue and still sound thinner over engine noise and music. The meter above catches the former; this
+  // catches the latter, letting the ear judge directly against the real thing instead of trusting a number alone.
+  const compareBtn = button("▶ Compare with the original", "ve-orig");
+  compareBtn.type = "button";
+  const compareInner = voiceLineButton(character, line.key, "original", "the original line", errBox);
+  compareBtn.addEventListener("click", (e) => { e.stopPropagation(); compareInner.click(); });
   previewBtn.hidden = true;
   useBtn.hidden = true;
-  acts.append(previewBtn, button("Cancel", "ghost", cancel), useBtn);
+  acts.append(previewBtn, compareBtn, button("Cancel", "ghost", cancel), useBtn);
   card.appendChild(acts);
   back.appendChild(card);
   back.addEventListener("click", (e) => { if (e.target === back) cancel(); });
@@ -650,6 +803,16 @@ function openCustomAudio(character, line, onDone) {
     else if (len < 0.05) lenEl.textContent += " \u2013 too short";
     useBtn.disabled = bad;
     draw();
+    refreshLoudness();
+  }
+  function refreshLoudness() {
+    if (!buf || end <= start) { loudBox.replaceChildren(); return; }
+    const dbfs = pcmRmsDbfs(customPcm(buf, start, end, normOpt.checked, gainDb).pcm);
+    if (dbfs == null) { loudBox.textContent = "This part is silent."; loudBox.className = "ve-loud"; return; }
+    const gap = dbfs - LOUD_TARGET_DBFS;
+    loudBox.textContent = `Loudness: ${dbfs.toFixed(1)} dBFS \u00b7 the game's own lines average about ${LOUD_TARGET_DBFS.toFixed(1)} dBFS`;
+    loudBox.className = "ve-loud" + (gap < -6 ? " quiet" : "");
+    if (gap < -6) loudBox.textContent += " \u2013 likely to sound quiet in the game; \u201cMatch the game's own voice volume\u201d fixes this";
   }
   function autoTrim() {
     // the first and last moment louder than a whisper (-40 dB), with a little room around it
@@ -668,6 +831,14 @@ function openCustomAudio(character, line, onDone) {
     refreshRange();
   }
   trimOpt.addEventListener("change", () => { if (buf) applyTrimOption(); });
+  normOpt.addEventListener("change", () => { setGainEnabled(!normOpt.checked); if (buf) refreshLoudness(); });
+  setGainEnabled(!normOpt.checked);
+  gainSlider.addEventListener("input", () => {
+    gainDb = parseFloat(gainSlider.value) || 0;
+    gainVal.textContent = fmtDb(gainDb);
+    if (buf) refreshLoudness();
+  });
+  gainSlider.addEventListener("change", () => { if (buf) playPreview(); });
   const setRange = () => {
     const a = parseFloat(startIn.value), b = parseFloat(endIn.value);
     if (!(isFinite(a) && isFinite(b))) return;
@@ -690,8 +861,8 @@ function openCustomAudio(character, line, onDone) {
     voiceStop();
     if (!file) return;
     fileName = file.name;
+    gainDb = 0; gainSlider.value = "0"; gainVal.textContent = fmtDb(0);   // a new file starts from no manual boost
     mid.hidden = true; useBtn.hidden = true; previewBtn.hidden = true;
-    drop.classList.remove("over");
     fileInfo.textContent = "Reading " + file.name + "\u2026";
     mid.hidden = false;
     try {
@@ -709,9 +880,10 @@ function openCustomAudio(character, line, onDone) {
     applyTrimOption();
   }
   input.addEventListener("change", () => load(input.files && input.files[0]));
-  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
-  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-  drop.addEventListener("drop", (e) => { e.preventDefault(); e.stopPropagation(); load(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
+  // no separate drag handling on `drop` itself: the window-level listeners above already cover the whole dialog,
+  // including this box, and a second set here would either double-load a file dropped exactly on it or (with
+  // stopPropagation to prevent that) leave the whole-dialog highlight stuck on - simpler for this box to just be
+  // the visual instructions, not its own drop target.
   card._load = load;           // (the tests drive the dialog through this)
   pick.focus();
 }
