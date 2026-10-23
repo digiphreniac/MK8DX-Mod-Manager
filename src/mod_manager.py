@@ -389,13 +389,40 @@ EXEFS_PATCHES_DIRNAME = "exefs_patches"
 # a re-merge clears exactly its own previous output and never touches other
 # patch sets (sigpatches, ...) already on the user's SD card.
 EXEFS_STAGING_PREFIX = "mk8dxmm_"
-# Build id -> game version. Deliberately tiny: only ids whose version is
-# confirmed by a source (a mod's own readme / a cheat database); an unlisted
-# id is shown as just its raw id rather than guessed at.
+# Build id -> game version, keyed by the build id's first BUILD_ID_LEN hex characters (the way cheat databases and
+# version tables name a build; use build_key()). An id missing from this table is shown as just its raw id rather
+# than guessed at.
+BUILD_ID_LEN = 16
 KNOWN_BUILD_IDS = {
-    "6A85262F21B903649BD7C62628D26E43": "3.0.3",
-    "9EF5CAA2D5B933C772358C5AA6FABA15": "3.0.1",
+    # Confirmed by a source (a mod's own readme / a cheat database):
+    "6A85262F21B90364": "3.0.3",
+    "9EF5CAA2D5B933C7": "3.0.1",
+    # Inferred, not confirmed: the ids come from HamletDuFromage/switch-cheats-db (versions/0100152000022000.json), which
+    # pairs each with a Nintendo update number (one per release, in steps of 65536). The versions are those releases counted
+    # in order from the Mario Wiki's update history, with the China-only 3.0.2 taking no number - which is what makes the two
+    # confirmed ids above come out right. Releases with no exefs change have no id of their own here.
+    "B5C39B5B7C62A88E": "1.0.0",   # update 0
+    "FE1B230800D4933C": "1.7.1",   # update 589824
+    "4792ABA465F04534": "1.7.2",   # 655360
+    "937E57FF64D21ECD": "2.0.0",   # 720896
+    "BDA8F5E6A0F87F36": "2.1.0",   # 786432
+    "60C8343AFBA2588F": "2.2.0",   # 851968
+    "381F6BF6894F3C33": "2.2.1",   # 917504
+    "13296B64DFA7A131": "2.3.0",   # 983040
+    "4B7A0BB5AE57E627": "2.4.0",   # 1048576
+    "FE941ED5BA14BE5D": "3.0.5",   # 1376256
+    "2C336A9BCF79C304": "4.0.0",   # 1441792
 }
+
+
+def build_key(build_id):
+    """The part of a build id that is compared: its first BUILD_ID_LEN hex characters, upper-case."""
+    return (build_id or "").strip().upper()[:BUILD_ID_LEN]
+
+
+def build_in(mine, build_ids):
+    """Whether `mine` (the user's build id, either length) is one of `build_ids` (a patch's ids, usually 32 hex long)."""
+    return any(build_key(b) == build_key(mine) for b in build_ids)
 
 
 def find_exefs_units(extracted_root: Path):
@@ -5086,7 +5113,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
     @staticmethod
     def _build_id_label(build_id):
-        version = KNOWN_BUILD_IDS.get(build_id)
+        version = KNOWN_BUILD_IDS.get(build_key(build_id))
         return f"{build_id[:8]}... (v{version})" if version else f"{build_id[:8]}..."
 
     def get_exefs_unit_info(self, unit_keys):
@@ -5102,8 +5129,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 continue
             patches, _ignored = self._exefs_files(key)
             info[key] = {
-                "ids": [{"id": bid, "version": KNOWN_BUILD_IDS.get(bid)} for bid in patches],
-                "inert": bool(mine) and mine not in patches,
+                "ids": [{"id": bid, "version": KNOWN_BUILD_IDS.get(build_key(bid))} for bid in patches],
+                "inert": bool(mine) and not build_in(mine, patches),
             }
         return info
 
@@ -5380,7 +5407,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             wrong = []
             for key in exefs_keys:
                 ids = list(self._exefs_files(key)[0])
-                if mine and ids and mine not in ids:
+                if mine and ids and not build_in(mine, ids):
                     wrong.append(key)
             if wrong:
                 warnings.append({
@@ -5608,7 +5635,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             for key, ids in staged_patches:
                 label = ", ".join(self._build_id_label(b) for b in ids) or "nothing usable"
                 lines.append(f"  - {key.split('/', 1)[1]}: {label}")
-                if mine and ids and mine not in ids:
+                if mine and ids and not build_in(mine, ids):
                     lines.append(
                         f"    WARNING: built for a different game version than your build id "
                         f"({mine[:8]}...) - it will do nothing on your game."
@@ -5647,9 +5674,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
     # --- guided flow: where the user is and what to do next ------------------
 
     def get_game_versions(self):
-        """The game versions the app can recognise a code patch for (build ids
-        confirmed by a source - see KNOWN_BUILD_IDS), newest first, for the
-        first-run setup and Settings."""
+        """The game versions the app can recognise a code patch for (see
+        KNOWN_BUILD_IDS), newest first, for the first-run setup and Settings."""
         return [
             {"version": v, "build_id": b}
             for b, v in sorted(KNOWN_BUILD_IDS.items(), key=lambda kv: [int(x) for x in kv[1].split(".")], reverse=True)

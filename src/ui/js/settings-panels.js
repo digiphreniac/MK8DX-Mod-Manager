@@ -191,10 +191,10 @@ document.getElementById("setting-show-nsfw").addEventListener("change", async (e
 document.getElementById("setting-game-build-id").addEventListener("change", async (e) => {
   const errEl = document.getElementById("setting-game-build-id-error");
   const value = e.target.value.trim().toUpperCase();
-  // Empty (check off) or exactly 32 hex characters - anything else is a typo
+  // Empty (check off), 32 hex characters, or just the first 16 (how the app matches them) - anything else is a typo
   // that would otherwise silently flag every patch as the wrong version.
-  if (value !== "" && !/^[0-9A-F]{32}$/.test(value)) {
-    errEl.textContent = "A build ID is exactly 32 hex characters (0-9, A-F).";
+  if (value !== "" && !/^([0-9A-F]{16}|[0-9A-F]{32})$/.test(value)) {
+    errEl.textContent = "A build ID is 32 hex characters (0-9, A-F), or just its first 16.";
     errEl.hidden = false;
     return;
   }
