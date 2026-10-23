@@ -62,6 +62,9 @@ const SIMPLE_CATEGORIES = [
 // Items (mirrors mod_manager.py's ITEMS_*) have their own screen and a per-item roster, loaded from Api.get_items_view() into
 // state.items as [{name, internal, units, gb_attempted, catch_all?, label?}]. The last one is the catch-all ("Items", the folder
 // everything filed before items had a roster is in), shown as "Other items".
+// Where the "Support creator" links (the footer, the All done page) lead.
+const SUPPORT_URL = "https://buymeacoffee.com/digiphreniac";
+function openSupportPage() { pywebview.api.open_external_url(SUPPORT_URL); }
 const ITEMS_CATEGORY = "items";
 const ITEMS_OTHER = "Items";
 const ITEMS_OTHER_LABEL = "Other items";

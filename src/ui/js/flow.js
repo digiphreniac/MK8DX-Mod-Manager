@@ -369,9 +369,19 @@ async function renderSwitchPage() {
     return;
   }
   if (st.switch.done) {
+    // All done: no checklist any more (it's finished). Back goes to the previous step, with a nudge to support the app beside it, and
+    // the troubleshooting tips stay here for anyone who finds it isn't working after all.
     body.appendChild(statusCard("ok", "🎉", "All done - your mods work on your Switch",
       "If you change your mods later, the steps above will light up again and you can come back here."));
-    body.appendChild(button("Not working after all", "ghost", async () => { await pywebview.api.mark_switch_done(false); renderSwitchPage(); }));
+    const row = cgEl("div", "pg-cta pg-done-actions");
+    row.appendChild(button("Back", "ghost", () => goStep("commit")));
+    const support = cgEl("div", "pg-support");
+    support.appendChild(cgEl("span", null, "Enjoying your mods? This app is free. If it saved you some time, you can chip in for a coffee."));
+    support.appendChild(button("Support creator", "ghost small", openSupportPage));
+    row.appendChild(support);
+    body.appendChild(row);
+    body.appendChild(buildTroubleshooting());
+    return;
   } else {
     body.appendChild(statusCard("ok", "✓", "Everything is ready to copy",
       `${st.commit.summary ? st.commit.summary.mods + " mods, " + st.commit.summary.files + " files" : ""}` + (st.ui.needed ? " · menu pictures & names included" : "")));
