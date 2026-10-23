@@ -22,6 +22,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import types
 import uuid
 import webbrowser
@@ -1646,21 +1647,39 @@ def slot_characters(folder: Path) -> set:
 
 
 def describe_ui_build(results):
-    """Plain log lines saying what became of the two shared icon files (common.sarc, menu.sarc) in a menu icons & text build, so a
-    missing file never has to be guessed at. `results` is what Api._build_ui_archives() returns under "results"."""
+    """Plain log lines saying what became of the shared icon and text files (common.sarc, menu.sarc, message.sarc) in a menu icons & text
+    build, so a missing file never has to be guessed at: built (with how many changes went in and which were left out), or not made - and
+    whether that is because no selected mod changes anything in it or because what they change can't be used (with the reasons).
+    `results` is what Api._build_ui_archives() returns under "results"."""
     by_id = {r["archive"]: r for r in results}
+    shown = [("common", "common.sarc"), ("menu", "menu.sarc")] + [
+        (r["archive"], f"message.sarc ({r['archive'].split(':', 1)[1]})") for r in results if r["archive"].startswith("message:")]
     lines = []
-    for archive_id, name in (("common", "common.sarc"), ("menu", "menu.sarc")):
+    for archive_id, name in shown:
         r = by_id.get(archive_id)
         if r is None:
             lines.append(f"  {name}: not made - no selected mod ships it and the app has no copy of the game's own to start from "
                          f"(check the Game files step in the setup wizard).")
-        elif r.get("error"):
+            continue
+        dropped = r.get("dropped") or []
+        report = r.get("report") or {}
+        skipped = report.get("skipped") or []
+        if r.get("error"):
             lines.append(f"  {name}: could not be made (see the warning below).")
         elif r.get("nothing"):
-            lines.append(f"  {name}: not made - no selected mod changes anything in it, so the game's own is used.")
+            if dropped:
+                lines.append(f"  {name}: not made - {len(dropped)} change(s) in the selected mods can't be used, so the game's own is used:")
+            else:
+                lines.append(f"  {name}: not made - no selected mod changes anything in it, so the game's own is used.")
+        elif "applied" in report:
+            lines.append(f"  {name}: built ({len(report['applied'])} change(s) applied" + (f", {len(skipped)} left out" if skipped else "") + ").")
         else:
             lines.append(f"  {name}: built.")
+        entries = list(dropped) + list(skipped)
+        for e in entries[:8]:
+            lines.append(f"      - {', '.join(e.get('mods') or [])}: {e.get('what')} - {e.get('reason')}")
+        if len(entries) > 8:
+            lines.append(f"      ... and {len(entries) - 8} more")
     return lines
 
 
@@ -1678,6 +1697,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         self._library = library_cache.LibraryCache()
         self._notes_lock = threading.RLock()   # (the notes and flags on mods: see mod_notes.py)
         self._state_lock = threading.RLock()   # (every read-modify-write of the ticked mods happens under it)
+        self._settings_lock = threading.RLock()   # (and of the settings: two saves at once must not lose each other's change)
         self._root_epoch = ""                   # (names the folder a page loaded its ticks from - see save_checked)
         self._desc_fetch_lock = threading.Lock()
         self._prefetch_lock = threading.Lock()     # (guards the four below - see gb_prefetch)
@@ -1860,7 +1880,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
                      f"setup finished: {'yes' if settings.get('setup_done') else 'no'}")
         base = game_files.status(root)
         ticked = sum(1 for v in self._load_state().values() if v)
-        lines.append(f"Selected mods: {ticked}; the game files copy is {'complete' if base['done'] else 'NOT complete'}")
+        lines.append(f"Selected mods: {ticked}; the game files copy is "
+                     f"{'complete' if base['done'] else 'NOT complete' + (' (missing on disk: ' + ', '.join(base.get('missing_on_disk') or []) + ')' if base.get('missing_on_disk') else '')}")
         if not short:
             lines.append(f"App folder: {app_paths.APP_ROOT}")
             if LOG_PATH:
@@ -1974,14 +1995,33 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return {"success": True, "error": None}
 
     def _load_json(self, path, default):
-        if path.exists():
+        """The JSON in `path`, or `default` when it isn't there. A file that exists but can't be read is not the same as one that isn't
+        there: a lock for a moment (a virus scanner, OneDrive, the file being replaced) is waited out, then the previous good copy
+        (<name>.bak) is used if there is one, and only then the default - always with a line in the log, because what the next save
+        writes replaces the file."""
+        if not path.exists():
+            return default
+        error = None
+        for attempt in range(10):
             try:
                 return json.loads(path.read_text(encoding="utf-8"))
+            except PermissionError as e:
+                error = e
+                if sys.platform != "win32" or attempt == 9:
+                    break
+                time.sleep(0.02 * (attempt + 1))
             except (ValueError, OSError) as e:
-                diag.log_once((path.name, type(e).__name__), "warn",
-                              f"{path.name} couldn't be read ({type(e).__name__}: {e}); using its defaults, and the next save will replace it")
-                return default
-        return default
+                error = e
+                break
+        try:
+            backup = json.loads(path.with_name(path.name + ".bak").read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            diag.log_once((path.name, type(error).__name__), "warn",
+                          f"{path.name} couldn't be read ({type(error).__name__}: {error}); using its defaults, and the next save will replace it")
+            return default
+        diag.log_once((path.name, type(error).__name__), "warn",
+                      f"{path.name} couldn't be read ({type(error).__name__}: {error}); using its previous copy ({path.name}.bak)")
+        return backup
 
     def _load_state(self):
         """The ticked mods, {unit key: True/False}. Never raises: a file that can't be read gives its .bak copy (see safe_io.py)."""
@@ -2875,7 +2915,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return self._load_json(self.gb_mods_path, {})
 
     def _save_gb_mods(self, data):
-        safe_io.write_json_atomic(self.gb_mods_path, data)
+        safe_io.write_json_atomic(self.gb_mods_path, data, keep_backup=True)
     def _load_conflict_resolutions(self):
         """relpath -> priority-ordered list of unit-keys, most-preferred
         first (see resolve_conflict()). A stale entry - naming a mod that's
@@ -2885,7 +2925,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return self._load_json(self.conflict_resolutions_path, {})
 
     def _save_conflict_resolutions(self, data):
-        safe_io.write_json_atomic(self.conflict_resolutions_path, data)
+        safe_io.write_json_atomic(self.conflict_resolutions_path, data, keep_backup=True)
     def _load_known_shared_files(self):
         return self._load_json(self.known_shared_files_path, {})
 
@@ -2927,7 +2967,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
     def _save_excluded_files(self, data):
         data = {k: v for k, v in data.items() if v}
-        safe_io.write_json_atomic(self.excluded_files_path, data)
+        safe_io.write_json_atomic(self.excluded_files_path, data, keep_backup=True)
     def _excluded_norms(self):
         return {mod: set(entries) for mod, entries in self._load_excluded_files().items()}
 
@@ -3049,8 +3089,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return self._load_settings()
 
     def save_settings(self, settings):
-        merged = {**self._load_settings(), **settings}
-        safe_io.write_json_atomic(self.settings_path, merged)
+        with self._settings_lock:
+            merged = {**self._load_settings(), **settings}
+            safe_io.write_json_atomic(self.settings_path, merged, keep_backup=True)
         return merged
 
     def clear_all_mods(self, delete_files=True):
@@ -3113,6 +3154,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         the whole file). `epoch` is what get_mods() handed the page: a page that loaded a different master folder (the folder was
         switched under it) or never finished loading is refused - False, and the page reloads its ticks. True when saved."""
         if epoch is not None and epoch != self._root_epoch:
+            diag.log("ticks", f"a save was refused: the page loaded a different folder's selections ({len(changes or {})} change(s) not saved)")
             return False
         changes = {str(k): bool(v) for k, v in (changes or {}).items()}
         with self._state_lock:
@@ -3121,8 +3163,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
             self._write_state(state)
         try:
             self.sync_auto_names(state)      # ticking a character mod tries to give the character its name
-        except Exception:
-            pass                            # a naming hiccup must never lose the user's ticks
+        except Exception as e:   # noqa: BLE001 - a naming hiccup must never lose the user's ticks
+            diag.log_once(("auto-names", type(e).__name__, str(e)[:80]), "error",
+                          f"naming a character after its mod failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
         self.sync_voice_edits()             # a Custom voice mod follows the mod it was made from (never raises)
         return True
 
@@ -4160,8 +4203,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
                     return
             try:
                 self._prefetch_one(*request)
-            except Exception:   # (an optimisation: whatever goes wrong here, the window just asks for itself)
-                pass
+            except Exception as e:   # noqa: BLE001 - an optimisation: whatever goes wrong here, the window just asks for itself
+                diag.log_once(("gb-prefetch", type(e).__name__), "warn", f"looking up GameBanana ahead of time failed: {type(e).__name__}: {e}")
 
     def _browse_sort(self, tagged):
         """The sort the Browse window starts on: the one the user picked last, else the kind's own default (see gb-browse.js)."""
@@ -4727,6 +4770,25 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
     @mutates_library
     def _download_and_extract_one(self, category, item_name, mod_name, file_entry):
+        """Downloads and unpacks one file of a mod (see _download_and_extract). Whatever goes wrong is written to the log with which mod
+        and file it was, a folder left half-unpacked is removed, and the caller gets a GameBananaError (which it shows) instead of an
+        exception it doesn't expect (which used to leave the page waiting forever)."""
+        trace = {}
+        label = f"{category}/{item_name}/{mod_name} ({file_entry.get('name')}, {file_entry.get('size')} bytes)"
+        try:
+            return self._download_and_extract(category, item_name, mod_name, file_entry, trace)
+        except Exception as e:   # noqa: BLE001
+            dest = trace.get("dest")
+            if dest is not None and Path(dest).exists():
+                shutil.rmtree(dest, ignore_errors=True)   # (this call made it, and the download failed: a half-unpacked mod is worse than none)
+            if isinstance(e, gamebanana_api.GameBananaError):
+                diag.log("download", f"failed: {label}: {e}")
+                raise
+            diag.log("error", f"download failed: {label}: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+            raise gamebanana_api.GameBananaError(
+                f"Something unexpected went wrong while unpacking this download ({type(e).__name__}: {e}). The details are in the log.") from e
+
+    def _download_and_extract(self, category, item_name, mod_name, file_entry, trace):
         # Nested by item ("<category>/<item>/<mod>") rather than the old flat
         # "<item> - <mod>" naming - see "Folder naming" in docs/architecture.md.
         # item_name itself is sanitized here (unlike mod_name it was never
@@ -4759,19 +4821,23 @@ class Api(VoiceEditMixin, ModNotesMixin):
         preferred_dest = item_dir / mod_folder_name
         name_collided = preferred_dest.exists()
         dest_folder = unique_dir_path(preferred_dest)
+        trace["dest"] = dest_folder
+        fixers = []   # (which repairs below changed this mod's folders: a mod that "does nothing" is often one of these guessing wrong)
         gamebanana_api.extract_archive(archive_path, dest_folder)
 
         # Collapse a pre-packaged "atmosphere/contents/<TITLE_ID>/" wrapper
         # (see fix_atmosphere_wrapper) before find_mod_units() ever runs, so
         # unit keys are never built from it in the first place.
-        fix_atmosphere_wrapper(dest_folder)
+        if fix_atmosphere_wrapper(dest_folder):
+            fixers.append("removed an atmosphere/contents wrapper")
 
         # Fold any stray Course/MapObj sitting next to an already-real romfs/
         # into that romfs/ before find_mod_units() ever runs - otherwise the
         # existing romfs/ (even a near-empty one) reads as "this download
         # succeeded" and the actual course content next to it never gets a
         # second look.
-        fix_stray_course_content(dest_folder)
+        if fix_stray_course_content(dest_folder):
+            fixers.append("moved stray course files into romfs")
 
         # find_mod_units() already walks the whole tree looking for every
         # romfs-containing folder, however deep - a multi-variant pack (e.g.
@@ -4789,12 +4855,14 @@ class Api(VoiceEditMixin, ModNotesMixin):
         # a mergeable mod, no wrapper would make it one.)
         if not units and not looks_like_ui_assets(dest_folder) and looks_like_missing_romfs_wrapper(dest_folder):
             fix_missing_romfs_wrapper(dest_folder)
+            fixers.append("added the missing romfs folder")
             units = find_mod_units(dest_folder)
 
         # Course-mod-specific counterparts to the fix above - see their own
         # docstrings for why each is safe to apply unconditionally.
         if not units and not looks_like_ui_assets(dest_folder) and looks_like_bare_course_wrapper(dest_folder):
             fix_bare_course_wrapper(dest_folder)
+            fixers.append("wrapped bare course folders in romfs")
             units = find_mod_units(dest_folder)
 
         # A course's files with no folder named for it at all ("Retextured" mods with just course_model.szs): the course
@@ -4803,26 +4871,31 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if not units and category == "courses" and not looks_like_ui_assets(dest_folder):
             slots = self._course_internal_names(item_name)
             if slots and len(slots) == 1 and fix_loose_course_files(dest_folder, next(iter(slots)), self._course_names_by_internal()):
+                fixers.append(f"filed loose course files under {next(iter(slots))}")
                 units = find_mod_units(dest_folder)
 
         if not units and not looks_like_ui_assets(dest_folder):
             if fix_bare_course_slot(dest_folder):
+                fixers.append("filed a bare course folder")
                 units = find_mod_units(dest_folder)
 
         # ...and the item-mod counterpart: loose ItemXxx.bfres/.bars files
         # with no folders at all - see fix_loose_item_files().
         if not units and not looks_like_ui_assets(dest_folder):
             if fix_loose_item_files(dest_folder):
+                fixers.append("filed loose item files")
                 units = find_mod_units(dest_folder)
 
         # ...and loose vehicle-part .szs files (BodyK_Cat.szs, Wing_Pap.szs, ...).
         if not units and not looks_like_ui_assets(dest_folder):
             if fix_loose_kart_parts(dest_folder):
+                fixers.append("filed loose kart part files")
                 units = find_mod_units(dest_folder)
 
         # ...and a character's own loose files (<Slot>.szs, Driver_<Slot>.bars, MenuDriver_<Slot>.bars).
         if not units and not looks_like_ui_assets(dest_folder):
             if fix_loose_character_files(dest_folder):
+                fixers.append("filed loose character files")
                 units = find_mod_units(dest_folder)
 
         # exefs code patches (.ips) are mergeable units too - see
@@ -4846,6 +4919,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
             code = ui_setup.code_for_character(item_name)
             if code and ui_setup.find_loose_icon_sets(dest_folder, code):
                 dest_folder = dest_folder.rename(unique_dir_path(item_dir / f"{mod_folder_name} (icon pictures)"))
+                trace["dest"] = dest_folder
+                fixers.append("named it as an icon-pictures pack")
 
         slot_mismatch = None
         music_mismatch = None
@@ -4916,6 +4991,14 @@ class Api(VoiceEditMixin, ModNotesMixin):
         # the same folder). A first-ever download (old_folder is None) has no
         # old slot to reclaim, so it just keeps whatever unique_dir_path()
         # already gave it above.
+        trace["dest"] = None   # (it worked: nothing left to clean up)
+        try:
+            top = ", ".join(sorted(p.name for p in dest_folder.iterdir())[:30])
+        except OSError:
+            top = "(couldn't be listed)"
+        diag.log("download", f"{category}/{item_name}/{mod_name}: {file_entry.get('name')} ({file_entry.get('size')} bytes) -> {status}; "
+                             f"{len(units)} mod folder(s), {len(exefs_units)} code patch(es); repairs: {'; '.join(fixers) or 'none'}; "
+                             f"slot mismatch: {'yes' if slot_mismatch else 'no'}, music mismatch: {'yes' if music_mismatch else 'no'}; top level: {top}")
         self._retire_previous_download(old_folder, old_archive)
         if old_folder:
             reclaim_folder = Path(old_folder)
@@ -4947,6 +5030,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
             old_folder = Path(old_folder_str)
             if old_folder.is_dir():
                 shutil.rmtree(old_folder, ignore_errors=True)
+                if old_folder.exists():
+                    diag.log("download", f"the previous copy {old_folder} couldn't be fully removed (a file in it is in use?); a duplicate may be listed")
             extracted_root = self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME
             try:
                 rel = old_folder.relative_to(extracted_root)
@@ -4992,8 +5077,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if len(jobs) > 1:
             try:
                 gamebanana_api.prefetch_files(jobs, prefetch_dir)
-            except Exception:
-                pass  # the sequential path below still works
+            except Exception as e:   # noqa: BLE001
+                diag.log_once(("prefetch-files", type(e).__name__), "warn",
+                              f"fetching several files at once failed ({type(e).__name__}: {e}); they are downloaded one by one instead")
         results = []
         for file_id in file_ids:
             file_entry = next((f for f in record["files"] if f["file_id"] == file_id), None)
@@ -5058,7 +5144,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
             return {}
         result = self.gb_move_mod(item_name, record["mod_id"], target, record.get("record_type", "Mod"))
         if not result.get("success"):
+            diag.log("refile", f"couldn't move '{record['name']}' from {item_name} to {target}: {result['error']}")
             return {"move_error": result["error"]}
+        diag.log("refile", f"moved '{record['name']}' (mod {record['mod_id']}) from {item_name} to {target}; its files are for: {', '.join(replaced)}")
         return {"moved": {"from_item": item_name, "to_item": target, "to_section": result["to_section"],
                           "mod_id": record["mod_id"], "record_type": record.get("record_type", "Mod"),
                           "mod_name": record["name"], "moved_folders": result["moved_folders"],
@@ -5684,6 +5772,25 @@ class Api(VoiceEditMixin, ModNotesMixin):
             "already": bool(last) and last.get("sig") == self._commit_signature(checked_keys),
         }
 
+    def _log_commit(self, lines):
+        """The commit log, also in mod-manager.log (the page keeps it only until the app is closed)."""
+        diag.log("commit", "\n".join(lines[:400]) + ("\n... (cut)" if len(lines) > 400 else ""))
+
+    def _commit_failed(self, lines, error):
+        """The copy into the staging folder stopped part-way: the folder is incomplete, so the last commit no longer counts and the user
+        is told not to copy it anywhere."""
+        diag.log("commit", f"copying into the staging folder failed: {type(error).__name__}: {error}\n{traceback.format_exc()}")
+        self.save_settings({"last_commit": None})
+        lines.extend([
+            "=== Commit FAILED - the staging folder is incomplete ===",
+            f"The copy stopped at: {getattr(error, 'filename', None) or 'an unknown file'}",
+            f"Reason: {type(error).__name__}: {error}",
+            "Common causes: not enough free disk space, a file open in another program (Explorer, your antivirus, OneDrive), or a path that "
+            "is too long. Fix that and commit again. Until then, don't copy the staging folder to your SD card.",
+        ])
+        self._log_commit(lines)
+        return {"lines": lines, "conflict": False, "staged": False}
+
     def merge(self, checked_keys):
         self.sync_voice_edits()
         self.sync_part_pictures()   # (what a ticked mod supplies itself may have changed since the picture was set)
@@ -5754,47 +5861,51 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "Settle each one (keep one mod's version, or leave the files out of both) "
                 "and commit again. The staging folder was left untouched."
             )
+            self._log_commit(lines)
             return {"lines": lines, "conflict": True, "groups": groups}
 
         # Always exists after a successful merge (even one that staged no
         # files at all), so the "Open staging folder" button has a target.
-        staging_root.mkdir(parents=True, exist_ok=True)
-        if out_romfs.exists():
-            shutil.rmtree(out_romfs)
-        # (created lazily by the copies below - a merge of only code patches,
-        # or of mods that are entirely packed archives, leaves no empty romfs/)
+        try:
+            staging_root.mkdir(parents=True, exist_ok=True)
+            if out_romfs.exists():
+                shutil.rmtree(out_romfs)
+            # (created lazily by the copies below - a merge of only code patches,
+            # or of mods that are entirely packed archives, leaves no empty romfs/)
 
-        for claim in claims.values():
-            dest = out_romfs / claim["rel"]
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(claim["src"], dest)
+            for claim in claims.values():
+                dest = out_romfs / claim["rel"]
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(claim["src"], dest)
 
-        # exefs code patches -> atmosphere/exefs_patches/<prefix><slug>/<BUILD ID>.ips.
-        # Only this app's own previous patch sets (EXEFS_STAGING_PREFIX) are
-        # cleared first, so a re-merge never leaves stale patches behind but
-        # also never touches sigpatches or anything else already there.
-        patches_root = staging_root / "atmosphere" / EXEFS_PATCHES_DIRNAME
-        if patches_root.is_dir():
-            for old in patches_root.iterdir():
-                if old.is_dir() and old.name.startswith(EXEFS_STAGING_PREFIX):
-                    shutil.rmtree(old)
-            if not any(patches_root.iterdir()):
-                patches_root.rmdir()
-        unparsable = {(key, name) for key, name, _reason in exefs_problems}
-        staged_patches = []  # (unit key, [build ids actually staged])
-        ignored_patch_files = []  # (unit key, filename) Atmosphere wouldn't load
-        for key in exefs_keys:
-            patch_files, ignored = self._exefs_files(key)
-            ignored_patch_files.extend((key, name) for name in ignored)
-            staged_ids = []
-            for build_id, src in patch_files.items():
-                if (key, src.name) in unparsable:
-                    continue
-                dest_dir = patches_root / self._exefs_stage_name(key)
-                dest_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src, dest_dir / f"{build_id}.ips")
-                staged_ids.append(build_id)
-            staged_patches.append((key, staged_ids))
+            # exefs code patches -> atmosphere/exefs_patches/<prefix><slug>/<BUILD ID>.ips.
+            # Only this app's own previous patch sets (EXEFS_STAGING_PREFIX) are
+            # cleared first, so a re-merge never leaves stale patches behind but
+            # also never touches sigpatches or anything else already there.
+            patches_root = staging_root / "atmosphere" / EXEFS_PATCHES_DIRNAME
+            if patches_root.is_dir():
+                for old in patches_root.iterdir():
+                    if old.is_dir() and old.name.startswith(EXEFS_STAGING_PREFIX):
+                        shutil.rmtree(old)
+                if not any(patches_root.iterdir()):
+                    patches_root.rmdir()
+            unparsable = {(key, name) for key, name, _reason in exefs_problems}
+            staged_patches = []  # (unit key, [build ids actually staged])
+            ignored_patch_files = []  # (unit key, filename) Atmosphere wouldn't load
+            for key in exefs_keys:
+                patch_files, ignored = self._exefs_files(key)
+                ignored_patch_files.extend((key, name) for name in ignored)
+                staged_ids = []
+                for build_id, src in patch_files.items():
+                    if (key, src.name) in unparsable:
+                        continue
+                    dest_dir = patches_root / self._exefs_stage_name(key)
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dest_dir / f"{build_id}.ips")
+                    staged_ids.append(build_id)
+                staged_patches.append((key, staged_ids))
+        except (OSError, shutil.Error) as e:
+            return self._commit_failed(lines, e)
 
         lines.append("=== Commit complete ===")
         lines.append(f"Mods merged: {len(mods_processed)}")
@@ -5803,6 +5914,13 @@ class Api(VoiceEditMixin, ModNotesMixin):
         lines.append(f"Files copied: {len(claims)}")
         if ui_icons_files:
             lines.append(f"  (includes {ui_icons_files} file(s) from ui-icons/, always merged in)")
+            icons_root = self.mod_root / "ui-icons" / "romfs"
+            try:   # (which ones, and when they were built: an old file here is why an icon can show an earlier mod's picture)
+                for f in sorted(p for p in icons_root.rglob("*") if p.is_file())[:12]:
+                    st = f.stat()
+                    lines.append(f"      {f.relative_to(icons_root).as_posix()}  ({st.st_size} bytes, built {datetime.fromtimestamp(st.st_mtime):%Y-%m-%d %H:%M})")
+            except OSError:
+                pass
         else:
             lines.append("  (ui-icons/ is empty - no combined UI icons included)")
         if bgm_bars_skipped:
@@ -5814,6 +5932,10 @@ class Api(VoiceEditMixin, ModNotesMixin):
             lines.append(
                 f"  ({len(resolved)} conflict(s) auto-resolved using your saved preferences)"
             )
+            for path, winner in resolved[:10]:
+                lines.append(f"      {path}  ->  {mod_label(winner)}")
+            if len(resolved) > 10:
+                lines.append(f"      ... and {len(resolved) - 10} more")
         left_out_total = sum(res.excluded_counts.values())
         if left_out_total:
             lines.append(
@@ -5899,11 +6021,16 @@ class Api(VoiceEditMixin, ModNotesMixin):
         )
 
         counts, warnings = self._commit_summary(checked_keys, res, exefs_keys, exefs_conflicts, exefs_problems)
+        if warnings:   # (the cards the Commit page shows - they are not part of the log otherwise)
+            lines.append("")
+            lines.append("Notes shown on the Commit page:")
+            lines.extend(f"  - {w['title']}" for w in warnings)
         now = datetime.now().isoformat(timespec="seconds")
         self.save_settings({"last_commit": {
             "sig": self._commit_signature(checked_keys), "at": now,
             "mods": counts["mods"], "files": counts["files"], "left_out": counts["left_out"],
         }})
+        self._log_commit(lines)
         return {
             "lines": lines, "conflict": False, "staged": True, "counts": counts, "warnings": warnings,
             "staging_path": str(staging_root), "at": now,
@@ -6155,8 +6282,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         locales = locales or [settings.get("ui_setup_locale") or "USen"]
         try:
             plan = self._ui_setup_plan()
-        except (OSError, ui_setup.ua.ArchiveError) as e:
-            return {"success": False, "error": f"Couldn't read your mods' UI files: {e}"}
+        except Exception as e:   # noqa: BLE001 - a damaged archive in one mod raises many kinds of error; the commit goes on without a new build
+            diag.log("ui-build", f"couldn't read the mods' UI files: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+            return {"success": False, "error": f"Couldn't read your mods' UI files ({type(e).__name__}: {e})"}
         ids = [aid for aid in ["common", "menu"] + [f"message:{l}" for l in locales] if aid in plan]
         results = []
         for archive_id in ids:
@@ -6170,16 +6298,17 @@ class Api(VoiceEditMixin, ModNotesMixin):
                     staged = self._staging_romfs() / dest.relative_to(self.mod_root / "ui-icons" / "romfs")
                     if staged.is_file():
                         staged.unlink()
-                results.append({"archive": archive_id, "nothing": True,
+                results.append({"archive": archive_id, "nothing": True, "dropped": ui_setup.dropped_changes(analysis),
                                 "report": {"archive": archive_id, "applied": [], "skipped": [], "backup": None, "written": None},
                                 "verify": {"archive": archive_id, "exists": False, "items": [], "problems": [], "ok": 0, "total": 0}})
                 continue
             try:
                 report = ui_setup.build_archive(self.mod_root, archive_id, plan[archive_id], choices)
                 verify = ui_setup.verify_archive(self.mod_root, archive_id, plan[archive_id], choices)
-                results.append({"archive": archive_id, "report": report, "verify": verify})
-            except (OSError, ui_setup.ua.ArchiveError) as e:
-                results.append({"archive": archive_id, "error": str(e)})
+                results.append({"archive": archive_id, "report": report, "verify": verify, "dropped": ui_setup.dropped_changes(analysis)})
+            except Exception as e:   # noqa: BLE001
+                diag.log("ui-build", f"building {archive_id} failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+                results.append({"archive": archive_id, "error": f"{type(e).__name__}: {e}"})
         good = bool(results) and all(
             "error" not in r and r["verify"]["ok"] == r["verify"]["total"] for r in results)
         if good:
@@ -6609,8 +6738,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 return
             try:
                 step()
-            except Exception:
-                pass
+            except Exception as e:   # noqa: BLE001
+                diag.log_once(("warm-up", getattr(step, "__name__", "step"), type(e).__name__), "error",
+                              f"preparing the screens ({getattr(step, '__name__', 'a step')}) failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
             time.sleep(0.05)   # (leave the page's own requests a turn)
 
     # --- the user's own game files (the base the UI step builds on) -----------

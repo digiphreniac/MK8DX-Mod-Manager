@@ -23,9 +23,12 @@ manifest.json (also under game-files/) records what was found: which icon archiv
 where the source folder was (for display only - it does not need to still exist afterward) and when it was copied.
 """
 import json
+import os
 import safe_io
 import shutil
 from pathlib import Path
+
+import diag
 
 import vehicle_icons
 
@@ -173,9 +176,16 @@ def _copy_into(found: dict, dest_root: Path) -> dict:
             "problems": problems}
 
 
+def _fail(message: str, detail: str = "") -> dict:
+    diag.log("game-files", f"copy failed: {message}" + (f" ({detail})" if detail else ""))
+    return {"success": False, "error": message}
+
+
 def copy_both(source_folder, master_root: Path) -> dict:
     """Validates a folder the user chose has enough to work with, then copies it into BOTH original/ and current/
     (replacing whichever was there before - see the "update from a new dump" behaviour) and writes the manifest.
+    The new copies are made beside the old ones and swapped in only once they are complete, so a copy that fails
+    (disk full, a file locked by antivirus, the app closed) leaves what was there before untouched.
     {"success": True, "manifest": {...}} or {"success": False, "error": "plain words"}."""
     found = discover(source_folder)
     missing_required = [a for a in REQUIRED_ICON_IDS if a not in found["icons"]]
@@ -184,12 +194,49 @@ def copy_both(source_folder, master_root: Path) -> dict:
             "That folder doesn't hold the game's files. Choose the 'romfs' folder you extracted from your own copy of "
             "the game (it contains UI/cmn/common.sarc, UI/cmn/menu.sarc, and a UI/<language>/message.sarc).")}
     root = master_root / DIRNAME
-    for name in ("original", "current"):
-        old = root / name
-        if old.is_dir():
-            shutil.rmtree(old)
-    result_original = _copy_into(found, root / "original")
-    result_current = _copy_into(found, root / "current")
+    names = ("original", "current")
+    diag.log("game-files", f"copy starting from {source_folder}: found {len(found['icons'])} archives, {len(found['voice'])} voices, "
+                           f"{len(found.get('course_picts', {}))} course pictures, {len(found.get('vehicle_picts', {}))} vehicle pictures; "
+                           f"{diag.free_gb(master_root)}")
+    fresh = {name: root / f"{name}.new" for name in names}
+    for path in list(fresh.values()) + [root / f"{name}.old" for name in names]:
+        shutil.rmtree(path, ignore_errors=True)   # (left over from a copy that was interrupted)
+    try:
+        result_original = _copy_into(found, fresh["original"])
+        result_current = _copy_into(found, fresh["current"])
+    except OSError as e:
+        for path in fresh.values():
+            shutil.rmtree(path, ignore_errors=True)
+        return _fail(f"Couldn't copy the game's files ({e}). Check there is enough free space, then try again. Nothing was changed.",
+                     f"{type(e).__name__} at {getattr(e, 'filename', None)}")
+    copied = set(result_current["icons"])
+    if any(a not in copied for a in REQUIRED_ICON_IDS) or not any(a.startswith("message:") for a in copied):
+        for path in fresh.values():
+            shutil.rmtree(path, ignore_errors=True)
+        problems = result_original["problems"] + result_current["problems"]
+        return _fail("Some of the game's files couldn't be copied (" + "; ".join(problems[:3]) + "). Nothing was changed.", "; ".join(problems[:10]))
+    swapped = []
+    try:
+        for name in names:
+            final, old = root / name, root / f"{name}.old"
+            if final.is_dir():
+                os.replace(final, old)
+            os.replace(fresh[name], final)
+            swapped.append(name)
+    except OSError as e:   # (put back what was there: a half-swapped pair would be worse than either)
+        for name in names:
+            final, old = root / name, root / f"{name}.old"
+            try:
+                if old.is_dir():
+                    if final.is_dir():
+                        shutil.rmtree(final, ignore_errors=True)
+                    os.replace(old, final)
+            except OSError:
+                pass
+            shutil.rmtree(fresh[name], ignore_errors=True)
+        return _fail(f"Couldn't put the copied game files in place ({e}). The previous copy was kept.", f"{type(e).__name__} at {getattr(e, 'filename', None)}")
+    for name in names:
+        shutil.rmtree(root / f"{name}.old", ignore_errors=True)
     mm = _mm()
     manifest = {
         "source": str(source_folder), "copied_at": mm.datetime.now().isoformat(timespec="seconds"),
@@ -198,7 +245,13 @@ def copy_both(source_folder, master_root: Path) -> dict:
         "vehicle_pictures_all": True,
         "voice_total": len(mm.DRIVER_SLOTS), "problems": result_original["problems"] + result_current["problems"],
     }
-    safe_io.write_json_atomic((root / MANIFEST_FILENAME), manifest)
+    try:
+        safe_io.write_json_atomic((root / MANIFEST_FILENAME), manifest)
+    except OSError as e:
+        return _fail(f"The game's files were copied but couldn't be recorded ({e}). Try again.", type(e).__name__)
+    diag.log("game-files", f"copy finished: {len(manifest['icons'])} archives, {len(manifest['voice'])} voices, "
+                           f"{manifest['course_pictures']} course pictures, {manifest['vehicle_pictures']} vehicle pictures"
+                           + (f"; problems: {'; '.join(manifest['problems'][:10])}" if manifest["problems"] else ""))
     return {"success": True, "manifest": manifest}
 
 
@@ -218,8 +271,12 @@ def status(master_root: Path) -> dict:
                 "voice_total": len(_mm().DRIVER_SLOTS), "problems": []}
     icons = manifest.get("icons") or []
     locales = sorted(a.split(":", 1)[1] for a in icons if a.startswith("message:"))
-    done = all(a in icons for a in REQUIRED_ICON_IDS) and bool(locales)
-    return {"done": done, "source": manifest.get("source"), "copied_at": manifest.get("copied_at"),
+    # The manifest says what was copied; the files must really be there too (a copy that was cut short, or files deleted since,
+    # leave a manifest behind that still says "done").
+    on_disk = find_current(master_root)
+    missing = [a for a in REQUIRED_ICON_IDS if a not in on_disk] + ([] if any(k.startswith("message:") for k in on_disk) else ["message"])
+    done = all(a in icons for a in REQUIRED_ICON_IDS) and bool(locales) and not missing
+    return {"done": done, "missing_on_disk": missing, "source": manifest.get("source"), "copied_at": manifest.get("copied_at"),
             "icons": icons, "locales": locales, "voice_found": len(manifest.get("voice") or []),
             "course_pictures": manifest.get("course_pictures") or 0, "vehicle_pictures": manifest.get("vehicle_pictures") or 0,
             "voice_total": manifest.get("voice_total") or len(_mm().DRIVER_SLOTS), "problems": manifest.get("problems") or []}

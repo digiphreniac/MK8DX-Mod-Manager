@@ -20,7 +20,7 @@ notes, measurements and rules live in `docs/` (index below).
 - Commit only when the user asks. End commit messages with the `Co-Authored-By` trailer the harness gives you.
 - `app-config.json` (machine-specific master folder) and `PROMPTS.md` (the user's own scratch prompts) are the user's; don't
   edit or rely on them. Never delete or rewrite anything under the user's master folder except through the app's own code
-  paths (`mods/`, `game-files/`, `ui-icons/`, ...). `game-files/original/` is written once and never touched again.
+  paths (`mods/`, `game-files/`, `ui-icons/`, ...). `game-files/original/` is written once and never touched again, except by "Update from a new dump", which swaps in a complete new copy only after it has been copied successfully (`game_files.copy_both()`).
 - When you change behaviour that a page in `docs/` describes, update that page in the same change. Put new design notes in
   the matching `docs/` page (or a new one), not in `README.md` or `docs/DEVELOPERS.md`, which stay short.
 - The in-app **Help** panel (`src/ui/html/help-modal.html`) is the user guide and must stay current with the UI.

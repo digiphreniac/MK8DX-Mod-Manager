@@ -776,6 +776,23 @@ def build_archive(master_root: Path, archive_id: str, analysis: dict, choices: d
     return report
 
 
+def dropped_changes(analysis: dict) -> list:
+    """What the selected mods change in this archive that the build can't use, as [{"mods", "what", "reason"}] - so "no icons were built"
+    can say why: a picture built for another game version or of another shape, a screen the user's own game file doesn't have, and the
+    changes of a mod with many (set aside as unrelated to what the mod is filed under, see _split_changes)."""
+    out = []
+    for i, v in enumerate(analysis["variants"]):
+        if i == analysis["base"]:
+            continue
+        for c in v["changes"]:
+            if not c.get("mergeable", True):
+                out.append({"mods": v["labels"], "what": _what(c), "reason": c.get("reason") or "can't be swapped in automatically"})
+        if v.get("other"):
+            out.append({"mods": v["labels"], "what": f"{v['other']} other entr{'y' if v['other'] == 1 else 'ies'}",
+                        "reason": "set aside as unrelated to what the mod is filed under"})
+    return out
+
+
 def _skip(variant, change, reason):
     return {"mods": variant["labels"], "item": item_id(change), "what": _what(change), "reason": reason}
 

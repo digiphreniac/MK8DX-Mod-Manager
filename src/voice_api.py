@@ -400,7 +400,11 @@ class VoiceEditMixin:
                         continue
                 self._voice_apply_exclusions(character)
             return {"changed": changed}
-        except Exception:
+        except Exception as e:   # noqa: BLE001
+            import diag
+            import traceback
+            diag.log_once(("voice-sync", type(e).__name__, str(e)[:80]), "error",
+                          f"keeping the Custom voice mods up to date failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
             return {"changed": 0}      # (never let this get in the way of ticking a mod)
 
     # ---------------------------------------------------------------- what the editor shows

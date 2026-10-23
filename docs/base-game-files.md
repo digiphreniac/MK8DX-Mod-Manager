@@ -33,9 +33,14 @@ screens simply show their plain tiles meanwhile.
 `manifest.json` records what was found and copied (which icon archives, which locales, which character voice slots,
 the source folder shown for reference only - it doesn't need to still exist afterward - and when). `status()` reads
 it back for Settings and the Setup step; `done` requires both icon archives plus at least one locale (voice is
-best-effort - a dump missing a few characters' files is a warning, not a failure). Each copied file's magic bytes
-(`SARC` / `BARS`) are checked before it's trusted; anything that doesn't look right is skipped and reported rather
-than copied.
+best-effort - a dump missing a few characters' files is a warning, not a failure) **and the files really being on disk**
+(`status()["missing_on_disk"]` lists what isn't): a manifest left behind by a copy that was cut short, or by deleted files,
+no longer reads as done. Each copied file's magic bytes (`SARC` / `BARS`) are checked before it's trusted; anything that
+doesn't look right is skipped and reported rather than copied.
+
+`copy_both()` makes the new copies beside the old ones (`original.new/`, `current.new/`) and swaps them in only once both are
+complete and hold both icon archives and a language - so a copy that fails (disk full, a file locked by antivirus, the app
+closed) leaves the previous one untouched, and says why in plain words. Its start, its end and every problem are in the log.
 
 **What this replaced:** an optional per-feature "Your game's files" folder setting (`game_files_dir`) that `ui_setup.py`
 read live and `voice_api.py` read live for voice - meaning UI icons/text needed a mod to ship them or that folder to

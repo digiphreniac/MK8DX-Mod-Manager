@@ -53,7 +53,35 @@ Ask for **Help > Copy details** (or `mod-manager.log` and `mod-manager.previous.
 but MISSING on disk), `warn: ... couldn't be read` lines (a settings file that was reset), `page-error` lines, and the data folder line
 (OneDrive, not writable, no space).
 
+## What the risky paths record
+
+- **The commit** (`merge()`): the log opens with the short details and, besides the existing sections, lists the files in `ui-icons/`
+  that were included (with when each was built: an old one is why an icon can show an earlier mod's picture), the clashes settled by saved
+  choices (path -> winning mod), and the Commit page's notes (the same cards, as text). The whole commit log is also written to
+  `mod-manager.log`. A copy into the staging folder that stops halfway (disk full, a file locked by antivirus or OneDrive, a path too long)
+  is a **failed commit**: the log says where it stopped and why, `last_commit` is cleared so the flow doesn't call the folder current, and the
+  user is told not to copy it (`_commit_failed()`).
+- **The menu icons build** (`describe_ui_build()`): one line per archive - built (changes applied / left out), or not made, and *why*: no selected
+  mod changes anything in it, or N changes can't be used (`ui_setup.dropped_changes()`: a picture of another shape, a screen the user's game
+  file doesn't have, changes set aside as unrelated), each with the mod, what, and the reason (first 8). Any error while reading the mods' UI
+  files names the exception and writes its traceback instead of aborting the commit.
+- **The copy of the game's files** (`game_files.copy_both()`): start and end lines, every problem, an all-or-nothing swap (see
+  [Base game files](base-game-files.md)), and `status()` checks the files are really there.
+- **Downloads** (`_download_and_extract_one()` wraps `_download_and_extract()`): any exception is logged with the mod and file, a folder left
+  half-unpacked is removed, and the page gets a `GameBananaError` it shows - not an exception that left the spinner running. A finished download
+  logs one line: status, how many mod folders and code patches, **which repairs changed its folders** (`fixers`), slot/music mismatches and the
+  top-level contents. `_download_direct()` logs host and path (never the query: it can carry tokens), HTTP status and content type, recognises a
+  web page instead of an archive, and a full disk; `extract_archive()` logs 7-Zip's exit code and output, handles a 7-Zip that can't start,
+  doesn't wait for a password, and reads its output leniently. A refile (a mod moved to another card) is logged with why.
+- **Settings and other app files** (`_load_json()`): a lock for a moment is waited out (up to about a second, on Windows), then the previous good
+  copy (`<name>.bak`, kept by every save) is used, and only then the defaults - always with a line. `save_settings()` is under a lock, so two saves
+  at once can't lose each other's change. A refused save of selections (the page held another folder's) is logged.
+- **Errors that used to vanish** (the warm-up, the GameBanana look-ahead, naming a character after its mod, keeping Custom voice mods up to
+  date) are logged once each with their traceback.
+
 ## Not done yet
 
-The commit and download paths still swallow some failures without a line: the staging copy has no `try`, the `fix_*` functions report only true/false, skipped icons keep their reasons to themselves, and
-`_load_json` falls back to defaults instead of the `.bak` copy. Each is a small, local addition of a `diag.log` line.
+Still silent or thin: the page's own `catch` blocks that only set a fallback (about 18), a per-mod count of files staged by a commit,
+what makes a commit "stale" (a mod updated in place), the voice editor's per-line encode details and its non-atomic rebuild, the "Bring my
+files along" list when changing the data folder (it leaves `game-files/` behind), the cached "no icons found" results in
+`ui-setup-cache.json`, and the release workflow not running the tests. Each is a small, local change.
