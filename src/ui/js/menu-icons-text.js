@@ -202,35 +202,107 @@ function gameFilesPathRow(onUse) {
   return wrap;
 }
 
+// ---- "Where do I get these?": how to get the game's files, shared by the Setup step and Settings ----
+// A small element builder: wizEl("p", "cls", "text", node, ...) - strings become text nodes.
+function wizEl(tag, cls, ...kids) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  for (const k of kids) e.append(k);
+  return e;
+}
+// A link that opens in the user's browser (http/https only - the backend refuses anything else).
+function wizExtLink(text, url) {
+  const a = wizEl("a", "wiz-link", text);
+  a.href = "#";
+  a.title = url;
+  a.addEventListener("click", (e) => { e.preventDefault(); pywebview.api.open_external_url(url); });
+  return a;
+}
+// A link that opens a folder in the file manager.
+function wizFolderLink(text, path) {
+  const a = wizEl("a", "wiz-link", text);
+  a.href = "#";
+  a.title = path;
+  a.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const r = await pywebview.api.reveal_path(path);
+    if (!r.success) alert(r.error);
+  });
+  return a;
+}
+
+function gameDataInstructions() {
+  const guide = wizEl("div", "wiz-guide");
+  guide.append(wizEl("p", null, "These files will come from your copy of Mario Kart 8 Deluxe (they can't be included in the app, since they belong to Nintendo)."));
+  guide.append(wizEl("h3", null, "Getting the game data"));
+  const steps = wizEl("ol");
+
+  steps.append(wizEl("li", null, "Dump the game data from your Switch using a tool like ",
+    wizExtLink("NXDumpTool", "https://github.com/DarkMatterCore/nxdumptool"), "."));
+
+  const extract = wizEl("ol");
+  extract.type = "a";
+  extract.append(
+    wizEl("li", null, "In ", wizExtLink("Ryujinx", "https://ryujinx.app"), ": right click the game > Extract Data > RomFS."),
+    wizEl("li", null, "In Eden: right click the game > Dump RomFS, and choose the Full dump mode when asked. Eden puts the result in ",
+      wizEl("code", null, "%APPDATA%\\eden\\dump\\<title id>\\romfs"), "."),
+    wizEl("li", null, "With ", wizExtLink("hactool", "https://github.com/SciresM/hactool"),
+      " (it needs your Switch's keys file): ", wizEl("code", null, "hactool -k prod.keys -t nca --romfsdir=C:\\mk8d\\romfs <the game's .nca file>"),
+      ". If the game has an update, extract the update's .nca file instead and add ", wizEl("code", null, "--basenca=<the base game's .nca file>"), "."));
+  steps.append(wizEl("li", null, "Extract the game data's RomFS", extract));
+
+  const pick = wizEl("ol");
+  pick.type = "a";
+  pick.append(
+    wizEl("li", null, "The folder you pick should hold folders like Audio, Course and UI:",
+      wizEl("pre", null, "romfs\n├─ Audio\n├─ Course\n├─ UI\n│  └─ cmn\n│     └─ common.sarc\n└─ ...")),
+    wizEl("li", null, "With Ryujinx, that is the folder you chose to extract into, for example ", wizEl("code", null, "C:\\Users\\<you>\\Documents\\MK8D\\romfs"), "."),
+    wizEl("li", null, "With Eden, it might look something like ", wizEl("code", null, "C:\\Users\\<you>\\AppData\\Roaming\\eden\\dump\\0100152000022000\\romfs"), "."),
+    wizEl("li", null, "With hactool, it is the folder you gave to ", wizEl("code", null, "--romfsdir"), ", for example ", wizEl("code", null, "C:\\mk8d\\romfs"), "."));
+  steps.append(wizEl("li", null, "Select the extracted folder", pick));
+
+  guide.append(steps);
+  return guide;
+}
+
 // One block used by Settings and by the required Setup step.
 async function renderGameFilesBlock(container, onChange, compact) {
   const st = await pywebview.api.get_base_files_status();
   container.replaceChildren();
   if (st.done) {
-    const when = formatWhen(st.copied_at) || "";
-    container.appendChild(cgEl("div", "uis-good", `Copied${when ? " " + when : ""}${st.source ? " from " + st.source : ""} - `
-      + `icons and text in ${st.locales.length} language${st.locales.length === 1 ? "" : "s"}, voice for ${st.voice_found} of ${st.voice_total} characters.`));
+    if (compact) {
+      // The Setup step: say plainly that the original isn't needed any more, with links to both folders.
+      const msg = wizEl("div", "uis-good", "The app has created a ");
+      msg.append(st.copy_dir ? wizFolderLink("copy", st.copy_dir) : "copy",
+        " of the necessary game files. Feel free to delete your ",
+        st.source_exists ? wizFolderLink("original game dump", st.source) : "original game dump", ".");
+      container.appendChild(msg);
+    } else {
+      const when = formatWhen(st.copied_at) || "";
+      container.appendChild(cgEl("div", "uis-good", `Copied${when ? " " + when : ""}${st.source ? " from " + st.source : ""} - `
+        + `icons and text in ${st.locales.length} language${st.locales.length === 1 ? "" : "s"}, voice for ${st.voice_found} of ${st.voice_total} characters.`));
+    }
     if (st.problems.length) container.appendChild(cgEl("div", "uis-warn", `${st.problems.length} file${st.problems.length === 1 ? "" : "s"} in that copy looked wrong and ${st.problems.length === 1 ? "was" : "were"} skipped: ${st.problems.join("; ")}`));
     if (st.voice_found < st.voice_total) container.appendChild(cgEl("div", "uis-note", `${st.voice_total - st.voice_found} character${st.voice_total - st.voice_found === 1 ? "" : "s"}' voice ${st.voice_total - st.voice_found === 1 ? "wasn't" : "weren't"} found in that folder - muting/replacing their default voice needs a ticked voice mod for now instead.`));
-    const refresh = async () => { await renderGameFilesBlock(container, onChange); if (onChange) onChange(); };
+    const refresh = async () => { await renderGameFilesBlock(container, onChange, compact); if (onChange) onChange(); };
     const row = cgEl("div", "uis-actions");
     row.appendChild(button("Update from a new dump...", "small", async () => { if (await chooseGameFiles()) await refresh(); }));
     container.appendChild(row);
     container.appendChild(gameFilesPathRow(refresh));
   } else {
     if (!compact) container.appendChild(cgEl("p", "uis-p", "Menu icons, menu text, and every character's own default voice are all built on the game's own files. Choose them once and it works everywhere - no mod has to include them, and every character can be edited even with no voice mod ticked."));
-    const refresh = async () => { await renderGameFilesBlock(container, onChange); if (onChange) onChange(); };
+    const refresh = async () => { await renderGameFilesBlock(container, onChange, compact); if (onChange) onChange(); };
     const row = cgEl("div", "uis-actions");
     row.appendChild(button("Choose the folder...", "primary small", async () => { if (await chooseGameFiles()) await refresh(); }));
     container.appendChild(row);
     container.appendChild(gameFilesPathRow(refresh));
   }
-  const det = document.createElement("details");
-  det.appendChild(cgEl("summary", null, "Where do I get these?"));
-  const h = cgEl("div", "uis-note");
-  h.style.fontSize = "12.5px";
-  h.textContent = "They come from your own copy of Mario Kart 8 Deluxe - the app can't include them because they belong to Nintendo, and never uploads them anywhere. Dump the game from your Switch (for example with NXDumpTool), then extract its RomFS (in Ryujinx: right-click the game > Extract Data > RomFS; or use hactool). Choose the extracted folder - the one that contains UI/cmn/common.sarc (and Audio/Driver, which the voice editing uses). The folder itself is only read once, to make a small local copy (a few hundred MB, not the whole extraction) - you don't need to keep it around afterward.";
-  det.appendChild(h);
-  container.appendChild(det);
+  if (!compact) {   // (the Setup step shows the guide itself, above this block)
+    const det = document.createElement("details");
+    det.appendChild(cgEl("summary", null, "Where do I get these?"));
+    det.appendChild(gameDataInstructions());
+    det.appendChild(cgEl("div", "uis-note", "The folder is only read once, to make a small local copy (a few hundred MB, not the whole extraction) - you don't need to keep it around afterward."));
+    container.appendChild(det);
+  }
 }
 

@@ -6561,8 +6561,14 @@ class Api(VoiceEditMixin, ModNotesMixin):
     def get_base_files_status(self):
         """{"done", "source" (shown for reference only - it doesn't need to still exist), "copied_at", "icons",
         "locales", "voice_found", "voice_total", "problems"} - the app's own local copy of the base game's files
-        (see game_files.py), which both "UI icons & text" and default-voice muting are built on."""
-        return game_files.status(self.mod_root)
+        (see game_files.py), which both "UI icons & text" and default-voice muting are built on. Plus "copy_dir" (the
+        folder holding the copy) and "source_exists" (whether the folder it was made from is still there), for the
+        "you can delete your original dump" message."""
+        st = game_files.status(self.mod_root)
+        if self.mod_root is not None:
+            st["copy_dir"] = str(self.mod_root / game_files.DIRNAME)
+        st["source_exists"] = bool(st.get("source")) and Path(st["source"]).is_dir()
+        return st
 
     def set_base_files_source(self, path):
         """Copies the base game files from `path` (both the pristine and working copies - see game_files.py),

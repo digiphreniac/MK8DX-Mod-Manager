@@ -18,12 +18,19 @@ function fillGameVersionOptions(sel, versions) {
   for (const v of versions) add(v.version, "Version " + v.version);
 }
 
-function wizardFrame(index, title, lead, onBack) {
+// `lead` is plain text, or a list of elements (shown in the same place, above the progress dots) for a page that needs more
+// than a paragraph. `wide` gives the page a roomier card.
+function wizardFrame(index, title, lead, wide) {
   const card = document.getElementById("setup-card");
   card.querySelector("h1").textContent = title;
-  card.querySelector("p").textContent = lead;
+  const p = card.querySelector("p");
+  const rich = Array.isArray(lead);
+  p.hidden = rich;
+  p.textContent = rich ? "" : lead;
+  card.classList.toggle("wide", !!wide);
   const body = document.getElementById("setup-overlay-body");
   body.replaceChildren();
+  if (rich) body.appendChild(wizEl("div", "wiz-lead", ...lead));
   const dots = cgEl("div", "wiz-dots");
   for (let i = 0; i < 5; i++) dots.appendChild(cgEl("span", i <= index ? "on" : ""));
   body.appendChild(dots);
@@ -36,6 +43,8 @@ function closeSetupWizard() {
     card.querySelector("h1").textContent = setupCardOriginal.h1;
     card.querySelector("p").textContent = setupCardOriginal.p;
   }
+  card.querySelector("p").hidden = false;
+  card.classList.remove("wide");
   document.getElementById("setup-overlay").hidden = true;
 }
 
@@ -47,17 +56,18 @@ async function openSetupWizard(index, rerun) {
   }
   document.getElementById("setup-overlay").hidden = false;
   if (!state.settings || state.settings.game_version === undefined) state.settings = await pywebview.api.get_settings();
-  const nav = (body, back, nextLabel, onNext) => {
+  const nav = (body, back, nextLabel, onNext, skip) => {
     const row = cgEl("div", "uis-actions");
     if (back) row.appendChild(button("Back", "ghost", back));
     else if (rerun) row.appendChild(button("Close", "ghost", closeSetupWizard));
+    if (skip) row.appendChild(button("Skip", "ghost", skip));
     row.appendChild(button(nextLabel, "primary", onNext));
     body.appendChild(row);
   };
 
   if (index === 0) {
-    const body = wizardFrame(0, "Your game version",
-      "Some mods (code patches, like most Mechanics mods) only work on the exact version of Mario Kart 8 Deluxe they were made for. Telling the app your version lets it warn you before you copy a mod that won't do anything.");
+    const body = wizardFrame(0, "Game version",
+      "A few mods (typically only code patches like \"Mechanics\" mods) only work on certain versions of Mario Kart 8 Deluxe. If you know your version, the app will alert you of any known issues before you try copying files onto your Switch."); 
     const versions = await pywebview.api.get_game_versions();
     const f = cgEl("div", "wiz-field");
     f.appendChild(cgEl("label", "t", "Which version is your game?"));
@@ -65,16 +75,28 @@ async function openSetupWizard(index, rerun) {
     fillGameVersionOptions(sel, versions);
     sel.value = state.settings.game_version || "";
     f.appendChild(sel);
-    f.appendChild(cgEl("div", "wiz-hint", "To find it on your Switch: highlight the game on the Home screen, press +, and look at the top of the page (\"Ver. 3.0.3\"). Not listed here? Choose \"Not listed (probably newer)\" and the app will warn you about code patches made for older versions. Or choose \"I'm not sure\" to skip those checks. You can enter an exact build ID in Settings later."));
+    f.appendChild(cgEl("div", "wiz-hint", "The game version is shown on the title screen on the bottom left."));
     body.appendChild(f);
-    nav(body, null, "Next", async () => {
-      await pywebview.api.set_game_version(sel.value);
+    const saveVersion = async (value) => {
+      await pywebview.api.set_game_version(value);
       state.settings = await pywebview.api.get_settings();
       openSetupWizard(1, rerun);
-    });
+    };
+    // Skip = "I'm not sure" (no version checks), whatever the dropdown says.
+    nav(body, null, "Next", () => saveVersion(sel.value), () => saveVersion(""));
   } else if (index === 1) {
-    const body = wizardFrame(1, "Your game's files",
-      "This works best done once, from your own copy of the game: menu icons and text, and every character's own default voice, all built from the same files - no mod has to include them, and no character needs its own voice mod ticked just to mute or replace a line. Nothing here is uploaded anywhere.");
+    const body = wizardFrame(1, "Game files", [
+      wizEl("p", null, wizEl("strong", null, "This is a required step."), document.createElement("br"),
+        "This tool will not work properly unless it first has a copy of a few Mario Kart 8 Deluxe game files. These files include:"),
+      wizEl("ul", null,
+        wizEl("li", null, "Character Icons"),
+        wizEl("li", null, "Character voice-lines"),
+        wizEl("li", null, "Character and course names (the game's menu text, in every language)"),
+        wizEl("li", null, "Course pictures"),
+        wizEl("li", null, "Vehicle part and item pictures")),
+      wizEl("p", null, "The app needs these files to work properly. Including these files make it incredibly easy to modify things like character names, icons, voice lines."),
+    ], true);
+    body.appendChild(gameDataInstructions());
     const block = cgEl("div");
     body.appendChild(block);
     const row = cgEl("div", "uis-actions");
@@ -101,8 +123,8 @@ async function openSetupWizard(index, rerun) {
       body.appendChild(f);
       return cb;
     };
-    const nsfw = mk("wiz-nsfw", "Show adult (NSFW) mods when browsing GameBanana", "Off by default. Mods GameBanana rates as mature are hidden from search results.", !!state.settings.show_nsfw);
-    const adv = mk("wiz-adv", "Advanced mode", "Shows extra technical detail in a few places (for example, the full list of files in a conflict is open by default). Nothing essential is hidden without it.", !!state.settings.advanced_mode);
+    const nsfw = mk("wiz-nsfw", "Show adult (NSFW) mods when browsing GameBanana", "Off by default. When enabled, app will include NSFW-rated mods found in GameBanana queries.", !!state.settings.show_nsfw);
+    const adv = mk("wiz-adv", "Advanced mode", "Shows verbose technical details in a few places. Nothing essential is hidden when disabled", !!state.settings.advanced_mode);
     nav(body, () => openSetupWizard(1, rerun), "Next", async () => {
       state.settings.show_nsfw = nsfw.checked;
       state.settings.advanced_mode = adv.checked;
@@ -131,7 +153,7 @@ async function openSetupWizard(index, rerun) {
       openSetupWizard(4, rerun);
     });
   } else {
-    const body = wizardFrame(4, "You're all set", "Next you'll choose your mods - characters, courses and vehicles. When you've ticked the ones you want, the Next button in the corner takes you through the rest.");
+    const body = wizardFrame(4, "You're all set", "App config complete. Next up, you'll browse and select the mods you want to install.");
     nav(body, () => openSetupWizard(3, rerun), "Start choosing mods", async () => {
       await pywebview.api.complete_setup();
       closeSetupWizard();
