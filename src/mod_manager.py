@@ -425,6 +425,23 @@ def build_in(mine, build_ids):
     return any(build_key(b) == build_key(mine) for b in build_ids)
 
 
+# game_version value for "Not listed (probably newer)": the user's build is none of KNOWN_BUILD_IDS.
+NEWER_VERSION = "newer"
+
+
+def patch_fit(mine, game_version, build_ids):
+    """How a code patch's build ids fit the user's game: "wrong" (their build id is set and none of these is it), "maybe" (they
+    said their game is newer than any listed version, and every id here is a listed - so older - build: it may or may not still
+    work, since a game update often leaves the executable alone), or None (fits, or nothing is known to say otherwise)."""
+    if not build_ids:
+        return None
+    if mine:
+        return None if build_in(mine, build_ids) else "wrong"
+    if game_version == NEWER_VERSION and all(build_key(b) in KNOWN_BUILD_IDS for b in build_ids):
+        return "maybe"
+    return None
+
+
 def find_exefs_units(extracted_root: Path):
     """Relative paths of every folder under extracted_root that directly
     holds at least one <hex build id>.ips file. Never descends into a romfs/
@@ -5122,15 +5139,18 @@ class Api(VoiceEditMixin, ModNotesMixin):
         user has told the app their game's build id (Settings) and none of the
         unit's patches target it - a patch for another build silently does
         nothing, which is otherwise invisible."""
-        mine = (self._load_settings().get("game_build_id") or "").strip().upper()
+        settings = self._load_settings()
+        mine = (settings.get("game_build_id") or "").strip().upper()
         info = {}
         for key in unit_keys:
             if not self._is_exefs_unit(key):
                 continue
             patches, _ignored = self._exefs_files(key)
+            fit = patch_fit(mine, settings.get("game_version"), patches)
             info[key] = {
                 "ids": [{"id": bid, "version": KNOWN_BUILD_IDS.get(build_key(bid))} for bid in patches],
-                "inert": bool(mine) and not build_in(mine, patches),
+                "inert": fit == "wrong",
+                "maybe": fit == "maybe",
             }
         return info
 
@@ -5404,11 +5424,13 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "mods": [], "action": None,
             })
         if exefs_keys:
-            wrong = []
+            wrong, maybe = [], []
             for key in exefs_keys:
-                ids = list(self._exefs_files(key)[0])
-                if mine and ids and not build_in(mine, ids):
+                fit = patch_fit(mine, settings.get("game_version"), list(self._exefs_files(key)[0]))
+                if fit == "wrong":
                     wrong.append(key)
+                elif fit == "maybe":
+                    maybe.append(key)
             if wrong:
                 warnings.append({
                     "kind": "exefs-version", "severity": "warn",
@@ -5416,7 +5438,17 @@ class Api(VoiceEditMixin, ModNotesMixin):
                     "detail": f"They're built for another version than yours ({mine[:8]}...) and will do nothing on your game.",
                     "mods": wrong, "action": "open-mod",
                 })
-            elif not mine:
+            if maybe:
+                warnings.append({
+                    "kind": "exefs-version-maybe", "severity": "todo",
+                    "title": f"{len(maybe)} code patch{'es were' if len(maybe) != 1 else ' was'} made for an older game version",
+                    "detail": "You said your game isn't one of the listed versions (probably newer), so these might not work on it. "
+                              "A game update often leaves the executable alone, in which case they still do. "
+                              "If one does nothing in the game, look for a newer version of the mod. "
+                              "Entering your exact build ID in Settings lets the app check for sure.",
+                    "mods": maybe, "action": "open-mod",
+                })
+            if not mine and settings.get("game_version") != NEWER_VERSION:
                 warnings.append({
                     "kind": "exefs-version-unknown", "severity": "info",
                     "title": f"{len(exefs_keys)} code patch{'es' if len(exefs_keys) != 1 else ''} - game version not set",
@@ -5630,17 +5662,24 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "always merged in)"
             )
         if staged_patches:
-            mine = (self._load_settings().get("game_build_id") or "").strip().upper()
+            settings = self._load_settings()
+            mine = (settings.get("game_build_id") or "").strip().upper()
             lines.append(f"Code patches staged: {len(staged_patches)}")
             for key, ids in staged_patches:
                 label = ", ".join(self._build_id_label(b) for b in ids) or "nothing usable"
                 lines.append(f"  - {key.split('/', 1)[1]}: {label}")
-                if mine and ids and not build_in(mine, ids):
+                fit = patch_fit(mine, settings.get("game_version"), ids)
+                if fit == "wrong":
                     lines.append(
                         f"    WARNING: built for a different game version than your build id "
                         f"({mine[:8]}...) - it will do nothing on your game."
                     )
-            if not mine:
+                elif fit == "maybe":
+                    lines.append(
+                        "    NOTE: made for an older game version than yours (you chose \"not listed, probably newer\") "
+                        "- it might not work on your game."
+                    )
+            if not mine and settings.get("game_version") != NEWER_VERSION:
                 lines.append(
                     "  (A code patch only works on the exact game version it was built for - set "
                     "your game's build id in Settings to be warned about mismatches.)"
@@ -5687,7 +5726,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
     def set_game_version(self, version):
         """Records the user's game version; a known one also sets the exact
-        build id the code-patch checks use. "" = don't know (no checks)."""
+        build id the code-patch checks use. "" = don't know (no checks);
+        NEWER_VERSION = not a listed version (patches for a listed one are flagged "maybe")."""
         build = next((b for b, v in KNOWN_BUILD_IDS.items() if v == version), "")
         self.save_settings({"game_version": version or "", "game_build_id": build})
         return {"game_version": version or "", "game_build_id": build}

@@ -3,6 +3,21 @@
 // game version, options and language. Also reachable later from the step bar.
 const setupCardOriginal = { h1: null, p: null };
 
+// The "which version is your game?" choices, shared by this wizard and Settings: "not sure" (no patch checks), "not listed"
+// (game_version "newer": patches made for a listed version are flagged as "might not work"), then every version the app knows.
+function fillGameVersionOptions(sel, versions) {
+  sel.replaceChildren();
+  const add = (value, text) => {
+    const o = document.createElement("option");
+    o.value = value;
+    o.textContent = text;
+    sel.appendChild(o);
+  };
+  add("", "I'm not sure");
+  add("newer", "Not listed (probably newer)");
+  for (const v of versions) add(v.version, "Version " + v.version);
+}
+
 function wizardFrame(index, title, lead, onBack) {
   const card = document.getElementById("setup-card");
   card.querySelector("h1").textContent = title;
@@ -47,19 +62,10 @@ async function openSetupWizard(index, rerun) {
     const f = cgEl("div", "wiz-field");
     f.appendChild(cgEl("label", "t", "Which version is your game?"));
     const sel = document.createElement("select");
-    const o0 = document.createElement("option");
-    o0.value = "";
-    o0.textContent = "I'm not sure";
-    sel.appendChild(o0);
-    for (const v of versions) {
-      const o = document.createElement("option");
-      o.value = v.version;
-      o.textContent = "Version " + v.version;
-      sel.appendChild(o);
-    }
+    fillGameVersionOptions(sel, versions);
     sel.value = state.settings.game_version || "";
     f.appendChild(sel);
-    f.appendChild(cgEl("div", "wiz-hint", "To find it on your Switch: highlight the game on the Home screen, press +, and look at the top of the page (\"Ver. 3.0.3\"). Not listed here? Choose \"I'm not sure\" - you can enter an exact build ID in Settings later."));
+    f.appendChild(cgEl("div", "wiz-hint", "To find it on your Switch: highlight the game on the Home screen, press +, and look at the top of the page (\"Ver. 3.0.3\"). Not listed here? Choose \"Not listed (probably newer)\" and the app will warn you about code patches made for older versions. Or choose \"I'm not sure\" to skip those checks. You can enter an exact build ID in Settings later."));
     body.appendChild(f);
     nav(body, null, "Next", async () => {
       await pywebview.api.set_game_version(sel.value);

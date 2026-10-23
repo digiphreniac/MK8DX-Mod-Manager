@@ -31,16 +31,15 @@
       <div class="modal-card">
         <div class="modal-card-header"><span class="modal-card-title">Game version</span></div>
         <div class="settings-body">
+          <label for="setting-game-version">Which version is your game?</label>
+          <select id="setting-game-version" class="settings-text-input"></select>
           <label for="setting-game-build-id">Game build ID (optional)</label>
           <input type="text" id="setting-game-build-id" class="settings-text-input" list="known-build-ids"
-                 maxlength="32" spellcheck="false" placeholder="32 hex characters, e.g. 6A85262F21B903649BD7C62628D26E43">
-          <datalist id="known-build-ids">
-            <option value="6A85262F21B903649BD7C62628D26E43">v3.0.3</option>
-            <option value="9EF5CAA2D5B933C772358C5AA6FABA15">v3.0.1</option>
-          </datalist>
+                 maxlength="32" spellcheck="false" placeholder="32 hex characters (or the first 16), e.g. 6A85262F21B903649BD7C62628D26E43">
+          <datalist id="known-build-ids"></datalist>
           <div id="setting-game-build-id-error" class="settings-hint" style="color: var(--danger);" hidden></div>
           <div class="settings-hint">
-            Code patches (exefs .ips files, e.g. most Mechanics mods) only work on the exact game version they were built for, and do nothing - with no error - on any other. Enter your game's build ID (the name of its <code>.ips</code> patch files / cheat files, found on cheat databases for your version) to have patches for a different version flagged as "wrong game version". Leave empty to skip the check.
+            Code patches (exefs .ips files, e.g. most Mechanics mods) only work on the exact game version they were built for, and do nothing - with no error - on any other. Enter your game's build ID (the name of its <code>.ips</code> patch files / cheat files, found on cheat databases for your version) to have patches for a different version flagged as "wrong game version". If you only know your game is newer than the listed versions, choose "Not listed (probably newer)" above and patches made for older versions are flagged as "might not match". Choose "I'm not sure" to skip the check.
           </div>
         </div>
       </div>

@@ -1111,6 +1111,12 @@ function openCharacterModal(name) {
           warn.textContent = "wrong game version";
           warn.title = "None of this patch's build ids match the game build id set in Settings - it would do nothing on your game.";
           row.insertBefore(warn, firstButton);
+        } else if (patch.maybe) {
+          const warn = document.createElement("span");
+          warn.className = "packed-badge";
+          warn.textContent = "might not match your game";
+          warn.title = "This patch was made for an older game version than yours (you chose \"Not listed, probably newer\"). A game update often leaves the executable alone, so it may still work - if it does nothing, look for a newer version of the mod. Entering your exact build ID in Settings lets the app check for sure.";
+          row.insertBefore(warn, firstButton);
         }
       }
       refreshModsToggleBtn();

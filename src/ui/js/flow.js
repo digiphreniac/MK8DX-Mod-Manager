@@ -15,7 +15,7 @@ const flow = { step: "mods", status: null, timer: null, lastModsView: "character
 function flowStepInfo(key, st) {
   if (!st || !st.commit) return { state: "idle", sub: "" };
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : (/(sh|ch|s|x)$/.test(w) ? "es" : "s")}`;
-  if (key === "setup") return { state: st.setup.done ? "done" : "attention", sub: st.game_version ? `Game v${st.game_version}` : (st.setup.done ? "Done" : "Start here") };
+  if (key === "setup") return { state: st.setup.done ? "done" : "attention", sub: st.game_version === "newer" ? "Newer game version" : st.game_version ? `Game v${st.game_version}` : (st.setup.done ? "Done" : "Start here") };
   if (key === "mods") {
     const left = unfinishedCount();
     return { state: st.mods.ticked > 0 ? (left ? "attention" : "done") : "idle",

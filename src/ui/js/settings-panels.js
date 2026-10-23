@@ -188,6 +188,15 @@ document.getElementById("setting-show-nsfw").addEventListener("change", async (e
   await pywebview.api.save_settings(state.settings);
 });
 
+document.getElementById("setting-game-version").addEventListener("change", async (e) => {
+  await pywebview.api.set_game_version(e.target.value);
+  state.settings = await pywebview.api.get_settings();
+  document.getElementById("setting-game-build-id").value = state.settings.game_build_id || "";
+  document.getElementById("setting-game-build-id-error").hidden = true;
+  flow.status = await pywebview.api.get_flow_status();
+  renderStepBar();
+});
+
 document.getElementById("setting-game-build-id").addEventListener("change", async (e) => {
   const errEl = document.getElementById("setting-game-build-id-error");
   const value = e.target.value.trim().toUpperCase();
