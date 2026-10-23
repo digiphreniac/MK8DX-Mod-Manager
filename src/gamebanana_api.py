@@ -6,11 +6,14 @@ Api class calls into this and handles persistence/state.
 Uses only the standard library (urllib) so no new pip dependency is needed.
 """
 
+import copy
 import hashlib
 import json
 import re
 import shutil
 import subprocess
+import threading
+import time
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -53,6 +56,28 @@ def _get_json(url: str):
         raise GameBananaError(f"Couldn't reach GameBanana: {e}") from e
     except json.JSONDecodeError as e:
         raise GameBananaError(f"GameBanana returned unexpected data: {e}") from e
+
+
+# A browse or search page is reused for a few minutes, so a page the app fetched ahead of time (see Api.gb_prefetch) is there at
+# once when the Browse window asks for it. Only list pages go through this - a mod's own details and downloads are always asked fresh.
+PAGE_CACHE_TTL = 300
+_PAGE_CACHE_MAX = 64
+_page_cache = {}          # url -> (when, parsed JSON)
+_page_cache_lock = threading.Lock()
+
+
+def _get_json_cached(url: str):
+    now = time.monotonic()
+    with _page_cache_lock:
+        hit = _page_cache.get(url)
+        if hit and now - hit[0] < PAGE_CACHE_TTL:
+            return copy.deepcopy(hit[1])
+    data = _get_json(url)
+    with _page_cache_lock:
+        if len(_page_cache) >= _PAGE_CACHE_MAX:
+            _page_cache.pop(min(_page_cache, key=lambda u: _page_cache[u][0]))
+        _page_cache[url] = (now, data)
+    return copy.deepcopy(data)
 
 
 def strip_html(text):
@@ -215,7 +240,7 @@ def browse_category(category_id: int, page: int = 1, per_page: int = 15, sort: s
         f"{API_V13}/Mod/Index?_nPerpage={per_page}"
         f"&_aFilters%5BGeneric_Category%5D={category_id}&_nPage={page}&_sSort={sort_alias}"
     )
-    data = _get_json(url)
+    data = _get_json_cached(url)
     records = []
     for row in data.get("_aRecords", []):
         screenshot = (row.get("_aPreviewContent") or {}).get("screenshot")
@@ -376,7 +401,7 @@ def search_mods(query: str, game_id: int = 6507, page: int = 1, per_page: int = 
         "_nPage": page,
     })
     url = f"{API_V11}/Util/Search/Results?{params}"
-    data = _get_json(url)
+    data = _get_json_cached(url)
     records = []
     for row in data.get("_aRecords", []):
         if row.get("_sModelName") != "Mod":

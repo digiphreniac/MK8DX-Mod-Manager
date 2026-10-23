@@ -1657,6 +1657,10 @@ class Api(VoiceEditMixin, ModNotesMixin):
         self._state_lock = threading.RLock()   # (every read-modify-write of the ticked mods happens under it)
         self._root_epoch = ""                   # (names the folder a page loaded its ticks from - see save_checked)
         self._desc_fetch_lock = threading.Lock()
+        self._prefetch_lock = threading.Lock()     # (guards the four below - see gb_prefetch)
+        self._prefetch_pending = None              # the newest request waiting its turn: (category, item name)
+        self._prefetch_busy = False                # a worker thread is running
+        self._prefetched = {}                      # what was fetched ahead and when: key -> time.monotonic()
         self._gb_desc_cache = {}  # mod id -> description, for the browse lists that read the text (vehicles, items, courses)
         self._configure_root(mod_root)
 
@@ -4025,6 +4029,70 @@ class Api(VoiceEditMixin, ModNotesMixin):
         result["error"] = None
         result["subcategory_id"] = sub_id
         return result
+
+    _GB_PREFETCH_DELAY = 1.0   # seconds a card has to stay open before anything is fetched for it (flicking through cards fetches nothing)
+
+    def gb_prefetch(self, category, item_name):
+        """Fetches the first page of the Browse GameBanana list for a card (a character, course, vehicle part or item) in the
+        background, so the window opens with it already there: the page itself is kept (gamebanana_api's page cache) and so are the
+        descriptions it needs (the description cache). Called when a card opens. Returns at once. It waits a moment first, only ever
+        works on the newest card, and fetches a given list once (it is shared by every part of a kind) for a few minutes - flicking
+        through cards doesn't pile up requests. Asks for what the window would: the saved sort, the same page, descriptions included."""
+        with self._prefetch_lock:
+            self._prefetch_pending = (category, item_name)
+            if self._prefetch_busy:
+                return {"started": False}   # (the running worker takes the newest request when it is done)
+            self._prefetch_busy = True
+        threading.Thread(target=self._prefetch_worker, daemon=True, name="gb-prefetch").start()
+        return {"started": True}
+
+    def _prefetch_worker(self):
+        while True:
+            time.sleep(self._GB_PREFETCH_DELAY)
+            with self._prefetch_lock:
+                request, self._prefetch_pending = self._prefetch_pending, None
+                if request is None:
+                    self._prefetch_busy = False
+                    return
+            try:
+                self._prefetch_one(*request)
+            except Exception:   # (an optimisation: whatever goes wrong here, the window just asks for itself)
+                pass
+
+    def _browse_sort(self, tagged):
+        """The sort the Browse window starts on: the one the user picked last, else the kind's own default (see gb-browse.js)."""
+        saved = self._load_settings().get("gb_browse_sort")
+        return saved if saved in gamebanana_api.SORT_ALIASES else ("most_viewed" if tagged else "most_liked")
+
+    def _prefetch_one(self, category, item_name):
+        tagged = category in VEHICLE_SECTIONS or category == ITEMS_CATEGORY
+        sort = self._browse_sort(tagged)
+        if category == "characters":
+            key = ("characters", item_name)
+        elif category == "courses":
+            key = ("courses", item_name)
+        elif category == ITEMS_CATEGORY:
+            key = ("items", sort)   # (one list for every item)
+        elif category in VEHICLE_SECTIONS:
+            section, item = self._vehicle_item(item_name)
+            if item is None:
+                return
+            key = ("vehicles", self._vehicle_gb_category_id(section, item), sort)   # (one list per kind of part)
+        else:
+            return
+        now = time.monotonic()
+        with self._prefetch_lock:
+            if now - self._prefetched.get(key, -1e9) < gamebanana_api.PAGE_CACHE_TTL:
+                return
+            self._prefetched[key] = now
+        if category == "characters":
+            self.gb_browse(item_name, 1, sort)
+        elif category == "courses":
+            self.gb_browse_course(item_name, 1)
+        elif category == ITEMS_CATEGORY:
+            self.gb_browse_item(item_name, 1, sort)
+        else:
+            self.gb_browse_vehicle(item_name, 1, sort)
 
     def gb_browse_course(self, course_name, page=1, quick=False):
         """Courses have no per-item GameBanana subcategory the way characters

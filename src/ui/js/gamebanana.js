@@ -4,6 +4,9 @@ function looksLikeModRef(text) {
 }
 
 function buildGameBananaCard(itemName, category, opts) {
+  // Opening a card is a good sign the Browse window comes next: have the backend fetch its first page now, so it opens ready.
+  // (Nothing waits on this; the backend does it a moment later, once, and only for the newest card.)
+  pywebview.api.gb_prefetch(category, itemName).catch(() => {});
   const card = document.createElement("div");
   card.className = "modal-card";
 
