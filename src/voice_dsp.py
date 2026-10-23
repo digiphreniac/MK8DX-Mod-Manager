@@ -211,7 +211,7 @@ def encode_sound(rate: int, channels_pcm: list, want_channels: int) -> bytes:
 # ------------------------------------------------------------------------------------------------ matching loudness
 # The game's own race voice lines were measured (on the user's real mods) at a median -14.7 dBFS RMS with a crest
 # factor (peak / average) of about 4.7 - they are mastered/compressed, not just loud at their single loudest instant.
-# webui.html's matchGameLoudness() (ui/js/voice.js) applies this same pipeline client-side to a freshly recorded
+# matchGameLoudness() in ui/js/voice.js applies this same pipeline client-side to a freshly recorded
 # clip before it is ever sent to the app; boost_to_game_loudness() below is the same math, ported to Python, so an
 # already-saved custom line can be re-gained without asking the user to redo it in the file picker (e.g. one that
 # predates this feature, or was saved with "Match the game's own voice volume" unticked).
