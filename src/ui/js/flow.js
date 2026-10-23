@@ -339,11 +339,9 @@ function buildTroubleshooting() {
   const tb = cgEl("div", "uis-note");
   tb.style.fontSize = "12.5px";
   const items = [
-    "The game crashes on startup, or the menus are blank. This is usually a file made for a different version of the game. Open Settings > UI icons & text and click \"Undo\", then commit and copy to your SD card again. If the game runs now, one of your menu-picture mods was the cause, so try removing your newest ones. (Tip: hold L while the game starts to turn all mods off for that launch.)",
-    "A mod doesn't show up at all. Make sure it's selected and that you committed after selecting it. Code patches only work on the game version they were made for, so check your game version in Setup.",
-    "Icons show on the map but not on the select screen (or the other way around). That mod only changes one of the two, so nothing is wrong on your end.",
-    "Menu text is in the wrong language. Open Settings > UI icons & text, pick the language your Switch uses, then commit and copy to your SD card again.",
-    "A mod says its pictures can't be added automatically. Its pictures don't fit the game's (a different shape, or made for another game version), so the game keeps its normal picture there. Everything else in the mod still works. A picture that is only a different size is fine, since the app scales it.",
+    "The game crashes on startup, or the menus are blank. This is usually a file made for a different game version. Open Settings > UI icons & text and click \"Undo\", then commit and copy again. (Tip: hold L while the game starts to turn all mods off for that launch.)",
+    "A mod doesn't show up. Make sure it's selected and that you committed after selecting it. Code patches only work on the game version they were made for, so check your version in Setup.",
+    "Menu text is in the wrong language. Open Settings > UI icons & text, pick the language your Switch uses, then commit and copy again.",
   ];
   const ul = document.createElement("ul");
   ul.style.margin = "4px 0 0 0";
