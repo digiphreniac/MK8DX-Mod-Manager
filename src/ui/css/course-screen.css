@@ -20,7 +20,10 @@
   .cup-page-btn { position: relative; }
   .cup-page-btn svg { width: 24px; height: 24px; }
   .cup-page-btn.has-mods::after { content: ""; position: absolute; top: 4px; right: 4px; width: 11px; height: 11px; border-radius: 50%; background: var(--accent); border: 2px solid #111; }
-  #cup-page-label { display: block; margin-top: -8px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-dim); }
+  #cup-page-label {
+    display: block; margin-top: -8px; padding: 4px 14px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-dim);
+    background: var(--panel); border: 1px solid var(--hover-border); border-radius: 999px; box-shadow: var(--shadow);
+  }
   #cup-grid {
     display: grid;
     grid-template-columns: repeat(var(--cols), var(--cup));

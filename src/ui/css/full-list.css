@@ -171,6 +171,10 @@
   #empty-msg {
     color: var(--text-dim);
     font-size: 13px;
-    padding: 20px;
+    padding: 16px 20px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
   }
 
