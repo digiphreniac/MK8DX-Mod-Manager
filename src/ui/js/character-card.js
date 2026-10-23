@@ -1085,7 +1085,7 @@ function openCharacterModal(name) {
         const badge = document.createElement("span");
         badge.className = "packed-badge";
         badge.textContent = "packed archive only";
-        badge.title = "Every file in this mod is a packed .sarc (common/menu/message), which a commit never copies in directly - it takes effect through the UI icons & text step. See Help.";
+        badge.title = "Every file in this mod is a packed .sarc (common/menu/message), which a commit never copies in directly - the app builds the combined menu pictures and text from it when you commit. See Help.";
         row.insertBefore(badge, row.querySelector("button"));
       }
     });
