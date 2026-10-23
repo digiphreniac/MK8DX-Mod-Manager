@@ -323,7 +323,9 @@ async function doCommit() {
   try {
     result = await pywebview.api.merge(keys);
   } catch (e) {
-    result = { lines: ["Commit failed: " + e], conflict: false, staged: false };
+    let header = "";
+    try { header = await pywebview.api.get_diagnostics(true); } catch (e2) { /* (the details are a bonus) */ }
+    result = { lines: (header ? [header, ""] : []).concat(["Commit failed: " + e]), conflict: false, staged: false };
   }
   commitPage.busy = false;
   commitPage.result = result;

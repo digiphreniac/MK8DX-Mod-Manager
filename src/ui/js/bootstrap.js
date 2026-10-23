@@ -73,6 +73,7 @@
     const box = document.createElement("pre");
     box.style.cssText = "margin:24px;padding:16px;border:1px solid #c33;border-radius:8px;white-space:pre-wrap;font:13px/1.4 monospace;";
     box.textContent = "The app's page didn't load.\n\n" + (e && e.message ? e.message : e);
+    if (typeof diag !== "undefined") diag.error("page-load", e && e.message ? e.message : e);
     document.body.prepend(box);
   }
 

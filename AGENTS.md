@@ -39,6 +39,8 @@ notes, measurements and rules live in `docs/` (index below).
 - `tools/build_release.py` + `tools/mk8dx-mod-manager.spec` - the Windows release build; `.github/workflows/release.yml` publishes a
   GitHub Release when `VERSION` is bumped on `master` (see `docs/DEVELOPERS.md`, "Building a release"). A new bundled data file
   must be added to the spec's `datas`.
+- `src/diag.py` - the one place that writes to `mod-manager.log` (timestamps, usernames scrubbed, caps on the page's messages); `js/diagnostics.js`
+  is the page's side. A failure the app catches and carries on from should leave a `diag.log` line. `docs/diagnostics.md`.
 - `src/mod_notes.py` - the user's notes on mods (`mod-notes.json`); page side `src/ui/js/mod-notes.js`.
 - `src/gamebanana_api.py` - GameBanana client. `roster.json` - every character/course/part/item; `name-labels.json` - text ids.
 - `src/image_cache.py`, `library_cache.py`, `gb_desc_cache.py` - caches (see below).
@@ -105,3 +107,4 @@ notes, measurements and rules live in `docs/` (index below).
 | Voice editing | `docs/voice-editing.md` |
 | The user's notes on mods | `docs/mod-notes.md` |
 | `.ips` code patches | `docs/code-patches.md` |
+| The log, page errors, "Copy details" | `docs/diagnostics.md` |

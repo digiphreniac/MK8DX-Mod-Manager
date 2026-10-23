@@ -24,7 +24,7 @@ function saveChecked() {
     }
     for (const [k, v] of Object.entries(changes)) { state.checkedSaved[k] = v; if (checkedPending[k] === v) delete checkedPending[k]; }
     return true;
-  }).catch(e => { console.error("saving the selected mods failed", e); return false; });
+  }).catch(e => { console.error("saving the selected mods failed", e); diag.error("tick-save-failed", "saving the selected mods failed: " + e); return false; });
   return checkedSaveChain;
 }
 let viewMode = "characters";

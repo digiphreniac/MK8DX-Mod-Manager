@@ -30,9 +30,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import app_paths
+import diag
 # A packaged (windowed) build has no console: send output to a log file before the libraries
 # below are imported, since some of them (pywebview) set up their logging when first imported.
 LOG_PATH = app_paths.redirect_output_to_log() if app_paths.FROZEN else None
+diag.LOG_PATH = LOG_PATH
 if app_paths.FROZEN:   # (also before the import below: pythonnet is refused by Windows while the zip's "downloaded" mark is on it)
     print(f"Cleared the downloaded-file mark from {app_paths.unblock_downloaded_files()} bundled files")
 
@@ -240,10 +242,12 @@ def load_master_dir_pointer():
     if not config_path.exists():
         return None
     try:
-        data = json.loads(config_path.read_text())
-    except (json.JSONDecodeError, OSError):
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    except (ValueError, OSError) as e:
+        diag.log_once((config_path.name, type(e).__name__), "warn",
+                      f"{config_path.name} couldn't be read ({type(e).__name__}: {e}); the app uses its recommended data folder instead")
         return None
-    raw = data.get("master_dir")
+    raw = data.get("master_dir") if isinstance(data, dict) else None
     return Path(raw) if raw else None
 
 
@@ -1833,6 +1837,67 @@ class Api(VoiceEditMixin, ModNotesMixin):
         """The app's own version (src/version.py), for the footer."""
         return APP_VERSION
 
+    def log_client(self, events):
+        """Messages from the page (script errors, failed or slow calls) for mod-manager.log - capped, see diag.ClientLog."""
+        return diag.client_log.accept(events)
+
+    def _diag_lines(self, short=False):
+        """The facts a bug report needs, as plain lines: versions, where the data is, the settings that shape a commit and the state of
+        the game files. `short` is the few lines that open a commit log."""
+        lines = [f"Mod Manager {APP_VERSION} ({'packaged' if app_paths.FROZEN else 'from source'}), Python {sys.version.split()[0]}, {diag.system_line()}"]
+        root = self.mod_root
+        if root is None:
+            lines.append("Data folder: not chosen yet")
+            return [diag.scrub(x) for x in lines]
+        status = self.get_master_dir_status()
+        note = " (inside OneDrive: it may hold files back)" if "onedrive" in str(root).lower() else ""
+        lines.append(f"Data folder: {root} - {'the recommended folder' if status['is_default'] else 'a folder the user chose'}{note}; "
+                     f"{'exists' if Path(root).is_dir() else 'MISSING'}, {'writable' if os.access(root, os.W_OK) else 'NOT writable'}, {diag.free_gb(root)}")
+        settings = self._load_settings()
+        locale_ = settings.get("ui_setup_locale") or "USen"
+        lines.append(f"Game version: {settings.get('game_version') or 'not set'}; build id: {settings.get('game_build_id') or 'not set'}; "
+                     f"menu language: {locale_}{' (+ the other English)' if settings.get('ui_setup_extra_english') else ''}; "
+                     f"setup finished: {'yes' if settings.get('setup_done') else 'no'}")
+        base = game_files.status(root)
+        ticked = sum(1 for v in self._load_state().values() if v)
+        lines.append(f"Selected mods: {ticked}; the game files copy is {'complete' if base['done'] else 'NOT complete'}")
+        if not short:
+            lines.append(f"App folder: {app_paths.APP_ROOT}")
+            if LOG_PATH:
+                lines.append(f"Log: {LOG_PATH}" + (" (the app folder isn't writable, so the log is in the temp folder)" if app_paths.LOG_FELL_BACK else "")
+                             + f"; the run before is kept as {app_paths.LOG_PREVIOUS_FILENAME}")
+            lines.append(f"Staging folder: {Path(root).parent / 'sd-card-staging'}")
+            lines.append(f"Game files copy: source {base['source'] or 'none'}, copied {base['copied_at'] or 'never'}, icons {len(base['icons'])}, "
+                         f"languages {','.join(base['locales']) or 'none'}, voice {base['voice_found']}/{base['voice_total']}, "
+                         f"course pictures {base.get('course_pictures', 0)}, vehicle pictures {base.get('vehicle_pictures', 0)}")
+            if base["problems"]:
+                lines.append(f"Game files copy problems: {'; '.join(str(p) for p in base['problems'][:10])}")
+            try:   # (the manifest says what was copied; this says what is really there now)
+                current = game_files.find_current(root)
+                lines.append("Game files on disk: " + ", ".join(
+                    f"{key} {Path(current[key]).stat().st_size} bytes" if current.get(key) and Path(current[key]).is_file() else f"{key} MISSING"
+                    for key in ("common", "menu", f"message:{locale_}")))
+            except (OSError, KeyError, ValueError) as e:
+                lines.append(f"Game files on disk: couldn't check ({type(e).__name__}: {e})")
+            lines.append(f"7-Zip: {gamebanana_api.find_7zip() or 'none found'}")
+            lines.append(f"Libraries: {diag.library_line()}")
+        return [diag.scrub(x) for x in lines]
+
+    def _diag_lines_safe(self, short=False):
+        """_diag_lines(), but a failure in collecting the facts is one more line instead of an error of its own."""
+        try:
+            return self._diag_lines(short)
+        except Exception as e:   # noqa: BLE001
+            return [f"(couldn't collect the details: {type(e).__name__}: {e})"]
+
+    def get_diagnostics(self, short=False):
+        """What to send with a bug report, as text for the clipboard: the details above, and (unless `short`) the end of mod-manager.log."""
+        text = "\n".join(self._diag_lines_safe(short))
+        if not short:
+            logged = diag.tail(LOG_PATH) if LOG_PATH else ""
+            text += "\n\n--- end of mod-manager.log ---\n" + (logged or "(no log file: the app is running from source)")
+        return text
+
     def get_master_dir_status(self):
         return {
             "configured": self.mod_root is not None,
@@ -1911,8 +1976,10 @@ class Api(VoiceEditMixin, ModNotesMixin):
     def _load_json(self, path, default):
         if path.exists():
             try:
-                return json.loads(path.read_text())
-            except (json.JSONDecodeError, OSError):
+                return json.loads(path.read_text(encoding="utf-8"))
+            except (ValueError, OSError) as e:
+                diag.log_once((path.name, type(e).__name__), "warn",
+                              f"{path.name} couldn't be read ({type(e).__name__}: {e}); using its defaults, and the next save will replace it")
                 return default
         return default
 
@@ -5627,6 +5694,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if not checked_keys:
             return {"lines": ["No mods checked - nothing to do."]}
 
+        lines.extend(self._diag_lines_safe(short=True))   # (a pasted commit log then says which app and settings made it)
+        lines.append("")
+
         # Menu icons & text: built fresh here, before the copy pass below - so the ui-icons/romfs
         # files that pass already includes are always current for what's ticked right now. No
         # separate step, and no need to stage them afterward (build_ui_setup()'s own staging is
@@ -7185,6 +7255,7 @@ def report_startup_failure(log_path):
 
 def main():
     api = Api(load_master_dir_pointer() or default_master_dir())
+    diag.log("startup", "\n".join(api._diag_lines_safe()))
     window_w, window_h = default_window_size()
     window = webview.create_window(
         "Mario Kart 8 Mod Manager",
@@ -7205,7 +7276,7 @@ def main():
 
 if __name__ == "__main__":
     if LOG_PATH:
-        print(f"Mod Manager {APP_VERSION}, Python {sys.version.split()[0]}")
+        diag.log("startup", f"Mod Manager {APP_VERSION}, Python {sys.version.split()[0]}, {diag.system_line()}")
     try:
         main()
     except Exception:
