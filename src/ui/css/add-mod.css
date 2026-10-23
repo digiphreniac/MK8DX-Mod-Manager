@@ -4,7 +4,7 @@
   #btn-add-mod-fab {
     position: fixed;
     right: 28px;
-    bottom: 28px;
+    bottom: var(--add-fab-bottom, 28px);   /* (flow.js placeAddButton() lifts it above the Next button while that is showing) */
     width: 58px;
     height: 58px;
     border-radius: 50%;

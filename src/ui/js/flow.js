@@ -103,7 +103,18 @@ function renderNextButton() {
     const left = flow.step === "mods" ? unfinishedCount() : 0;
     btn.title = left ? `${left} ${left === 1 ? "character, course or vehicle part still needs its" : "characters, courses or vehicle parts still need their"} name and icons confirmed` : "";
   }
+  placeAddButton();
 }
+
+// The round "+" (Add a mod) on the Full List normally sits in the corner; while the Next button is showing it goes just above it,
+// instead of behind it.
+function placeAddButton() {
+  const dock = document.getElementById("next-dock");
+  const lifted = !document.getElementById("btn-next").hidden;
+  const bottom = lifted ? parseFloat(getComputedStyle(dock).bottom) + dock.offsetHeight + 12 : 28;
+  document.documentElement.style.setProperty("--add-fab-bottom", bottom + "px");
+}
+window.addEventListener("resize", placeAddButton);   // (the Next button can wrap or change height on a narrow window)
 
 async function refreshFlow() {
   try {
