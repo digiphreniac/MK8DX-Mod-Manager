@@ -108,8 +108,23 @@ error. When you add a file the app keeps in its data folder, add it to that list
 `name-labels.json`, `known-shared-files.json`, Pillow with WebP, 7-Zip runs, the backend starts) and exits non-zero if any failed. The release
 workflow runs it on the unzipped package (see `docs/DEVELOPERS.md`). From source: `python src/mod_manager.py --self-check`.
 
+## What each mod contributed, and a commit that has gone stale
+
+- The commit log says, for every selected mod, how many of its files were staged, how many were left out on purpose and how many lost to
+  another mod's version (or one of the app's own files): `characters/Mario/Mod B: 1 of 3 file(s) staged, 1 left out, 1 replaced by another
+  mod's version ...`. A mod with nothing staged is marked `<-- NOTHING from this mod was staged`, and the Commit page shows an
+  "add nothing to the commit" card for it (`_contributions()`).
+- A mod changed in place makes the last commit stale (`_commit_content_stamp()`, see [the guided flow](ui-and-flow.md)); a commit
+  made before that existed is never called stale for it.
+
+## The log where Pillow fails, the icon cache, the voice rebuild
+
+- `ui_archives`, `bntx_decode` and `cup_icons` write an `error` line at import when Pillow can't be loaded (and `texture_png` one line per
+  kind of failure), so "pictures are blank" has a cause in the log where it happens - the details header and `--self-check` report it too.
+- `ui-setup-cache.json` doesn't keep failures (see [Caching and performance](caching-and-performance.md)).
+- The Custom voice rebuild is atomic and logged (see [Voice editing](voice-editing.md)).
+
 ## Not done yet
 
-Still silent or thin: a per-mod count of files staged by a commit, what makes a commit "stale" (a mod updated in place), the voice editor's per-line
-encode details and its non-atomic rebuild, the cached "no icons found" results in `ui-setup-cache.json` (no version number, so a bad entry
-stays), and the self-check step of the release workflow not blocking yet. Each is a small, local change.
+The self-check step of the release workflow doesn't block a release yet (see `docs/DEVELOPERS.md`): delete its `continue-on-error` line after
+it has passed on a runner once. Everything else listed by the audit that started this work has been done.

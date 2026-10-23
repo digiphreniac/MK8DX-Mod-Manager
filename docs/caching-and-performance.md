@@ -15,7 +15,9 @@ The entries below were moved here from the file list in [architecture.md](archit
   a mod folder is added or removed by hand, and after a few seconds at most. The commit itself always reads the files afresh.
 
 - `ui-setup-cache.json` - cache of the icons/text read out of your mods'
-  archives (safe to delete; it just makes the next build faster)
+  archives (safe to delete; it just makes the next build faster). It remembers what is true of the *data*, never what went wrong
+  on the day: an archive entry that couldn't be read, or a picture that couldn't be made, is tried once per run and not saved
+  (`ui_setup.Cache`), and the file carries a `version` - an older file loses its empty answers once. Written in one step.
 - `image-cache/` - pictures decoded from the game's textures (kept as WebP, quality 90 - 3 to 5 times smaller than PNG, which
   is what crosses into the page): the cup medallions, vehicle and item pictures (one JSON file
   each) and each course/part/character-menu picture (`pictures/`), including the previews of mods' own course pictures;

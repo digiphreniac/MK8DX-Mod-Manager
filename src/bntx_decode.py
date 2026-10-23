@@ -22,10 +22,13 @@ import functools
 import io
 import struct
 
+import diag
+
 try:
     from PIL import Image
-except ImportError:
+except ImportError as _e:
     Image = None
+    diag.log("error", f"Pillow couldn't be loaded ({_e}): pictures from the game's files can't be decoded, so they will be blank")
 
 
 class UnsupportedBNTXError(Exception):

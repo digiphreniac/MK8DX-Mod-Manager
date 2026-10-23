@@ -5641,6 +5641,68 @@ class Api(VoiceEditMixin, ModNotesMixin):
         payload = json.dumps(payload, sort_keys=True)
         return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
 
+    def _commit_content_stamp(self, checked_keys):
+        """A fingerprint of the FILES of the selected mods (name, size, modification time of each): a mod updated or edited in place - the
+        author's new version over the old, a regenerated course icon - changes it, which the list of selected mods alone never does. Kept
+        separate from `_commit_signature` so a commit made before this existed (no stamp saved) isn't called stale. Remembered for up to a
+        minute (a full pass over ~30,000 files takes about a second) and while no folder under the mods changed (see library_cache), because the flow bar asks for it all the time."""
+        keys = tuple(sorted(checked_keys))
+        root = self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME
+        units = [root / key.split("/", 1)[0] / key.split("/", 1)[1] for key in keys if "/" in key]
+
+        def token():
+            return hash(tuple(library_cache.tree_token(unit, depth=24) for unit in units))
+
+        def compute():
+            whole = hashlib.sha1()
+            for key, unit in zip(keys, units):
+                h = hashlib.sha1(key.encode("utf-8", "replace"))
+                for folder, dirs, names in os.walk(unit):
+                    dirs.sort()
+                    for name in sorted(names):
+                        path = os.path.join(folder, name)
+                        try:
+                            st = os.stat(path)
+                        except OSError:
+                            continue
+                        h.update(f"{os.path.relpath(path, unit)}|{st.st_size}|{st.st_mtime_ns}\n".encode("utf-8", "replace"))
+                whole.update(h.digest())
+            return whole.hexdigest()[:16]
+        return self._library.get(f"content-stamp:{hash(keys)}", keys, compute, token=token, max_age=60)
+
+    def _content_changed(self, last_commit, checked_keys):
+        """Whether the files of the selected mods are not what the last commit was made from (False for a commit with no stamp)."""
+        stamp = (last_commit or {}).get("content")
+        return bool(stamp) and stamp != self._commit_content_stamp(checked_keys)
+
+    @staticmethod
+    def _contributions(res):
+        """{mod key: {"total", "left", "staged", "lost"}} for the selected mods: how many files each has (before leave-outs), how many were
+        left out on purpose, how many ended up in the commit (counting a file another mod staged byte for byte the same), and how many
+        lost to another mod's version of the file, or to one of the app's own (ui-icons/ and the like)."""
+        staged, same = {}, {}
+        for claim in res.claims.values():
+            staged[claim["mod"]] = staged.get(claim["mod"], 0) + 1
+            for other in claim.get("also", ()):
+                same[other] = same.get(other, 0) + 1
+        out = {}
+        for key in res.mods_processed:
+            total, left = res.file_counts.get(key, 0), res.excluded_counts.get(key, 0)
+            got = staged.get(key, 0) + same.get(key, 0)
+            out[key] = {"total": total, "left": left, "staged": got, "lost": max(0, total - left - got)}
+        return out
+
+    @staticmethod
+    def _contribution_text(c):
+        if not c or not c["total"]:
+            return ": no files of its own (only packed menu archives, or nothing)"
+        parts = [f"{c['staged']} of {c['total']} file(s) staged"]
+        if c["left"]:
+            parts.append(f"{c['left']} left out")
+        if c["lost"]:
+            parts.append(f"{c['lost']} replaced by another mod's version or one of the app's own files")
+        return ": " + ", ".join(parts) + ("" if c["staged"] else "  <-- NOTHING from this mod was staged")
+
     def _ticked_signature(self, checked_keys):
         return hashlib.sha1("|".join(sorted(checked_keys)).encode("utf-8")).hexdigest()[:16]
 
@@ -5684,6 +5746,15 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "title": f"{res.bgm_bars_skipped} course mod{'s' if res.bgm_bars_skipped != 1 else ''} bundle the shared music file",
                 "detail": "That one file (Audio/Static/BGM.bars) is never copied - two mods rebuilding it is the most common source of clashes, for almost no gain.",
                 "mods": [], "action": None,
+            })
+        adds_nothing = [k for k, c in self._contributions(res).items() if c["total"] and not c["staged"]]
+        if adds_nothing:
+            warnings.append({
+                "kind": "adds-nothing", "severity": "todo",
+                "title": f"{len(adds_nothing)} selected mod{'s' if len(adds_nothing) != 1 else ''} add{'' if len(adds_nothing) != 1 else 's'} nothing to the commit",
+                "detail": "Every file in them is left out or replaced by another mod's version, so selecting them changes nothing in the game. "
+                          "Check the mod's Files button, or the clashes settled by earlier choices.",
+                "mods": adds_nothing, "action": "open-mod",
             })
         left_out_total = sum(res.excluded_counts.values())
         if left_out_total:
@@ -5787,7 +5858,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return {
             "can_commit": not groups, "empty": False, "groups": groups, "warnings": warnings, "counts": counts,
             "staging_path": str(self.mod_root.parent / "sd-card-staging"),
-            "already": bool(last) and last.get("sig") == self._commit_signature(checked_keys),
+            "already": bool(last) and last.get("sig") == self._commit_signature(checked_keys) and not self._content_changed(last, checked_keys),
         }
 
     def _log_commit(self, lines):
@@ -5927,8 +5998,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
         lines.append("=== Commit complete ===")
         lines.append(f"Mods merged: {len(mods_processed)}")
+        contributions = self._contributions(res)
         for m in mods_processed:
-            lines.append(f"  - {m}")
+            lines.append(f"  - {m}{self._contribution_text(contributions.get(m))}")
         lines.append(f"Files copied: {len(claims)}")
         if ui_icons_files:
             lines.append(f"  (includes {ui_icons_files} file(s) from ui-icons/, always merged in)")
@@ -6045,7 +6117,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             lines.extend(f"  - {w['title']}" for w in warnings)
         now = datetime.now().isoformat(timespec="seconds")
         self.save_settings({"last_commit": {
-            "sig": self._commit_signature(checked_keys), "at": now,
+            "sig": self._commit_signature(checked_keys), "content": self._commit_content_stamp(checked_keys), "at": now,
             "mods": counts["mods"], "files": counts["files"], "left_out": counts["left_out"],
         }})
         self._log_commit(lines)
@@ -6116,7 +6188,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         commit_sig = self._commit_signature(checked)
         commit = {
             "done": bool(last), "at": last.get("at") if last else None,
-            "stale": bool(last) and (last.get("sig") != commit_sig or ui_stale),
+            "stale": bool(last) and (last.get("sig") != commit_sig or self._content_changed(last, checked) or ui_stale),
             "conflicts": conflicts,
             "summary": ({k: last.get(k) for k in ("mods", "files", "left_out")} if last else None),
         }

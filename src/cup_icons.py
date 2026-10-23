@@ -15,10 +15,13 @@ import io
 import bntx_decode
 import ui_archives
 
+import diag
+
 try:
     from PIL import Image, ImageDraw
-except ImportError:  # no pictures, and the screen falls back to its plain tiles
+except ImportError as _e:  # no pictures, and the screen falls back to its plain tiles
     Image = None
+    diag.log("error", f"Pillow couldn't be loaded ({_e}): cup pictures can't be drawn, so the screen uses plain tiles")
 
 ENTRY = "mn_L_CupSlctBtn_00.szs"
 TEXTURE_NAME = "ym_CupIcon{}^h"
