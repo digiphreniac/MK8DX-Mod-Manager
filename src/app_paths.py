@@ -23,26 +23,44 @@ else:
 BUNDLED_7ZIP_DIR = RESOURCE_DIR / "7zip"
 
 LOG_FILENAME = "mod-manager.log"
-LOG_PREVIOUS_FILENAME = "mod-manager.previous.log"
+LOG_MAX_BYTES = 1_000_000     # when the log is bigger than this at start-up, the oldest entries are cut...
+LOG_KEEP_BYTES = 500_000      # ...down to about this much of the newest
 LOG_FELL_BACK = False   # True when the log couldn't go next to the app and is in the temp folder instead
+
+
+def _trim_log(path):
+    """Keeps a log that every run adds to from growing for ever: past LOG_MAX_BYTES only the newest LOG_KEEP_BYTES stay, cut at a line."""
+    import os
+    try:
+        if path.stat().st_size <= LOG_MAX_BYTES:
+            return
+        with open(path, "rb") as f:
+            f.seek(-LOG_KEEP_BYTES, 2)
+            data = f.read()
+        newline = data.find(b"\n")
+        data = data[newline + 1:] if newline >= 0 else data
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_bytes(b"[older entries were cut to keep this file small]\n" + data)
+        os.replace(tmp, path)
+    except OSError:
+        pass   # (a log that can't be trimmed is still a log)
 
 
 def redirect_output_to_log():
     """A packaged (windowed) build has no console, so stdout/stderr are None. Point them at
     mod-manager.log next to the app (the temp folder if that isn't writable) so messages from
-    the app and its libraries are kept - the file is what to attach to a bug report. The previous run's log is kept
-    beside it as mod-manager.previous.log. Returns the log's path."""
+    the app and its libraries are kept - the file is what to attach to a bug report. Every run adds to the file (a line
+    marks where each starts), so relaunching to "try once more" doesn't destroy the evidence; the oldest entries are cut when it
+    grows past LOG_MAX_BYTES. Returns the log's path."""
     import os
+    from datetime import datetime
     global LOG_FELL_BACK
     stream = None
     for folder in (APP_ROOT, Path(os.environ.get("TEMP") or ".")):
         try:
-            try:   # (the run before is kept: opening the app again to "try once more" must not wipe the evidence)
-                if (folder / LOG_FILENAME).stat().st_size > 0:
-                    os.replace(folder / LOG_FILENAME, folder / LOG_PREVIOUS_FILENAME)
-            except OSError:
-                pass
-            stream = open(folder / LOG_FILENAME, "w", encoding="utf-8", buffering=1)
+            _trim_log(folder / LOG_FILENAME)
+            stream = open(folder / LOG_FILENAME, "a", encoding="utf-8", buffering=1)
+            stream.write(f"\n=== {datetime.now():%Y-%m-%d %H:%M:%S} - Mod Manager started ===\n")
             LOG_FELL_BACK = folder != APP_ROOT
             break
         except OSError:

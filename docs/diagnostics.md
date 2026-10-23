@@ -7,8 +7,9 @@ those contain and how to keep them useful. (A packaged build has no console and 
 
 - `mod-manager.log` next to the app (the temp folder when the app folder isn't writable - the details say so). Everything the app
   prints goes there: `app_paths.redirect_output_to_log()` points stdout/stderr at it before any library is imported.
-- The run before is kept as `mod-manager.previous.log`, so opening the app again to "try once more" doesn't destroy the evidence.
-  `faulthandler` is on, so a crash inside a native library still leaves where Python was.
+- The log is **append-only**: every run adds to it, after a line `=== <date time> - Mod Manager started ===`, so opening the app again to
+  "try once more" doesn't destroy the evidence and a report is one file. When it is over 1 MB at start-up (`LOG_MAX_BYTES`) only the newest
+  ~500 KB are kept (`_trim_log()`, cut at a line). `faulthandler` is on, so a crash inside a native library still leaves where Python was.
 - `diag.py` is the one place that writes to it: `diag.log(kind, message)` gives `[2026-10-23 13:37:06] kind: message`.
   `diag.log_once(key, ...)` is for a problem a reader would hit again on every call (a damaged settings file is read often).
   Every path goes through `diag.scrub()`, which replaces `C:\Users\<name>` (and `/Users/<name>`, `/home/<name>`) with `~`.
@@ -48,7 +49,7 @@ A `catch` that only sets a fallback leaves nothing to diagnose from.
 
 ## When someone reports a problem
 
-Ask for **Help > Copy details** (or `mod-manager.log` and `mod-manager.previous.log` when the app won't open), and for the commit log
+Ask for **Help > Copy details** (or `mod-manager.log` when the app won't open), and for the commit log
 (Copy log on the Commit page) when it is about the output. Look first at: the game files lines (a copy that is "complete" in the manifest
 but MISSING on disk), `warn: ... couldn't be read` lines (a settings file that was reset), `page-error` lines, and the data folder line
 (OneDrive, not writable, no space).

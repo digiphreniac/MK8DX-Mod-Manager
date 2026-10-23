@@ -1,5 +1,5 @@
 """The log and the details a user can hand over: timestamped lines with the Windows user name taken out, a capped and de-duplicated
-channel for the page's errors, the header of a commit log, the previous run's log being kept, and a file that can't be read being
+channel for the page's errors, the header of a commit log, the log being added to by every run (and kept small), and a file that can't be read being
 said so instead of silently becoming empty.
 
 Run from the repo root:  python -m unittest discover -s tests
@@ -233,39 +233,73 @@ class UnreadableFiles(unittest.TestCase):
 
 
 class LogFile(unittest.TestCase):
-    def test_the_run_before_is_kept_beside_the_new_log(self):
-        folder = Path(tempfile.mkdtemp(prefix="mk8dx-log-"))
-        self.addCleanup(shutil.rmtree, folder, True)
-        (folder / app_paths.LOG_FILENAME).write_text("the old run\n", encoding="utf-8")
+    MARKER = re.compile(r"^=== \d{4}-\d\d-\d\d \d\d:\d\d:\d\d - Mod Manager started ===$", re.MULTILINE)
+
+    def launch(self, folder):
+        """What the packaged app does first: open the log. Returns its path; the output streams are put back afterwards."""
         real_root, real_out, real_err = app_paths.APP_ROOT, sys.stdout, sys.stderr
         app_paths.APP_ROOT = folder
         try:
             path = app_paths.redirect_output_to_log()
-            new_stream = sys.stderr
+            sys.stderr.write("something this run said\n")
+            stream = sys.stderr
         finally:
             faulthandler.disable()
             sys.stdout, sys.stderr = real_out, real_err
             app_paths.APP_ROOT = real_root
-        new_stream.close()
-        self.assertEqual(Path(path), folder / app_paths.LOG_FILENAME)
-        self.assertEqual((folder / app_paths.LOG_PREVIOUS_FILENAME).read_text(encoding="utf-8"), "the old run\n")
-        self.assertEqual((folder / app_paths.LOG_FILENAME).read_text(encoding="utf-8"), "")
-        self.assertFalse(app_paths.LOG_FELL_BACK)
+        stream.close()
+        return Path(path)
 
-    def test_a_first_launch_has_nothing_to_keep(self):
+    def folder(self):
         folder = Path(tempfile.mkdtemp(prefix="mk8dx-log-"))
         self.addCleanup(shutil.rmtree, folder, True)
-        real_root, real_out, real_err = app_paths.APP_ROOT, sys.stdout, sys.stderr
-        app_paths.APP_ROOT = folder
-        try:
-            app_paths.redirect_output_to_log()
-            new_stream = sys.stderr
-        finally:
-            faulthandler.disable()
-            sys.stdout, sys.stderr = real_out, real_err
-            app_paths.APP_ROOT = real_root
-        new_stream.close()
-        self.assertFalse((folder / app_paths.LOG_PREVIOUS_FILENAME).exists())
+        return folder
+
+    def test_a_first_launch_starts_the_log_with_a_marker(self):
+        folder = self.folder()
+        path = self.launch(folder)
+        self.assertEqual(path, folder / app_paths.LOG_FILENAME)
+        text = path.read_text(encoding="utf-8")
+        self.assertEqual(len(self.MARKER.findall(text)), 1)
+        self.assertIn("something this run said", text)
+        self.assertFalse(app_paths.LOG_FELL_BACK)
+
+    def test_every_run_adds_to_the_log_instead_of_replacing_it(self):
+        folder = self.folder()
+        (folder / app_paths.LOG_FILENAME).write_text("the run that went wrong\n", encoding="utf-8")
+        text = self.launch(folder).read_text(encoding="utf-8")
+        self.assertTrue(text.startswith("the run that went wrong\n"))
+        self.assertLess(text.index("the run that went wrong"), text.index("something this run said"))
+        self.assertEqual(len(self.MARKER.findall(text)), 1)
+        self.assertFalse(any(p.name != app_paths.LOG_FILENAME for p in folder.iterdir()))   # (no second file to ask for)
+
+    def test_two_runs_are_two_marked_sections(self):
+        folder = self.folder()
+        self.launch(folder)
+        text = self.launch(folder).read_text(encoding="utf-8")
+        self.assertEqual(len(self.MARKER.findall(text)), 2)
+        self.assertEqual(text.count("something this run said"), 2)
+
+    def test_a_log_past_the_cap_keeps_only_the_newest_part_cut_at_a_line(self):
+        folder = self.folder()
+        lines = [f"line {i:06d} " + "x" * 80 for i in range(15000)]    # (about 1.4 MB)
+        (folder / app_paths.LOG_FILENAME).write_text("\n".join(lines) + "\n", encoding="utf-8")
+        size_before = (folder / app_paths.LOG_FILENAME).stat().st_size
+        self.assertGreater(size_before, app_paths.LOG_MAX_BYTES)
+        path = self.launch(folder)
+        text = path.read_text(encoding="utf-8")
+        self.assertLess(path.stat().st_size, app_paths.LOG_KEEP_BYTES + 2000)
+        self.assertTrue(text.startswith("[older entries were cut to keep this file small]\n"))
+        self.assertNotIn("line 000000", text)
+        self.assertIn("line 014999", text)
+        body = text.split("\n")[1]
+        self.assertRegex(body, r"^line \d{6} x{80}$")   # (cut at a line: the first kept line is whole)
+        self.assertEqual(len(self.MARKER.findall(text)), 1)
+
+    def test_a_log_under_the_cap_is_left_alone(self):
+        folder = self.folder()
+        (folder / app_paths.LOG_FILENAME).write_text("small\n", encoding="utf-8")
+        self.assertTrue(self.launch(folder).read_text(encoding="utf-8").startswith("small\n"))
 
 
 class PageFiles(unittest.TestCase):

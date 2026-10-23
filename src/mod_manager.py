@@ -1891,7 +1891,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             lines.append(f"App folder: {app_paths.APP_ROOT}")
             if LOG_PATH:
                 lines.append(f"Log: {LOG_PATH}" + (" (the app folder isn't writable, so the log is in the temp folder)" if app_paths.LOG_FELL_BACK else "")
-                             + f"; the run before is kept as {app_paths.LOG_PREVIOUS_FILENAME}")
+                             + "; every run adds to it, newest at the end")
             lines.append(f"Staging folder: {Path(root).parent / 'sd-card-staging'}")
             lines.append(f"Game files copy: source {base['source'] or 'none'}, copied {base['copied_at'] or 'never'}, icons {len(base['icons'])}, "
                          f"languages {','.join(base['locales']) or 'none'}, voice {base['voice_found']}/{base['voice_total']}, "

@@ -103,7 +103,7 @@ short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). Th
   spot isn't writable the old full-screen folder picker is shown instead. The `data` folder is created at run time, never shipped
   in the zip, so extracting an update over an old install keeps the user's data.
 - A packaged build has no console, so `app_paths.redirect_output_to_log()` sends stdout/stderr to
-  `mod-manager.log` next to the `.exe` (the run before is kept as `mod-manager.previous.log`), and an uncaught startup error shows a
+  `mod-manager.log` next to the `.exe` (every run adds to it; see `docs/diagnostics.md`), and an uncaught startup error shows a
   message box pointing at it. What goes in the log and what Help > Copy details contains: `docs/diagnostics.md`.
 - Build with a mainstream Python and test the zip on a machine without Python: extract it to a short path,
   run the setup wizard, download a `.7z` mod, commit.
