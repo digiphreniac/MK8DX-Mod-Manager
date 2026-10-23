@@ -26,6 +26,7 @@ LOG_FILENAME = "mod-manager.log"
 LOG_MAX_BYTES = 1_000_000     # when the log is bigger than this at start-up, the oldest entries are cut...
 LOG_KEEP_BYTES = 500_000      # ...down to about this much of the newest
 LOG_FELL_BACK = False   # True when the log couldn't go next to the app and is in the temp folder instead
+_log_path = None        # set once the output has been pointed at the log (see redirect_output_to_log)
 
 
 def _trim_log(path):
@@ -51,10 +52,15 @@ def redirect_output_to_log():
     mod-manager.log next to the app (the temp folder if that isn't writable) so messages from
     the app and its libraries are kept - the file is what to attach to a bug report. Every run adds to the file (a line
     marks where each starts), so relaunching to "try once more" doesn't destroy the evidence; the oldest entries are cut when it
-    grows past LOG_MAX_BYTES. Returns the log's path."""
+    grows past LOG_MAX_BYTES. Returns the log's path.
+
+    Done once per process: the app runs as `__main__` and some modules import it again by name (game_files does, late), which runs its
+    top level a second time - without this the second call would add a second "started" line and open the file again."""
     import os
     from datetime import datetime
-    global LOG_FELL_BACK
+    global LOG_FELL_BACK, _log_path
+    if _log_path is not None:
+        return _log_path
     stream = None
     for folder in (APP_ROOT, Path(os.environ.get("TEMP") or ".")):
         try:
@@ -73,7 +79,8 @@ def redirect_output_to_log():
     except Exception:   # noqa: BLE001
         pass
     sys.stdout = sys.stderr = stream
-    return stream.name
+    _log_path = stream.name
+    return _log_path
 
 
 def unblock_downloaded_files():

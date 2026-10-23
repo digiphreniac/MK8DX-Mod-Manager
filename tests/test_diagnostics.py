@@ -239,6 +239,7 @@ class LogFile(unittest.TestCase):
         """What the packaged app does first: open the log. Returns its path; the output streams are put back afterwards."""
         real_root, real_out, real_err = app_paths.APP_ROOT, sys.stdout, sys.stderr
         app_paths.APP_ROOT = folder
+        app_paths._log_path = None      # (a new process, as far as the redirect is concerned)
         try:
             path = app_paths.redirect_output_to_log()
             sys.stderr.write("something this run said\n")
@@ -247,6 +248,7 @@ class LogFile(unittest.TestCase):
             faulthandler.disable()
             sys.stdout, sys.stderr = real_out, real_err
             app_paths.APP_ROOT = real_root
+            app_paths._log_path = None
         stream.close()
         return Path(path)
 
@@ -295,6 +297,27 @@ class LogFile(unittest.TestCase):
         body = text.split("\n")[1]
         self.assertRegex(body, r"^line \d{6} x{80}$")   # (cut at a line: the first kept line is whole)
         self.assertEqual(len(self.MARKER.findall(text)), 1)
+
+    def test_asking_twice_in_one_process_does_not_start_a_second_section(self):
+        # (the packaged app runs as __main__ and game_files imports mod_manager again by name, which runs the redirect a second time)
+        folder = self.folder()
+        real_root, real_out, real_err = app_paths.APP_ROOT, sys.stdout, sys.stderr
+        app_paths.APP_ROOT = folder
+        app_paths._log_path = None
+        try:
+            first = app_paths.redirect_output_to_log()
+            stream = sys.stderr
+            second = app_paths.redirect_output_to_log()
+            same_stream = sys.stderr is stream
+        finally:
+            faulthandler.disable()
+            sys.stdout, sys.stderr = real_out, real_err
+            app_paths.APP_ROOT = real_root
+            app_paths._log_path = None
+        stream.close()
+        self.assertEqual(first, second)
+        self.assertTrue(same_stream)
+        self.assertEqual(len(self.MARKER.findall((folder / app_paths.LOG_FILENAME).read_text(encoding="utf-8"))), 1)
 
     def test_a_log_under_the_cap_is_left_alone(self):
         folder = self.folder()
