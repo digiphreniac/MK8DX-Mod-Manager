@@ -85,6 +85,21 @@ function cgEl(tag, cls, text) {
   return e;
 }
 
+// The files of a conflict, one per line: the file's name first and plain, the folder it is in dim after it (the name is what you recognise,
+// and every file of a mod shares most of its folder). In a box of limited height, so a mod with hundreds of files can't push the rest off screen.
+function cgFileList(paths) {
+  const list = cgEl("div", "cg-file-list");
+  for (const p of paths) {
+    const cut = p.lastIndexOf("/");
+    const line = cgEl("code");
+    line.title = p;
+    line.appendChild(cgEl("b", null, cut < 0 ? p : p.slice(cut + 1)));
+    if (cut > 0) line.appendChild(cgEl("span", "cg-dir", " " + p.slice(0, cut)));
+    list.appendChild(line);
+  }
+  return list;
+}
+
 // "characters/Inkling Girl/Minecraft Alex/inner" -> "Minecraft Alex (Inkling Girl)" (mirrors mod_manager.mod_label)
 function modLabel(key, full) {
   const parts = key.split("/");
@@ -233,7 +248,7 @@ function buildConflictCard(group, opts) {
   files.className = "cg-files";
   files.open = !!(state.settings && state.settings.advanced_mode);
   files.appendChild(cgEl("summary", null, `Show the ${n === 1 ? "file" : n + " files"}`));
-  for (const p of group.paths) files.appendChild(cgEl("code", null, p));
+  files.appendChild(cgFileList(group.paths));
   card.appendChild(files);
   return card;
 }
@@ -310,20 +325,31 @@ function buildFilesPanel(modKey, onChange) {
   return panel;
 }
 
-// The line in Settings' "Conflicts & left-out files" card: how much there is to look at, so the list itself can stay in its own modal.
+// The line in Settings' "Conflicts & left-out files" card, and the bar at the top of the modal: how much there is to look at, so the list
+// itself can stay in its own modal and the count stays in view while it scrolls.
 function updateConflictsSummary(result) {
-  const el = document.getElementById("conflicts-summary");
   const leftOut = (result.settled || []).reduce((n, s) => n + s.paths.length, 0)
     + Object.values(result.left_out || {}).reduce((n, entries) => n + entries.filter(e => e.reason !== "conflict").length, 0);
   const parts = [];
   if (result.groups.length) parts.push(`${result.groups.length} need${result.groups.length === 1 ? "s" : ""} settling`);
   if (leftOut) parts.push(`${leftOut} file${leftOut === 1 ? "" : "s"} left out`);
   if (result.resolved.length) parts.push(`${result.resolved.length} saved choice${result.resolved.length === 1 ? "" : "s"}`);
+  const el = document.getElementById("conflicts-summary");
   el.textContent = parts.length ? parts.join(" \u00b7 ") : "No conflicts right now, and no files left out.";
   el.classList.toggle("needs-attention", result.groups.length > 0);
+
+  const bar = document.getElementById("conflicts-modal-bar");
+  bar.hidden = !parts.length;       // (with nothing to count, the empty state in the list says it)
+  bar.textContent = (result.groups.length ? parts : ["All settled", ...parts]).join(" \u00b7 ");
+  bar.classList.toggle("needs-attention", result.groups.length > 0);
+  bar.classList.toggle("all-settled", result.groups.length === 0);
 }
 
+// Whether the user has opened or closed the "Settled / left out" section (null: not yet - it is open only when nothing else needs settling).
+let conflictsSettledOpen = null;
+
 function openConflictsModal() {
+  conflictsSettledOpen = null;
   document.getElementById("conflicts-modal-backdrop").hidden = false;
   renderConflicts();
 }
@@ -357,49 +383,73 @@ async function renderConflicts() {
     .filter(([, entries]) => entries.length);
   if (settled.length || manualByMod.length || result.resolved.length) {
     any = true;
-    container.appendChild(cgEl("div", "cg-section-title", "Settled / left out"));
+    const files = (n) => `${n} file${n === 1 ? "" : "s"}`;
+    const nodes = settled.length + manualByMod.length;
+    const nFiles = settled.reduce((n, s) => n + s.paths.length, 0) + manualByMod.reduce((n, [, entries]) => n + entries.length, 0);
+    const counts = [];
+    if (nodes) counts.push(`${nodes} mod${nodes === 1 ? "" : "s"}`, files(nFiles));
+    if (result.resolved.length) counts.push(`${result.resolved.length} saved choice${result.resolved.length === 1 ? "" : "s"}`);
+
+    // Finished items are one line each, and the whole section is folded away while something above still needs a decision.
+    const section = document.createElement("details");
+    section.className = "cg-settled";
+    section.open = conflictsSettledOpen !== null ? conflictsSettledOpen : result.groups.length === 0;
+    const head = cgEl("summary", null, `Settled / left out (${counts.join(" \u00b7 ")})`);
+    head.addEventListener("click", () => { conflictsSettledOpen = !section.open; });      // (only the user's own opening or closing counts)
+    section.appendChild(head);
+    const rows = cgEl("div", "cg-rows");
+    section.appendChild(rows);
+
+    const row = (title, sub, buttons, paths) => {
+      const r = cgEl("div", "cg-row");
+      const text = cgEl("div", "cg-row-text");
+      text.title = sub ? `${title} - ${sub}` : title;
+      text.appendChild(cgEl("span", "cg-row-ok", "\u2713"));
+      text.appendChild(cgEl("b", null, title));
+      if (sub) text.appendChild(cgEl("span", "cg-row-sub", " - " + sub));
+      r.appendChild(text);
+      const acts = cgEl("div", "cg-row-actions");
+      for (const b of buttons) acts.appendChild(b);
+      r.appendChild(acts);
+      if (paths) {
+        const list = document.createElement("details");
+        list.className = "cg-files";
+        list.appendChild(cgEl("summary", null, `Show the ${paths.length === 1 ? "file" : paths.length + " files"}`));
+        list.appendChild(cgFileList(paths));
+        r.appendChild(list);
+      }
+      rows.appendChild(r);
+    };
+    const button = (label, onClick) => {
+      const b = cgEl("button", "ghost small", label);
+      b.addEventListener("click", onClick);
+      return b;
+    };
+
     for (const s of settled) {
-      const card = cgEl("div", "cg-card settled");
-      card.appendChild(cgEl("div", "cg-title",
-        `${s.label} leaves out ${s.paths.length} file${s.paths.length === 1 ? "" : "s"}`));
-      card.appendChild(cgEl("div", "cg-sub", s.kept_label ? `Kept ${s.kept_label}'s version instead.` : "The game's own file is used instead."));
-      const acts = cgEl("div", "cg-actions");
-      const back = cgEl("button", "ghost small", "Include again");
-      back.addEventListener("click", async () => { await pywebview.api.include_files(s.mod, s.paths); await again(); });
-      acts.appendChild(back);
-      const open = cgEl("button", "ghost small", "Open mod");
-      open.addEventListener("click", () => { closeConflictsModal(); closeSettingsModal && closeSettingsModal(); jumpToModKey(s.mod); });
-      acts.appendChild(open);
-      card.appendChild(acts);
-      const files = document.createElement("details");
-      files.className = "cg-files";
-      files.appendChild(cgEl("summary", null, "Show the files"));
-      for (const p of s.paths) files.appendChild(cgEl("code", null, p));
-      card.appendChild(files);
-      container.appendChild(card);
+      row(`${s.label} leaves out ${files(s.paths.length)}`,
+        s.kept_label ? `kept ${s.kept_label}'s version` : "the game's own file is used instead",
+        [button("Include again", async () => { await pywebview.api.include_files(s.mod, s.paths); await again(); }),
+         button("Open mod", () => { closeConflictsModal(); closeSettingsModal && closeSettingsModal(); jumpToModKey(s.mod); })],
+        s.paths);
     }
     for (const [mod, entries] of manualByMod) {
-      const card = cgEl("div", "cg-card settled");
-      card.appendChild(cgEl("div", "cg-title", `${shortName(mod)}: ${entries.length} file${entries.length === 1 ? "" : "s"} left out by you`));
-      const acts = cgEl("div", "cg-actions");
-      const back = cgEl("button", "ghost small", "Include again");
-      back.addEventListener("click", async () => { await pywebview.api.include_files(mod, entries.map(e => e.path)); await again(); });
-      acts.appendChild(back);
-      card.appendChild(acts);
-      container.appendChild(card);
+      row(`${shortName(mod)}: ${files(entries.length)} left out by you`, "",
+        [button("Include again", async () => { await pywebview.api.include_files(mod, entries.map(e => e.path)); await again(); })]);
     }
     for (const r of result.resolved) {
-      const card = cgEl("div", "cg-card settled");
-      card.appendChild(cgEl("div", "cg-title", r.path));
-      card.appendChild(cgEl("div", "cg-sub", `Using ${shortName(r.preferred)} (saved earlier)`));
-      const acts = cgEl("div", "cg-actions");
-      const clear = cgEl("button", "ghost small", "Clear");
-      clear.addEventListener("click", async () => { await pywebview.api.clear_conflict_resolution(r.path); await again(); });
-      acts.appendChild(clear);
-      card.appendChild(acts);
-      container.appendChild(card);
+      const cut = r.path.lastIndexOf("/");
+      row(cut < 0 ? r.path : r.path.slice(cut + 1), `using ${shortName(r.preferred)} (saved earlier)`,
+        [button("Clear", async () => { await pywebview.api.clear_conflict_resolution(r.path); await again(); })]);
     }
+    container.appendChild(section);
   }
-  if (!any) container.appendChild(cgEl("div", "conflicts-empty", "No conflicts right now, and no files left out."));
+  if (!any) {
+    const none = cgEl("div", "conflicts-none");
+    none.appendChild(cgEl("div", "conflicts-none-mark", "\u2713"));
+    none.appendChild(cgEl("div", "conflicts-none-title", "No conflicts, and no files left out."));
+    none.appendChild(cgEl("div", "conflicts-none-sub", "The mods you have selected fit together."));
+    container.appendChild(none);
+  }
 }
 

@@ -23,10 +23,30 @@
   .cg-actions { display: flex; gap: 10px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
   .cg-files { margin-top: 8px; font-size: 12px; }
   .cg-files > summary { padding: 2px 0; font-weight: 500; }
-  .cg-files code { display: block; font-family: var(--mono); font-size: 11.5px; word-break: break-all; padding: 1px 0; }
+  .cg-file-list { max-height: 240px; overflow-y: auto; }
+  .cg-file-list code { display: block; font-family: var(--mono); font-size: 11.5px; overflow-wrap: anywhere; padding: 1px 0; }
+  .cg-file-list b { font-weight: 600; }
+  .cg-dir { color: var(--text-dim); }
   .cg-done { color: var(--ok); font-weight: 600; }
   .cg-section-title { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-dim); margin: 14px 0 8px; }
   .cg-section-title:first-child { margin-top: 0; }
+  /* the finished items in the Conflicts window: one line each, inside a section that folds away */
+  .cg-settled { margin-top: 14px; }
+  .cg-settled:first-child { margin-top: 0; }
+  .cg-settled > summary { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .cg-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--divider); font-size: 13px; }
+  .cg-row:last-child { border-bottom: 0; }
+  .cg-row-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cg-row-ok { color: var(--ok); font-weight: 700; margin-right: 8px; }
+  .cg-row-sub { color: var(--text-dim); }
+  .cg-row-actions { display: flex; gap: 2px; }
+  .cg-row .cg-files { grid-column: 1 / -1; margin-top: 0; }
+  @media (max-width: 620px) { .cg-row { grid-template-columns: minmax(0, 1fr); } .cg-row-actions { margin-bottom: 2px; } }
+  .conflicts-none { text-align: center; padding: 28px 0 16px 0; }
+  .conflicts-none-mark { width: 40px; height: 40px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); display: grid; place-items: center; margin: 0 auto 10px auto; font-size: 20px; font-weight: 700; }
+  .conflicts-none-title { font-size: 15px; font-weight: 600; }
+  .conflicts-none-sub { color: var(--text-dim); font-size: 13px; margin-top: 2px; }
+  .conflicts-howto { margin-top: 16px; }
   #modal-conflict-box-wrap { margin-bottom: 12px; }
   #modal-conflict-box-wrap .cg-card:last-child { margin-bottom: 0; }
 

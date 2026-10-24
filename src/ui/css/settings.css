@@ -65,6 +65,11 @@
   }
   #conflicts-modal-header { padding: 18px 20px; border-bottom: 1px solid var(--panel-border); display: flex; align-items: center; }
   #conflicts-modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
+  /* the count, always in view under the header while the list scrolls */
+  #conflicts-modal-bar { padding: 9px 20px; border-bottom: 1px solid var(--panel-border); font-size: 13px; font-weight: 600; color: var(--text-dim); }
+  #conflicts-modal-bar[hidden] { display: none; }
+  #conflicts-modal-bar.needs-attention { color: var(--warn); }
+  #conflicts-modal-bar.all-settled { color: var(--ok); }
   #conflicts-modal-body { padding: 18px 20px 20px 20px; overflow-y: auto; }
-  #conflicts-modal-body .settings-hint { margin-top: 0; margin-bottom: 12px; }
+  #conflicts-modal-body .settings-hint { margin: 0; }
 

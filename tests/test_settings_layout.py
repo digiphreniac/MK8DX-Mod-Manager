@@ -72,6 +72,29 @@ class TheConflictsModal(unittest.TestCase):
         handler = keys[keys.index('document.addEventListener("keydown"'):]
         self.assertLess(handler.index("closeConflictsModal()"), handler.index("closeSettingsModal()"))
 
+    def test_the_modal_stays_short(self):
+        modal = read("html", "conflicts-modal.html")
+        self.assertLess(modal.index('id="conflicts-modal-bar"'), modal.index('id="conflicts-modal-body"'))      # (the count is outside the scrolling part)
+        howto = modal[modal.index('class="conflicts-howto"'):]
+        self.assertIn("<summary>How this works</summary>", howto)
+        self.assertGreater(modal.index('class="conflicts-howto"'), modal.index('id="conflicts-body"'))      # (the answer comes before the manual)
+        js = read("js", "data-and-conflicts.js")
+        draw = js[js.index("async function renderConflicts()"):]
+        self.assertIn('"cg-settled"', draw)
+        self.assertIn("result.groups.length === 0", draw)      # (folded away while something still needs settling)
+        self.assertIn("conflictsSettledOpen", draw)
+        self.assertIn('"conflicts-none"', draw)
+        css = read("css", "conflicts.css")
+        self.assertRegex(css, r"\.cg-file-list \{[^}]*max-height: \d+px; overflow-y: auto")
+        self.assertIn("cgFileList(", js[js.index("function buildConflictCard"):js.index("async function renderConflicts()")])
+
+    def test_the_file_list_puts_the_name_first(self):
+        js = read("js", "data-and-conflicts.js")
+        body = js[js.index("function cgFileList(paths)"):]
+        body = body[:body.index("\n}\n")]
+        self.assertIn('lastIndexOf("/")', body)
+        self.assertLess(body.index('cgEl("b"'), body.index('"cg-dir"'))
+
     def test_the_summary_is_kept_up_to_date_by_the_same_code_that_draws_the_list(self):
         js = read("js", "data-and-conflicts.js")
         draw = js[js.index("async function renderConflicts()"):]

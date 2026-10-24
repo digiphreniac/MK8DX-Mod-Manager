@@ -18,6 +18,12 @@ Tooltips, scrollbars and waiting states; the four-step flow (Setup, Choose mods,
   (CSS multi-column, `break-inside: avoid`), so the split moves by itself as cards fill in or grow. The columns sit in a box of automatic
   height inside the scrolling body: multi-column inside a scrolling box of fixed height would spill sideways. "Conflicts & left-out files" is a summary line and a **Review...**
   button; the list itself is in `html/conflicts-modal.html`, a modal opened from Settings (`openConflictsModal()`; Escape closes it first).
+  The modal is kept short: a bar under its header always shows the count ("3 need settling - 104 files left out", or "All settled ..."),
+  the cards that need a decision come first, and everything already done is one line each inside a "Settled / left out" section that is
+  folded away while anything above still needs settling (the user's own open/close is remembered while the window stays open). File lists
+  (`cgFileList()`) show the file's name first and its folder dim, in a box of at most 240px. With nothing to show, the list says so (a
+  check mark and one line) and "How this works" stays folded under it. The wide `.cg-*` card rules are shared with the Commit page and the
+  mod popup; the one-line rows (`.cg-row`) are only built here.
 - **Drop-down lists and fold-away sections** have one look each, in `css/layout.css`: a `select` is drawn like a button or a text box (panel
   colour, thin border, its arrow made from two CSS triangles so it follows the theme), and a `details` has no box: its `summary` is dim text with a
   small chevron that turns when it opens, instead of the browser's own triangle, and what is inside is indented under it with a line down
