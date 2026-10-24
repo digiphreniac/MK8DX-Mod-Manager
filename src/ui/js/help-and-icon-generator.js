@@ -7,6 +7,7 @@ function closeHelpModal() {
 document.getElementById("help-link").addEventListener("click", openHelpModal);
 document.getElementById("support-link").addEventListener("click", openSupportPage);
 document.getElementById("btn-help-modal-close").addEventListener("click", closeHelpModal);
+document.getElementById("btn-open-discord").addEventListener("click", () => openExternal(DISCORD_URL));
 document.getElementById("btn-copy-diagnostics").addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   try {

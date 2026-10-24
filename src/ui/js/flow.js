@@ -370,12 +370,13 @@ function buildTroubleshooting() {
   return trouble;
 }
 
-// Plain pictures for the three ways to help (a thumbs-up, a star, a cup of coffee), drawn for this app: not the logos of GameBanana, GitHub or
-// Buy Me a Coffee, which are theirs and come with rules about who may show them. They take the colour of the text around them.
+// Plain pictures for the ways to help (a thumbs-up, a star, a cup of coffee, a speech bubble), drawn for this app: not the logos of GameBanana,
+// GitHub, Buy Me a Coffee or Discord, which are theirs and come with rules about who may show them. They take the colour of the text around them.
 const SUPPORT_ICONS = {
   like: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3" y="10" width="4" height="10" rx="1"/>'
     + '<path d="M9 20V10.5l3.2-6.2c.3-.6 1-.8 1.6-.5.6.3.9 1 .7 1.6L14 9h4.6c1.2 0 2 1.1 1.7 2.2l-1.6 6.6c-.2.8-.9 1.2-1.7 1.2H9z"/></g></svg>',
   star: '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon fill="currentColor" points="12,2.5 14.9,8.9 21.8,9.6 16.6,14.2 18.1,21 12,17.5 5.9,21 7.4,14.2 2.2,9.6 9.1,8.9"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>',
   coffee: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9z"/>'
     + '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2M11 3.5v2M14 3.5v2"/></svg>',
 };
@@ -392,6 +393,7 @@ function supportCard() {
     GAMEBANANA_PAGE_URL && { icon: "like", label: "Like it on GameBanana", why: "The more likes the page has, the more people find it.", open: "Open GameBanana", url: GAMEBANANA_PAGE_URL },
     { icon: "star", label: "Star it on GitHub", why: "It helps other modders find the project.", open: "Open GitHub", url: GITHUB_URL },
     { icon: "coffee", label: "Buy me a coffee", why: "If you feel so inclined.", open: "Open Buy Me a Coffee", url: SUPPORT_URL },
+    { icon: "chat", label: "Join the Discord", why: "Get help, share ideas, or work on mods together.", open: "Open Discord", url: DISCORD_URL },
   ].filter(Boolean);
   for (const way of ways) {
     const row = cgEl("div", "pg-support-way");

@@ -69,6 +69,8 @@ function openSupportPage() { pywebview.api.open_external_url(SUPPORT_URL); }
 // more people see it. An empty address hides that row, so a missing one never sends anybody anywhere.
 const GAMEBANANA_PAGE_URL = "https://gamebanana.com/tools/24624";
 const GITHUB_URL = "https://github.com/digiphreniac/MK8DX-Mod-Manager";
+// The community server: help, chat, and working on mods together (a row on the All done page's card, and a button in Help).
+const DISCORD_URL = "https://discord.gg/mNShnnu8j8";
 function openExternal(url) { pywebview.api.open_external_url(url); }
 const ITEMS_CATEGORY = "items";
 const ITEMS_OTHER = "Items";

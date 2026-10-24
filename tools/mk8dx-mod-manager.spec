@@ -31,6 +31,8 @@ exe = EXE(
     exclude_binaries=True,
     name="MK8DX Mod Manager",
     console=False,
+    # The icon of the file, the taskbar, alt-tab and the window (pywebview takes the window's icon from the exe). Made by tools/make_icon.py.
+    icon=str(ROOT / "tools" / "app-icon.ico"),
 )
 coll = COLLECT(
     exe,

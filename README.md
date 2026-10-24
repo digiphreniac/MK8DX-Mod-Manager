@@ -104,6 +104,11 @@ merging when asked. The in-app **Help** button explains each screen in more deta
   to rebuild it.
 - **Debug mode** (from source) - run `Run Mod Manager (Dev).bat` to turn on the browser developer tools.
 
+## Help and community
+
+Questions, a problem the steps above don't fix, or want to work on mods with other people? Join the
+[Discord](https://discord.gg/mNShnnu8j8).
+
 ## Disclaimer
 
 This is an unofficial fan tool. It is not affiliated with or endorsed by Nintendo. Mario Kart is a
