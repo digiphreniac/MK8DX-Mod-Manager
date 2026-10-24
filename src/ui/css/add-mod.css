@@ -138,8 +138,9 @@
     font-size: 12.5px;
     font-family: inherit;
     color: var(--text);
-    background: var(--panel);
+    background-color: var(--panel);
   }
+  .add-mod-choice-row select { padding-right: 30px; }
   .add-mod-other-controls {
     flex: 1;
     min-width: 0;
@@ -170,11 +171,12 @@
     font-family: var(--mono);
     font-size: 12.5px;
     color: var(--text);
-    background: var(--panel);
+    background-color: var(--panel);
     border: 1px solid var(--panel-border);
     border-radius: 6px;
     box-sizing: border-box;
   }
+  select.settings-text-input { font-family: inherit; padding-right: 30px; }
   .clear-all-warning { font-size: 13px; line-height: 1.5; margin: 0 0 12px 0; }
   .clear-all-result { font-size: 12px; margin-top: 10px; }
   .clear-all-result.ok { color: var(--ok); }

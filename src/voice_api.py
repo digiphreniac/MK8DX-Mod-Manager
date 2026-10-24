@@ -670,8 +670,8 @@ class VoiceEditMixin:
                     data["characters"].pop(character, None)
                 return {"success": False, "needs_base": True, "error": (
                     "The app has no copy of this character's voice to start from. That shouldn't normally happen - the app's own "
-                    "base-game-files copy (Settings > Your game's files) is supposed to always have one. Select a voice mod for this "
-                    "character, or check Settings > Your game's files is still set up correctly.")}
+                    "base-game-files copy (the Game files step of Setup) is supposed to always have one. Select a voice mod for this "
+                    "character, or click Setup at the top and check the Game files step is done.")}
             present = False
             for b in bases.values():
                 if b is None:
@@ -718,8 +718,8 @@ class VoiceEditMixin:
         bases = {slot: b for slot, b in self._voice_bases(character).items() if b}
         if not bases:
             return {"success": False, "needs_base": True, "error": (
-                "The app has no copy of this character's voice to start from. Select a voice mod for this character, or check "
-                "Settings > Your game's files is still set up correctly.")}
+                "The app has no copy of this character's voice to start from. Select a voice mod for this character, or click Setup "
+                "at the top and check the Game files step is done.")}
         audible = set()
         for b in bases.values():
             try:

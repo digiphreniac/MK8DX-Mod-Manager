@@ -240,6 +240,12 @@ function buildGameBananaCard(itemName, category, opts) {
       hint.textContent = "Extracted, but the mod folders (Driver/DriverTex/Audio/Kart/...) sit at the top level instead of under a romfs folder - create a \"romfs\" folder in there and move them into it.";
       nameEl.appendChild(hint);
     }
+    if (file.download_status === "needs_manual_fix") {
+      const hint = document.createElement("span");
+      hint.className = "gb-file-desc";
+      hint.textContent = "Extracted, but the app couldn't tell what is in it, so it can't be merged automatically. Open the folder and take a look - if it holds game files, put them in a folder named \"romfs\".";
+      nameEl.appendChild(hint);
+    }
     row.appendChild(nameEl);
     const sizeEl = document.createElement("span");
     sizeEl.className = "gb-file-size";

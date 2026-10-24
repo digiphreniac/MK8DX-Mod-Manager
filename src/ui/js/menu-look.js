@@ -99,7 +99,7 @@ function resetPictureCaches() {
 
 function invalidateMenuLook() {
   menuLookState.cache.clear();
-  uiSetup.data = null; // Settings' "UI icons & text" card must re-read
+  uiSetup.data = null; // Settings' "Game language" card must re-read
   scheduleFlowRefresh();
 }
 

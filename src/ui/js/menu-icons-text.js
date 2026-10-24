@@ -1,11 +1,9 @@
 // ===== Menu icons & text =====
 // Reviewing and combining the packed UI archives (common.sarc, menu.sarc, message.sarc) that a
 // commit can't merge straight in - the actual build runs automatically inside merge() (see
-// mod_manager.py); this is the Commit page's review card, the Settings card (Open the folder /
-// Undo / manual rebuild / advanced-by-hand), and the guessed-names modal.
-// `lastBuild` is only for the Settings card's own manual "Rebuild now" (a normal commit doesn't
-// go through here - its result lines already say what got built).
-const uiSetup = { data: null, lastBuild: null, guessed: [] };
+// mod_manager.py); this is the Commit page's review card, the Settings card (the
+// language and conflict picks), and the guessed-names modal.
+const uiSetup = { data: null, guessed: [] };
 const UI_KIND_LABEL = { Chara: "select-screen icon", edChara: "results-screen icon", MapChara: "map icon", Part: "parts-menu picture" };
 
 function uisEl(tag, cls, text) {
@@ -57,7 +55,7 @@ function drawGuessedNamesModal() {
   async function finish(changedBuild) {
     uiSetup.guessed = await pywebview.api.get_guessed_names();
     renderCharacterGrid();
-    if (changedBuild) uiSetup.data = null;   // Settings' "UI icons & text" card must re-read next time it's opened
+    if (changedBuild) uiSetup.data = null;   // Settings' "Game language" card must re-read next time it's opened
     drawGuessedNamesModal();
     refreshFlow();
     if (flow.step === "commit") renderCommitPage();
@@ -98,16 +96,6 @@ function uisArchiveTitle(a) {
   if (a.id === "common") return ["Map & results icons", "common.sarc"];
   if (a.id === "menu") return ["Character-select icons", "menu.sarc"];
   return [`Names & menu text - ${uiSetup.data.locale_label}`, "message.sarc"];
-}
-
-function uisBuiltState(a) {
-  const v = a.verify;
-  if (a.nothing) return { kind: "ok", text: "nothing to change - the game's own file is used" };
-  if (!v.exists) return { kind: "todo", text: "not built yet" };
-  if (v.problems && v.problems.length) return { kind: "warn", text: "there's a problem with this file" };
-  if (v.total === 0) return { kind: "ok", text: "built" };
-  if (v.ok === v.total) return { kind: "ok", text: `built - all ${v.total} changes in place` };
-  return { kind: "warn", text: `built, but only ${v.ok} of ${v.total} changes are in it - rebuild` };
 }
 
 // The (rare) case of two different ticked mods changing the exact same icon or name entry to
@@ -174,10 +162,10 @@ async function useGameFilesPath(path) {
   return r.status;
 }
 
-// A collapsed "...or paste a path instead" row, revealed on click. `onUse` is called (and
-// expected to re-render) after a successful copy, same as the "Choose the folder..." button.
-function gameFilesPathRow(onUse) {
-  const wrap = cgEl("div");
+// "Or paste a path instead": a button added to the row of the folder button (`actions`, to the right of it, with a little space between), and
+// the row it reveals - returned, for the caller to put under `actions`. `onUse` is called (and expected to re-render) after a successful
+// copy, same as the "Choose the folder..." button.
+function gameFilesPathRow(onUse, actions) {
   const inputRow = cgEl("div", "uis-path-row");
   inputRow.hidden = true;
   const input = document.createElement("input");
@@ -193,13 +181,13 @@ function gameFilesPathRow(onUse) {
   });
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") go.click(); });
   inputRow.append(input, go);
-  const toggle = button("Or paste a path instead", "ghost small", () => {
+  const toggle = button("Or paste a path instead", "ghost small uis-paste-toggle", () => {
     toggle.hidden = true;
     inputRow.hidden = false;
     input.focus();
   });
-  wrap.append(toggle, inputRow);
-  return wrap;
+  actions.appendChild(toggle);
+  return inputRow;
 }
 
 // ---- "Where do I get these?": how to get the game's files, shared by the Setup step and Settings ----
@@ -289,44 +277,28 @@ function gameDataInstructions() {
   return guide;
 }
 
-// One block used by Settings and by the required Setup step.
-async function renderGameFilesBlock(container, onChange, compact) {
+// The Game files block of the required Setup step - the one place the game's files are chosen (Setup can be reopened any time from the step
+// bar; the voice editor has its own button for the case where they are missing). When the copy exists it says so plainly and offers to
+// update it from a new dump; the guide on how to get the files is shown above it by the step itself.
+async function renderGameFilesBlock(container, onChange) {
   const st = await pywebview.api.get_base_files_status();
   container.replaceChildren();
+  const refresh = async () => { await renderGameFilesBlock(container, onChange); if (onChange) onChange(); };
+  const row = cgEl("div", "uis-actions");
   if (st.done) {
-    if (compact) {
-      // The Setup step: say plainly that the original isn't needed any more, with links to both folders.
-      const msg = wizEl("div", "uis-good", "The app has created a ");
-      msg.append(st.copy_dir ? wizFolderLink("copy", st.copy_dir) : "copy",
-        " of the necessary game files. Feel free to delete your ",
-        st.source_exists ? wizFolderLink("original game dump", st.source) : "original game dump", ".");
-      container.appendChild(msg);
-    } else {
-      const when = formatWhen(st.copied_at) || "";
-      container.appendChild(cgEl("div", "uis-good", `Copied${when ? " " + when : ""}${st.source ? " from " + st.source : ""} - `
-        + `icons and text in ${st.locales.length} language${st.locales.length === 1 ? "" : "s"}, voice for ${st.voice_found} of ${st.voice_total} characters.`));
-    }
+    // Say plainly that the original isn't needed any more, with links to both folders.
+    const msg = wizEl("div", "uis-good", "The app has created a ");
+    msg.append(st.copy_dir ? wizFolderLink("copy", st.copy_dir) : "copy",
+      " of the necessary game files. Feel free to delete your ",
+      st.source_exists ? wizFolderLink("original game dump", st.source) : "original game dump", ".");
+    container.appendChild(msg);
     if (st.problems.length) container.appendChild(cgEl("div", "uis-warn", `${st.problems.length} file${st.problems.length === 1 ? "" : "s"} in that copy looked wrong and ${st.problems.length === 1 ? "was" : "were"} skipped: ${st.problems.join("; ")}`));
     if (st.voice_found < st.voice_total) container.appendChild(cgEl("div", "uis-note", `${st.voice_total - st.voice_found} character${st.voice_total - st.voice_found === 1 ? "" : "s"}' voice ${st.voice_total - st.voice_found === 1 ? "wasn't" : "weren't"} found in that folder - muting/replacing their default voice needs a selected voice mod for now instead.`));
-    const refresh = async () => { await renderGameFilesBlock(container, onChange, compact); if (onChange) onChange(); };
-    const row = cgEl("div", "uis-actions");
     row.appendChild(button("Update from a new dump...", "small", async () => { if (await chooseGameFiles()) await refresh(); }));
-    container.appendChild(row);
-    container.appendChild(gameFilesPathRow(refresh));
   } else {
-    if (!compact) container.appendChild(cgEl("p", "uis-p", "Menu icons, menu text, and every character's own default voice are all built on the game's own files. Choose them once and it works everywhere - no mod has to include them, and every character can be edited even with no voice mod selected."));
-    const refresh = async () => { await renderGameFilesBlock(container, onChange, compact); if (onChange) onChange(); };
-    const row = cgEl("div", "uis-actions");
     row.appendChild(button("Choose the folder...", "primary small", async () => { if (await chooseGameFiles()) await refresh(); }));
-    container.appendChild(row);
-    container.appendChild(gameFilesPathRow(refresh));
   }
-  if (!compact) {   // (the Setup step shows the guide itself, above this block)
-    const det = document.createElement("details");
-    det.appendChild(cgEl("summary", null, "Where do I get these?"));
-    det.appendChild(gameDataInstructions());
-    det.appendChild(cgEl("div", "uis-note", "The folder is only read once, to make a small local copy (a few hundred MB, not the whole extraction) - you don't need to keep it around afterward."));
-    container.appendChild(det);
-  }
+  container.appendChild(row);
+  container.appendChild(gameFilesPathRow(refresh, row));
 }
 

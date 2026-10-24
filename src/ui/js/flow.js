@@ -192,6 +192,84 @@ function formatWhen(iso) {
 // ---- Step 3: Commit ----
 const commitPage = { preview: null, result: null, busy: false };
 
+// ---- how far a commit is (merge() is one long call; the page asks get_commit_progress() every moment) ----
+// One bar for each phase of the commit: done ones are full, the one it is in fills as it goes (or slides, when it can't say how many
+// things there are yet), the rest are empty - with what it is doing and how long it has been going underneath.
+const COMMIT_COUNTED = { claims: "mods", copy: "files" };       // (the phases that say "x of y <these>")
+const commitProgress = { timer: null, last: null };
+
+function commitProgressPanel() {
+  const panel = cgEl("div", "cp");
+  panel.id = "commit-progress";
+  const head = cgEl("div", "cp-head");
+  head.append(cgEl("span", "cp-title", "Putting your mods together..."), cgEl("span", "cp-elapsed", "0:00"));
+  panel.append(head, cgEl("div", "cp-phases"), cgEl("div", "cp-detail", "Starting..."),
+    cgEl("div", "cp-note", "This can take a few minutes with a lot of mods. The app hasn't stopped - you can leave this page and the commit carries on."));
+  return panel;
+}
+
+function formatElapsed(seconds) {
+  const s = Math.floor(seconds);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function updateCommitProgress(p) {
+  const panel = document.getElementById("commit-progress");
+  if (!panel || !p || !p.active) return;
+  const phases = panel.querySelector(".cp-phases");
+  const signature = p.phases.map(x => x.id).join(",");
+  if (phases.dataset.signature !== signature) {
+    phases.dataset.signature = signature;
+    phases.replaceChildren(...p.phases.map(x => {
+      const phase = cgEl("div", "cp-phase");
+      phase.dataset.phase = x.id;
+      const fill = cgEl("div", "cp-fill");
+      const bar = cgEl("div", "cp-bar");
+      bar.appendChild(fill);
+      phase.append(bar, cgEl("div", "cp-name", x.label));
+      return phase;
+    }));
+  }
+  const at = p.phases.findIndex(x => x.id === p.phase);
+  p.phases.forEach((x, i) => {
+    const phase = phases.children[i];
+    const state = i < at ? "done" : i === at ? "now" : "todo";
+    const known = state === "now" && p.total;
+    phase.className = "cp-phase " + state + (state === "now" && !known ? " cp-unknown" : "");
+    // (the one it is in always shows a little, so a phase that has only just begun doesn't look like it hasn't)
+    phase.querySelector(".cp-fill").style.width = state === "done" ? "100%" : known ? `${Math.max(4, Math.min(100, Math.round(100 * p.done / p.total)))}%` : "";
+    phase.querySelector(".cp-name").textContent = (state === "done" ? "\u2713 " : "") + x.label;
+  });
+  const label = p.phases[at].label;
+  const unit = COMMIT_COUNTED[p.phase];
+  panel.querySelector(".cp-detail").textContent = unit && p.total ? `${label}: ${p.done.toLocaleString()} of ${p.total.toLocaleString()} ${unit}`
+    : p.detail ? `${label}: ${p.detail}` : `${label}...`;
+  panel.querySelector(".cp-elapsed").textContent = formatElapsed(p.elapsed);
+}
+
+function startCommitProgress() {
+  clearInterval(commitProgress.timer);
+  commitProgress.last = null;
+  let asked = 0, shown = 0;
+  const poll = async () => {
+    const mine = ++asked;
+    let p;
+    try { p = await pywebview.api.get_commit_progress(); } catch (e) { return; }      // (a missed look costs nothing: the next one is soon)
+    if (mine < shown || !commitPage.busy) return;       // (an older answer that arrived after a newer one would move the bars backwards)
+    shown = mine;
+    commitProgress.last = p;
+    updateCommitProgress(p);
+  };
+  commitProgress.timer = setInterval(poll, 250);
+  poll();
+}
+
+function stopCommitProgress() {
+  clearInterval(commitProgress.timer);
+  commitProgress.timer = null;
+  commitProgress.last = null;
+}
+
 async function renderCommitPage() {
   const body = document.getElementById("commit-body");
   body.replaceChildren();
@@ -218,31 +296,50 @@ async function renderCommitPage() {
   renderNextButton();
 }
 
+// A note on the Commit page, by what it asks of the user. The shape says so as well as the colour (a warning triangle, an arrow for "your move",
+// an "i"; drawn as pictures, so they look the same whatever fonts the computer has), the left stripe repeats it, and one action is a button at the right. A list of mods or characters is behind "Show the N mods", in a
+// box of limited height - the card is about what is wrong, and which mods is the second question.
+const PG_WARN_ICON = {
+  warn: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+  todo: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="m12 16 4-4-4-4"/></svg>',
+  info: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+};
+const PG_WARN_WORD = { warn: "Check: ", todo: "To do: ", info: "Note: " };
+
 function pgWarnEl(w) {
   const row = cgEl("div", "pg-warn " + w.severity);
-  row.appendChild(cgEl("span", "dot"));
-  const t = cgEl("div");
-  t.appendChild(cgEl("div", "wt", w.title));
+  const icon = cgEl("span", "pg-icon");
+  icon.setAttribute("aria-hidden", "true");
+  icon.innerHTML = PG_WARN_ICON[w.severity] || "";
+  row.appendChild(icon);
+  const t = cgEl("div", "pg-warn-text");
+  const title = cgEl("div", "wt");
+  title.append(cgEl("span", "pg-sr", PG_WARN_WORD[w.severity] || ""), w.title);
+  t.appendChild(title);
   t.appendChild(cgEl("div", "wd", w.detail));
-  if ((w.mods && w.mods.length) || (w.items && w.items.length) || w.action === "guessed-names" || w.action === "settings") {
-    const m = cgEl("div", "wm");
-    if (w.action === "guessed-names") m.appendChild(button("Review names", "ghost small", openGuessedNamesModal));
-    if (w.action === "settings") m.appendChild(button("Open Settings", "ghost small", () => openSettingsModal()));
-    for (const item of (w.items || []).slice(0, 8)) {
-      const a = cgEl("a", null, item);
-      a.addEventListener("click", () => { goStep("mods"); if (isItemName(item)) openItemCard(item); else openCharacterModal(item); });
-      m.appendChild(a);
+  const names = (w.items || []).map(item => ({ label: item, go: () => { goStep("mods"); if (isItemName(item)) openItemCard(item); else openCharacterModal(item); } }))
+    .concat((w.mods || []).map(k => ({ label: modLabel(k), go: () => jumpToModKey(k) })));
+  if (names.length) {
+    const noun = (w.items && w.items.length) ? "character" : "mod";
+    const list = document.createElement("details");
+    list.className = "pg-list";
+    list.appendChild(cgEl("summary", null, `Show the ${names.length === 1 ? noun : names.length + " " + noun + "s"}`));
+    const listBody = cgEl("div", "pg-list-body");
+    for (const n of names) {
+      const a = cgEl("a", null, n.label);
+      a.addEventListener("click", n.go);
+      listBody.appendChild(a);
     }
-    const shown = (w.mods || []).slice(0, 6);
-    for (const k of shown) {
-      const a = cgEl("a", null, modLabel(k));
-      a.addEventListener("click", () => jumpToModKey(k));
-      m.appendChild(a);
-    }
-    if ((w.mods || []).length > shown.length) m.appendChild(cgEl("span", "cg-note", `and ${w.mods.length - shown.length} more`));
-    t.appendChild(m);
+    list.appendChild(listBody);
+    t.appendChild(list);
   }
   row.appendChild(t);
+  const act = w.action === "guessed-names" ? button("Review names", "small", openGuessedNamesModal)
+    : w.action === "settings" ? button("Open Settings", "small", () => openSettingsModal()) : null;
+  if (act) {
+    act.classList.add("pg-warn-act");
+    row.appendChild(act);
+  }
   return row;
 }
 
@@ -260,16 +357,23 @@ function drawCommitPage() {
   const c = pv.counts;
   const res = commitPage.result;
   const committedNow = res && res.staged && pv.already;
+  // what the page shows of the notes: the ones that ask for something (warn, todo) first and open, the rest as "Notes" behind one line;
+  // a note only the log needs is left out
+  const shown = (pv.warnings || []).filter(w => !w.log_only);
+  const order = { warn: 0, todo: 1, info: 2 };
+  const attention = shown.filter(w => w.severity !== "info").sort((a, b) => order[a.severity] - order[b.severity]);
+  const notes = shown.filter(w => w.severity === "info");
+  const checks = attention.length ? ` - ${attention.length} thing${attention.length === 1 ? "" : "s"} to check` : "";
 
   if (pv.groups.length) {
     body.appendChild(statusCard("bad", "!", `${pv.groups.length} thing${pv.groups.length === 1 ? "" : "s"} need${pv.groups.length === 1 ? "s" : ""} your attention`,
       "Some mods change the same files. Settle each one below - it takes one click - and then you can commit."));
   } else if (committedNow) {
-    body.appendChild(statusCard("ok", "✓", "Committed",
+    body.appendChild(statusCard(attention.length ? "wait" : "ok", "✓", "Committed" + checks,
       `${c.mods} mods, ${c.files} files` + (c.code_patches ? `, ${c.code_patches} code patch${c.code_patches === 1 ? "" : "es"}` : "")
       + (c.left_out ? ` · ${c.left_out} file${c.left_out === 1 ? "" : "s"} left out on purpose` : "") + ` · ${formatWhen(res.at)}`));
   } else if (pv.already) {
-    body.appendChild(statusCard("ok", "✓", "Already committed - nothing has changed since",
+    body.appendChild(statusCard(attention.length ? "wait" : "ok", "✓", "Already committed - nothing has changed since" + checks,
       `${c.mods} mods, ${c.files} files. Commit again only if you change your mods.`));
   } else {
     body.appendChild(statusCard("wait", "→", `Ready to commit ${c.mods} mod${c.mods === 1 ? "" : "s"}`,
@@ -302,15 +406,27 @@ function drawCommitPage() {
   if (!pv.can_commit) commitBtn.title = "Settle the clashes above first";
   cta.appendChild(commitBtn);   // (the staging folder is opened from the next page, which walks through what to do with it)
   body.appendChild(cta);
+  if (commitPage.busy) {
+    body.appendChild(commitProgressPanel());
+    updateCommitProgress(commitProgress.last);      // (the page was drawn again part-way: show where it is at once, not after the next look)
+  }
 
   if (res && res.conflict === false && !res.staged) {
     body.appendChild(statusCard("bad", "!", "Nothing was committed", (res.lines || []).join(" ")));
   }
 
-  if (pv.warnings.length) {
-    body.appendChild(cgEl("div", "pg-section", "Good to know"));
-    const order = { warn: 0, todo: 1, info: 2 };
-    for (const w of pv.warnings.slice().sort((a, b) => order[a.severity] - order[b.severity])) body.appendChild(pgWarnEl(w));
+  if (attention.length) {
+    body.appendChild(cgEl("div", "pg-section", "Needs your attention"));
+    for (const w of attention) body.appendChild(pgWarnEl(w));
+  }
+  if (notes.length) {
+    const group = document.createElement("details");
+    group.className = "pg-notes";
+    group.appendChild(cgEl("summary", null, `Notes (${notes.length})`));
+    const groupBody = cgEl("div", "pg-notes-body");
+    for (const w of notes) groupBody.appendChild(pgWarnEl(w));
+    group.appendChild(groupBody);
+    body.appendChild(group);
   }
 
   if (res && res.lines) {
@@ -333,6 +449,7 @@ function drawCommitPage() {
 async function doCommit() {
   commitPage.busy = true;
   drawCommitPage();
+  startCommitProgress();
   const keys = selectedKeys();
   let result;
   try {
@@ -343,6 +460,7 @@ async function doCommit() {
     result = { lines: (header ? [header, ""] : []).concat(["Commit failed: " + e]), conflict: false, staged: false };
   }
   commitPage.busy = false;
+  stopCommitProgress();
   commitPage.result = result;
   uiSetup.data = null;   // merge() may have just (re)built the menu icons & text - Settings must re-read
   await renderCommitPage();
@@ -356,9 +474,9 @@ function buildTroubleshooting() {
   const tb = cgEl("div", "uis-note");
   tb.style.fontSize = "12.5px";
   const items = [
-    "The game crashes on startup, or the menus are blank. This is usually a file made for a different game version. Open Settings > UI icons & text and click \"Undo\", then commit and copy again. (Tip: hold L while the game starts to turn all mods off for that launch.)",
+    "The game crashes on startup, or the menus are blank. This is usually a file made for a different game version. Deselect the mods that change menu pictures or names (all of them, to find out), then commit and copy again. (Tip: hold L while the game starts to turn all mods off for that launch.)",
     "A mod doesn't show up. Make sure it's selected and that you committed after selecting it. Code patches only work on the game version they were made for, so check your version in Setup.",
-    "Menu text is in the wrong language. Open Settings > UI icons & text, pick the language your Switch uses, then commit and copy again.",
+    "Menu text is in the wrong language. Open Settings > Game language, pick the language your Switch uses, then commit and copy again.",
     "A course or character still shows its old picture or name after you deselected its mod. Copying onto an SD card only adds and replaces files, so the old ones stay behind. Delete atmosphere/contents/0100152000022000/romfs on the SD card (or your emulator's mod folder), then copy the staging folder over fresh.",
   ];
   const ul = document.createElement("ul");
@@ -370,12 +488,13 @@ function buildTroubleshooting() {
   return trouble;
 }
 
-// Plain pictures for the three ways to help (a thumbs-up, a star, a cup of coffee), drawn for this app: not the logos of GameBanana, GitHub or
-// Buy Me a Coffee, which are theirs and come with rules about who may show them. They take the colour of the text around them.
+// Plain pictures for the ways to help (a thumbs-up, a star, a cup of coffee, a speech bubble), drawn for this app: not the logos of GameBanana,
+// GitHub, Buy Me a Coffee or Discord, which are theirs and come with rules about who may show them. They take the colour of the text around them.
 const SUPPORT_ICONS = {
   like: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3" y="10" width="4" height="10" rx="1"/>'
     + '<path d="M9 20V10.5l3.2-6.2c.3-.6 1-.8 1.6-.5.6.3.9 1 .7 1.6L14 9h4.6c1.2 0 2 1.1 1.7 2.2l-1.6 6.6c-.2.8-.9 1.2-1.7 1.2H9z"/></g></svg>',
   star: '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon fill="currentColor" points="12,2.5 14.9,8.9 21.8,9.6 16.6,14.2 18.1,21 12,17.5 5.9,21 7.4,14.2 2.2,9.6 9.1,8.9"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>',
   coffee: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9z"/>'
     + '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2M11 3.5v2M14 3.5v2"/></svg>',
 };
@@ -392,6 +511,7 @@ function supportCard() {
     GAMEBANANA_PAGE_URL && { icon: "like", label: "Like it on GameBanana", why: "The more likes the page has, the more people find it.", open: "Open GameBanana", url: GAMEBANANA_PAGE_URL },
     { icon: "star", label: "Star it on GitHub", why: "It helps other modders find the project.", open: "Open GitHub", url: GITHUB_URL },
     { icon: "coffee", label: "Buy me a coffee", why: "If you feel so inclined.", open: "Open Buy Me a Coffee", url: SUPPORT_URL },
+    { icon: "chat", label: "Join the Discord", why: "Get help, share ideas, or work on mods together.", open: "Open Discord", url: DISCORD_URL },
   ].filter(Boolean);
   for (const way of ways) {
     const row = cgEl("div", "pg-support-way");

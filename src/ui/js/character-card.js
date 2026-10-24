@@ -1085,7 +1085,7 @@ function openCharacterModal(name) {
         const badge = document.createElement("span");
         badge.className = "packed-badge";
         badge.textContent = "packed archive only";
-        badge.title = "Every file in this mod is a packed .sarc (common/menu/message), which a commit never copies in directly - the app builds the combined menu pictures and text from it when you commit. See Help.";
+        badge.title = "Every file in this mod is a packed .sarc (common/menu/message), which a commit never copies in directly - the app builds the combined menu pictures and text from it when you commit.";
         row.insertBefore(badge, row.querySelector("button"));
       }
     });
@@ -1102,7 +1102,7 @@ function openCharacterModal(name) {
         badge.className = "patch-badge";
         badge.textContent = "code patch" + (builds ? ` · ${builds}` : "");
         badge.title = "An exefs code patch: it patches the game's executable and only works on the exact game version (build id) it was made for. Build id(s): "
-          + patch.ids.map(i => i.id).join(", ") + ".";
+          + patch.ids.map(i => i.id).join(", ") + ". Select All skips code patches, so select each one yourself.";
         const firstButton = row.querySelector("button");
         row.insertBefore(badge, firstButton);
         if (patch.inert) {

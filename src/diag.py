@@ -22,7 +22,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-LOG_PATH = None   # the packaged build's mod-manager.log (set by mod_manager); None when running from source
+LOG_PATH = None   # mod-manager.log (set by mod_manager when the app runs as the program, packaged or from source); None otherwise
 
 # C:\Users\name (any drive), and /Users/name or /home/name written without a drive (a path from another system, kept in a manifest)
 _USER_DIR = re.compile(r"(?:(?<![A-Za-z])[A-Za-z]:|(?<![\w\\/.]))[\\/]+(?:Users|home)[\\/]+[^\\/\s\"'<>|:*?]+", re.IGNORECASE)

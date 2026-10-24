@@ -100,7 +100,7 @@ everything a mod ships with a checkbox each).
   file. Code patches (`exefs/...` pseudo-paths) can't be split - only "untick".
 * Cards are `buildConflictCard()` in the frontend and appear in the mod popup
   (clashes with *any* ticked mod, not just the same item's), the Commit page and
-  Settings > "Conflicts & left-out files" (always visible; Advanced mode no
-  longer gates it). The older `conflict-resolutions.json` priority list is
+  Settings > "Conflicts and omitted files" (a Review button with a one-line summary beside it, which opens the full list in a modal of its own, since it
+  can grow long; always available, Advanced mode no longer gates it). The older `conflict-resolutions.json` priority list is
   still honoured when present but nothing writes to it any more.
 * Exclusions of a mod that is no longer downloaded are dropped lazily.

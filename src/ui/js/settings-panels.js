@@ -40,10 +40,9 @@ async function renderUiIconWorklist() {
   }
 }
 
-// Settings' "UI icons & text" card: a normal commit builds these automatically (see merge() in
+// Settings' "Game language" card: a normal commit builds these automatically (see merge() in
 // mod_manager.py), so this is language (a set-once, rarely-touched preference - not worth a card
-// of its own on the Commit page every time), the rare pick-which-mod-wins conflict, and everything
-// for looking at the result without committing, undoing it, or doing it by hand. A preview of what
+// of its own on the Commit page every time) and the rare pick-which-mod-wins conflict. A preview of what
 // each ticked mod actually changes deliberately isn't rebuilt here - that's what the character/
 // course card's own Menu look already shows, in context, which is a better place for it than a
 // second copy here.
@@ -56,42 +55,16 @@ async function renderUiSetupSettingsCard() {
   body.replaceChildren();
   if (d.error) { body.appendChild(uisEl("div", "uis-warn", d.error)); return; }
 
-  const sel = document.createElement("select");
-  const byCode = new Map(d.locales.map(l => [l.code, l]));
-  for (const l of d.all_locales) {
-    const o = document.createElement("option");
-    o.value = l.code;
-    const info = byCode.get(l.code);
-    o.textContent = info ? `${l.label} - ${info.changes} name/text change${info.changes === 1 ? "" : "s"} from ${info.mods} mod${info.mods === 1 ? "" : "s"}` : `${l.label} - none of your mods change this language`;
-    sel.appendChild(o);
-  }
-  sel.value = d.locale;
-  sel.addEventListener("change", async () => {
-    state.settings.ui_setup_locale = sel.value;
-    await pywebview.api.save_settings(state.settings);
-    uiSetup.data = null;
-    scheduleFlowRefresh();
-    await renderUiSetupSettingsCard();
-  });
-  body.appendChild(sel);
-  if (d.locale === "USen" || d.locale === "EUen") {
-    const lab = uisEl("label", "uis-note");
-    lab.style.display = "block";
-    lab.style.cursor = "pointer";
-    lab.style.marginBottom = "4px";
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = !!state.settings.ui_setup_extra_english;
-    cb.style.marginRight = "6px";
-    cb.addEventListener("change", async () => {
-      state.settings.ui_setup_extra_english = cb.checked;
-      await pywebview.api.save_settings(state.settings);
-      scheduleFlowRefresh();
-    });
-    lab.appendChild(cb);
-    lab.appendChild(document.createTextNode(
-      `My Switch is set to English but I'm not sure which kind - also build ${d.locale === "USen" ? "European/UK English (EUen)" : "American English (USen)"}, so it works either way`));
-    body.appendChild(lab);
+  // the language (and the English variant) are settings like any other: drawn by settings-registry.js. The one thing worth saying about the
+  // mods here is when they would do nothing: none of them change the chosen language, but some change another.
+  const languageHost = document.createElement("div");
+  body.appendChild(languageHost);
+  await renderSettingsGroup("ui-text", languageHost);
+  const chosen = state.settings.ui_setup_extra_english && (d.locale === "USen" || d.locale === "EUen") ? ["USen", "EUen"] : [d.locale];   // (English (unspecified) builds both)
+  const others = d.locales.filter(l => !chosen.includes(l.code)).map(l => l.label);
+  if (others.length && !d.locales.some(l => chosen.includes(l.code))) {
+    const shown = others.slice(0, 3).join(", ") + (others.length > 3 ? ` and ${others.length - 3} more` : "");
+    body.appendChild(uisEl("p", "uis-note", `None of your mods change this language - they change ${shown}.`));
   }
 
   const conflictEls = d.archives.map(renderUiArchiveConflicts).filter(Boolean);
@@ -100,136 +73,11 @@ async function renderUiSetupSettingsCard() {
     for (const el of conflictEls) body.appendChild(el);
   }
 
-  if (!d.any_sources) {
-    body.appendChild(uisEl("div", "settings-hint", "None of your currently selected mods change menu icons or names, so there's nothing built right now. Select one and this fills in."));
-    return;
-  }
-
-  const states = d.archives.map(a => ({ a, st: uisBuiltState(a) }));
-  for (const { a, st } of states) {
-    const [title, file] = uisArchiveTitle(a);
-    const row = uisEl("div", "uis-result");
-    row.appendChild(uisEl("span", "st " + st.kind, st.kind === "ok" ? "✓" : st.kind === "warn" ? "⚠" : "•"));
-    row.appendChild(uisEl("span", null, `${file} (${title}) - ${st.text}`));
-    body.appendChild(row);
-  }
-  body.appendChild(uisEl("p", "uis-note", "Built automatically the next time you commit. Files are saved to: " + d.ui_folder));
-
-  const acts = uisEl("div", "uis-actions");
-  const rebuildBtn = uisEl("button", "ghost small", "Rebuild now");
-  rebuildBtn.title = "Builds without waiting for a commit - useful to inspect the files, or if you undid them and want them back without re-committing.";
-  rebuildBtn.addEventListener("click", async () => {
-    rebuildBtn.disabled = true;
-    rebuildBtn.textContent = "Building...";
-    const locales = [d.locale];
-    if (state.settings.ui_setup_extra_english && (d.locale === "USen" || d.locale === "EUen")) {
-      locales.push(d.locale === "USen" ? "EUen" : "USen");
-    }
-    uiSetup.lastBuild = await pywebview.api.build_ui_setup(locales);
-    uiSetup.data = null;
-    await renderUiSetupSettingsCard();
-    scheduleFlowRefresh();
-  });
-  acts.appendChild(rebuildBtn);
-  const folderBtn = uisEl("button", "ghost small", "Open the folder");
-  folderBtn.addEventListener("click", () => pywebview.api.open_ui_setup_folder());
-  acts.appendChild(folderBtn);
-  if (states.some(x => x.st.kind !== "todo")) {
-    const undoBtn = uisEl("button", "ghost small", "Undo (remove the built files)");
-    undoBtn.title = "Puts the game back to its own menus - your built files are kept in a backup folder";
-    undoBtn.addEventListener("click", async () => {
-      if (!confirm("Remove the built UI files? The game will use its own menu icons and text again (a backup copy is kept).")) return;
-      await pywebview.api.reset_ui_setup([d.locale, "USen", "EUen"]);
-      uiSetup.data = null;
-      await renderUiSetupSettingsCard();
-      scheduleFlowRefresh();
-    });
-    acts.appendChild(undoBtn);
-  }
-  body.appendChild(acts);
-
-  const lb = uiSetup.lastBuild;
-  if (lb) {
-    if (!lb.success) {
-      body.appendChild(uisEl("div", "uis-warn", lb.error));
-    } else {
-      for (const r of lb.results) {
-        if (r.error) body.appendChild(uisEl("div", "uis-warn", `${r.archive}: ${r.error}`));
-      }
-    }
-  }
-
-  const adv = document.createElement("details");
-  adv.appendChild(uisEl("summary", null, "Advanced: prefer to do this by hand in another program?"));
-  const advBody = uisEl("div", "uis-note");
-  advBody.style.fontSize = "12.5px";
-  advBody.appendChild(uisEl("p", null, "You don't need to - committing does everything. If you'd still rather use a tool such as Switch Toolbox (github.com/KillzXGaming/Switch-Toolbox), know that: the icons are inside nested archives (common.sarc → cm_L_CharaIcon_00.szs → timg/__Combined.bntx, and menu.sarc → mn_L_CharaIcon_00.szs → the same); a whole-file swap would wipe out other mods' icons, so textures have to be copied one at a time; and community guides report that editing message.sarc's text inside Switch Toolbox itself can corrupt it (a separate MSBT editor is recommended). We couldn't test those steps ourselves."));
-  advBody.appendChild(uisEl("p", null, "Whichever way you make them, save the finished files at the paths shown above, then click Check my work - it compares them against each mod's changes and shows exactly what's in and what's missing."));
-  const guides = uisEl("p");
-  guides.appendChild(document.createTextNode("Community guides: "));
-  for (const [label, url] of [["Adding custom character icons", "https://gamebanana.com/tuts/15599"], ["Editing message.sarc", "https://gamebanana.com/tuts/15589"]]) {
-    const a2 = uisEl("a", "help-ext-link", label);
-    a2.dataset.url = url;
-    a2.style.marginRight = "12px";
-    a2.style.cursor = "pointer";
-    a2.addEventListener("click", () => pywebview.api.open_help_link(url));
-    guides.appendChild(a2);
-  }
-  advBody.appendChild(guides);
-  const check = uisEl("button", "ghost small", "Check my work");
-  check.addEventListener("click", async () => { check.disabled = true; check.textContent = "Checking..."; uiSetup.data = null; await renderUiSetupSettingsCard(); });
-  advBody.appendChild(check);
-  adv.appendChild(advBody);
-  body.appendChild(adv);
+  // (what was built, file by file, isn't listed: nothing here can be done about it - a commit builds it, and the step bar says when one is due.
+  // A file that is damaged is the one thing worth saying.)
+  const damaged = d.archives.filter(a => a.verify && a.verify.problems && a.verify.problems.length).map(a => uisArchiveTitle(a)[1]);
+  if (damaged.length) body.appendChild(uisEl("div", "uis-warn", `A built menu file has a problem (${damaged.join(", ")}) - commit again to build it fresh.`));
 }
-
-document.getElementById("setting-show-nsfw").addEventListener("change", async (e) => {
-  state.settings.show_nsfw = e.target.checked;
-  await pywebview.api.save_settings(state.settings);
-});
-
-document.getElementById("setting-game-version").addEventListener("change", async (e) => {
-  await pywebview.api.set_game_version(e.target.value);
-  state.settings = await pywebview.api.get_settings();
-  document.getElementById("setting-game-build-id").value = state.settings.game_build_id || "";
-  document.getElementById("setting-game-build-id-error").hidden = true;
-  flow.status = await pywebview.api.get_flow_status();
-  renderStepBar();
-});
-
-document.getElementById("setting-game-build-id").addEventListener("change", async (e) => {
-  const errEl = document.getElementById("setting-game-build-id-error");
-  const value = e.target.value.trim().toUpperCase();
-  // Empty (check off), 32 hex characters, or just the first 16 (how the app matches them) - anything else is a typo
-  // that would otherwise silently flag every patch as the wrong version.
-  if (value !== "" && !/^([0-9A-F]{16}|[0-9A-F]{32})$/.test(value)) {
-    errEl.textContent = "A build ID is 32 hex characters (0-9, A-F), or just its first 16.";
-    errEl.hidden = false;
-    return;
-  }
-  errEl.hidden = true;
-  e.target.value = value;
-  state.settings.game_build_id = value;
-  await pywebview.api.save_settings(state.settings);
-});
-
-document.getElementById("setting-show-tile-counts").addEventListener("change", async (e) => {
-  state.settings.show_tile_counts = e.target.checked;
-  await pywebview.api.save_settings(state.settings);
-  renderCharacterGrid();
-});
-
-document.getElementById("setting-play-select-voice").addEventListener("change", async (e) => {
-  state.settings.play_select_voice = e.target.checked;
-  await pywebview.api.save_settings(state.settings);
-  if (!e.target.checked) voiceStop();
-});
-
-document.getElementById("setting-advanced-mode").addEventListener("change", async (e) => {
-  state.settings.advanced_mode = e.target.checked;
-  await pywebview.api.save_settings(state.settings);
-  renderConflicts();
-});
 
 // Shared by the first-run setup overlay and the Settings "Change..." flow:
 // renders the "here's what you picked, bring your files or start fresh?"
@@ -316,40 +164,6 @@ async function runMasterDirSetup() {
   }, runMasterDirSetup);
 }
 document.getElementById("btn-setup-choose-folder").addEventListener("click", runMasterDirSetup);
-
-function openChangeMasterDirModal() {
-  document.getElementById("modal-backdrop").classList.add("above-settings");
-  openCharacter = null;
-  document.getElementById("modal-title").textContent = "Change Master Directory";
-  const body = document.getElementById("modal-body");
-  body.innerHTML = "";
-
-  const container = document.createElement("div");
-  body.appendChild(container);
-
-  async function start() {
-    const chosen = await pywebview.api.pick_master_dir();
-    if (!chosen) return;
-    renderMasterDirConfirmStep(container, chosen, async () => {
-      closeModal();
-      await loadMods();
-      await loadSettings();
-    }, start);
-  }
-
-  const intro = document.createElement("p");
-  intro.className = "clear-all-warning";
-  intro.textContent = "Choose a new folder for your mods, downloads, and settings.";
-  container.appendChild(intro);
-  const chooseBtn = document.createElement("button");
-  chooseBtn.className = "primary small";
-  chooseBtn.textContent = "Choose Folder…";
-  chooseBtn.addEventListener("click", start);
-  container.appendChild(chooseBtn);
-
-  document.getElementById("modal-backdrop").hidden = false;
-}
-document.getElementById("btn-change-master-dir").addEventListener("click", openChangeMasterDirModal);
 
 function openClearAllConfirmModal() {
   document.getElementById("modal-backdrop").classList.add("above-settings");

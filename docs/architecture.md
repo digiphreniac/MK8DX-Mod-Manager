@@ -53,11 +53,17 @@ The backend modules, every file the app keeps in the master folder, how the fron
   name>`, so e.g. every Waluigi mod sits together under `extracted/
   characters/Waluigi/` instead of as separate flat `Waluigi - ...` folders -
   this happens automatically (see "Folder naming" below).
-- `ui-icons/` - the combined character-select icon set and menu text: either
-  files you built by hand (stays separate from the checklist) or the ones
+- `ui-icons/` - the combined character-select icon set and menu text that
   **menu icons & text** builds for you, automatically, as part of every commit
   (`ui-icons/romfs/UI/cmn/common.sarc`, `menu.sarc`, `UI/<locale>/message.sarc`
-  - see [Menu icons & text](menu-icons-and-text.md#menu-icons--text-combined-character-icons-and-coursecharacter-names)). Always merged in.
+  - see [Menu icons & text](menu-icons-and-text.md#menu-icons--text-combined-character-icons-and-coursecharacter-names)); a commit
+  replaces those three files (keeping the old one in `ui-icons-backups/`). Any other file the user puts there themselves, such as
+  a loose texture from the UI Icon Worklist, stays separate from the checklist. Always merged in.
+- `sd-card-staging/` - what a commit builds, ready to copy onto the SD card (`atmosphere/contents/<title id>/romfs`, `atmosphere/exefs_patches/`).
+  The recommended place is inside the data folder (so it moves with it); an install from before that keeps the folder it already has
+  *next to* the data folder, shown as "Existing folder", until **Use the recommended folder** switches it. **Settings > Staging folder**
+  (`staging_folder`: "" = the default, `@data` = inside the data folder whatever else exists, or a path; `Api._staging_dir()`) chooses another. Nothing is moved when it changes, and
+  the last commit stops counting (its files are not in the new place). It is not asked in Setup.
 - `ui-icons-backups/` - a timestamped copy of any file in `ui-icons/` that a
   build replaced or removed (never deleted automatically)
 - `excluded-files.json` - files each mod must NOT contribute to a commit (how
@@ -140,7 +146,7 @@ Which file holds what, roughly: `tiles-and-review.js` (character/course tiles, t
 `gb-browse.js` (the Browse GameBanana window), `rich-text.js` (descriptions with links),
 `voice.js` (playback, the voice editor, the "Use my own sound" tool, the card's Voice row), `character-card.js` (the card
 itself and its Name / Icons walkthroughs), `help-and-icon-generator.js`, `views.js` (Full List, More, Course Select, tab switching; `renderAll()` draws the screen being looked at at once and the others one at a time a moment later), `api-coalesce.js` (identical read-only backend calls made at the same moment share one answer, and `conflictCount()` sends every tile's conflict question of one draw as a single `check_conflict_counts` call). A tick redraws only the screen it changed (`refreshBehindModal({ifChanged: true})`, see `viewSignature()` in `views.js`), bursts of refreshes are merged into one redraw, and the character icons and course pictures the page already holds are not sent again (`get_character_tile_view`'s `known_icons`, `courseDefaultPictures`; emptied by `resetPictureCaches()` when the game's files change), `vehicle-screen.js` (the Vehicles screen), `vehicle-card.js` (the vehicle card's "Right part" step), `item-screen.js` (the Items screen, its docked card and fit), `item-card.js` (the item card), `course-card.js` (the course card's Name and Icons steps), `add-mod.js`, `data-and-conflicts.js` (loading mods and settings, conflict cards),
-`settings-panels.js` (master directory, UI setup card), `menu-icons-text.js` / `menu-look.js` (the base-file copy and the
+`settings-registry.js` (every setting, defined once, drawn by Settings and Setup alike), `settings-panels.js` (the UI setup card, the data-folder confirmation), `menu-icons-text.js` / `menu-look.js` (the base-file copy and the
 Menu Look cards), `flow.js` (step bar, Commit, Copy to Switch), `setup-wizard.js`, `tooltips.js`.
 
 ## Folder naming: nested by item, not flat "item - mod name"

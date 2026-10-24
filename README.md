@@ -78,16 +78,17 @@ The four steps are shown across the top of the window:
    the combined files. Nothing on your SD card is touched.
 4. **Copy to Switch** - copy the staged files onto your SD card.
 
-The built files appear in a folder called **`sd-card-staging`**, created **next to** the
-`data` folder, in `sd-card-staging\atmosphere\contents\0100152000022000\`. The
-app can open it for you. Copy the `atmosphere` folder from there onto the root of your SD card,
+The built files appear in a folder called **`sd-card-staging`**, inside the
+`data` folder, in `sd-card-staging\atmosphere\contents\0100152000022000\`. (An install that
+already had one next to the `data` folder keeps using it until you switch it. **Settings > Staging
+folder** can point it somewhere else.) The app can open it for you. Copy the `atmosphere` folder from there onto the root of your SD card,
 merging when asked. The in-app **Help** button explains each screen in more detail.
 
 ## Troubleshooting
 
 - **The app says it has to close, or nothing opens** - the details are in `mod-manager.log` next to
   the `.exe` (every run is added to it, so it still holds the run that went wrong). Include that file when you report the problem.
-  If the app opens, **Help > Copy details** puts the same information on your clipboard.
+  If the app opens, **Help > Show log file** opens the folder with that file selected.
 - **"Failed to load Python DLL ... filename or extension is too long"** - move the folder to a
   shorter path such as `C:\MK8DX-Mod-Manager`.
 - **"Failed to resolve Python.Runtime.Loader.Initialize" in `mod-manager.log` (version 0.1.0 only)** - Windows blocked the
@@ -103,6 +104,11 @@ merging when asked. The in-app **Help** button explains each screen in more deta
 - **Running from source: something broke after an update** - delete the `.venv` folder and launch again
   to rebuild it.
 - **Debug mode** (from source) - run `Run Mod Manager (Dev).bat` to turn on the browser developer tools.
+
+## Help and community
+
+Questions, a problem the steps above don't fix, or want to work on mods with other people? Join the
+[Discord](https://discord.gg/mNShnnu8j8).
 
 ## Disclaimer
 

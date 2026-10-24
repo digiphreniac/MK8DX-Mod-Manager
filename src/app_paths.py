@@ -47,12 +47,49 @@ def _trim_log(path):
         pass   # (a log that can't be trimmed is still a log)
 
 
-def redirect_output_to_log():
+class _Tee:
+    """Stands in for stdout/stderr when the app is run from source: everything goes to the log file and, as before, to the console (if there
+    is one). A character the console can't show must not cost the line in the log, so the file is written first and the console's errors
+    are ignored."""
+
+    def __init__(self, console, log):
+        self._console, self._log = console, log
+
+    def write(self, text):
+        self._log.write(text)
+        if self._console is not None:
+            try:
+                self._console.write(text)
+            except (UnicodeError, OSError):
+                pass
+        return len(text)
+
+    def flush(self):
+        for stream in (self._log, self._console):
+            try:
+                if stream is not None:
+                    stream.flush()
+            except (OSError, ValueError):
+                pass
+
+    def __getattr__(self, name):   # (isatty, encoding, fileno... answer as the console would)
+        return getattr(self._console if self._console is not None else self._log, name)
+
+
+def current_log_path():
+    """The log's path if redirect_output_to_log() has run in this process, else None."""
+    return _log_path
+
+
+def redirect_output_to_log(tee=False):
     """A packaged (windowed) build has no console, so stdout/stderr are None. Point them at
     mod-manager.log next to the app (the temp folder if that isn't writable) so messages from
     the app and its libraries are kept - the file is what to attach to a bug report. Every run adds to the file (a line
     marks where each starts), so relaunching to "try once more" doesn't destroy the evidence; the oldest entries are cut when it
     grows past LOG_MAX_BYTES. Returns the log's path.
+
+    `tee=True` (the app run from source, which has a console): the console keeps getting everything too. If no log file can be opened
+    then, nothing is changed and None is returned (the packaged build falls back to discarding its output instead).
 
     Done once per process: the app runs as `__main__` and some modules import it again by name (game_files does, late), which runs its
     top level a second time - without this the second call would add a second "started" line and open the file again."""
@@ -72,13 +109,18 @@ def redirect_output_to_log():
         except OSError:
             continue
     if stream is None:
+        if tee:
+            return None
         stream = open(os.devnull, "w")
     try:
         import faulthandler
         faulthandler.enable(file=stream)   # (a crash inside a native library still leaves where Python was)
     except Exception:   # noqa: BLE001
         pass
-    sys.stdout = sys.stderr = stream
+    if tee:
+        sys.stdout, sys.stderr = _Tee(sys.stdout, stream), _Tee(sys.stderr, stream)
+    else:
+        sys.stdout = sys.stderr = stream
     _log_path = stream.name
     return _log_path
 

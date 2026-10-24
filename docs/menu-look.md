@@ -269,7 +269,7 @@ mouse (hover any tile and it shows that character's name, plus the game's name i
 one), and falls back to the selected character when the mouse is elsewhere. A tile with no picture at all
 (no base files yet, or nothing to compute one from) keeps its name, and on a small window (no plate) every
 tile keeps its name. The
-"1/4" (ticked / downloaded) badge is off by default (`show_tile_counts`, Settings > Character Select): a tile
+"1/4" (ticked / downloaded) badge is off by default (`show_tile_counts`, Settings > App experience): a tile
 with mods downloaded but none ticked gets a small hollow ring instead, and the tile's tooltip still says
 "3 of 14 mods ticked". The red "!" conflict badge and the attention dots are unchanged. Course and vehicle
 tiles keep their badges.
@@ -297,7 +297,7 @@ lights up and its two waves pulse. A tile that has such a sound says so in its t
 a mod with only in-race voice gets it too, and clicking that tile plays nothing. Not a mod whose voice files are for another
 character's slot, and not a voice file that was left out of the merge; with several mods that bring one, the first ticked one.
 It uses the same one-at-a-time player as the Voice lines window (a new sound stops the last), at 70 % volume. Off with
-Settings > Character Select > "Play a character's select sound".
+Settings > App experience > "Play character-select sounds".
 
 **Villager, Inkling, Link and Metal / Gold Mario (one slot in-game, two characters).** Clicking their tile opens a card straight away - there is no
 "which one?" step. At the top of the card a two-part switch moves between the two (Boy | Girl, Girl | Boy for Inkling): each side

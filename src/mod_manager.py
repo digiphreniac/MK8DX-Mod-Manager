@@ -34,7 +34,12 @@ import app_paths
 import diag
 # A packaged (windowed) build has no console: send output to a log file before the libraries
 # below are imported, since some of them (pywebview) set up their logging when first imported.
-LOG_PATH = app_paths.redirect_output_to_log() if app_paths.FROZEN else None
+# Run from source as the program, the same file is kept and the console still gets everything (a tee); a plain import
+# (the tests, a script) changes nothing. The app runs as __main__ and game_files imports it again by name: that copy shares the log.
+if app_paths.FROZEN or __name__ == "__main__":
+    LOG_PATH = app_paths.redirect_output_to_log(tee=not app_paths.FROZEN)
+else:
+    LOG_PATH = app_paths.current_log_path()
 diag.LOG_PATH = LOG_PATH
 if app_paths.FROZEN:   # (also before the import below: pythonnet is refused by Windows while the zip's "downloaded" mark is on it)
     print(f"Cleared the downloaded-file mark from {app_paths.unblock_downloaded_files()} bundled files")
@@ -216,7 +221,13 @@ DEFAULT_SETTINGS = {
     # exact identifier the code-patch checks use - choosing a known version
     # fills it in.
     "game_version": "",
+    # Where a commit puts the files to copy to the Switch (see Api._staging_dir()): "" = the default, STAGING_IN_DATA = the folder inside the
+    # data folder (the recommended one, whatever else exists), or a folder the user chose in Settings.
+    "staging_folder": "",
 }
+# The staging folder's name (what a commit builds, ready to copy to the SD card): the recommended place is inside the data folder.
+STAGING_DIRNAME = "sd-card-staging"
+STAGING_IN_DATA = "@data"      # (stored for "inside the data folder": a path would go stale if the data folder were moved)
 # Everything that lives under the configurable master directory - moved as a
 # unit when the user changes it with "bring my existing files along". This is
 # strictly user data (downloads, checked/desired-mod state, caches) - it does
@@ -233,6 +244,7 @@ MASTER_DIR_ITEMS = [
     ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME, NOTES_FILENAME,
     # (these were missing, so "Bring my files" left them behind: the setup wizard came back and Custom voice mods lost their record)
     game_files.DIRNAME, VOICE_EDITS_FILENAME, VOICE_CUSTOM_DIRNAME, LOOK_REVIEWS_FILENAME,
+    STAGING_DIRNAME,      # (the default staging folder lives in the data folder, so it goes along with it)
 ]
 # ...and the previous good copy each app-owned file keeps beside it (see safe_io.write_json_atomic)
 MASTER_DIR_ITEMS += [name + ".bak" for name in (STATE_FILENAME, GB_MODS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME, EXCLUDED_FILES_FILENAME,
@@ -1703,6 +1715,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
         self._notes_lock = threading.RLock()   # (the notes and flags on mods: see mod_notes.py)
         self._state_lock = threading.RLock()   # (every read-modify-write of the ticked mods happens under it)
         self._settings_lock = threading.RLock()   # (and of the settings: two saves at once must not lose each other's change)
+        self._progress = None                  # where a running commit is (see get_commit_progress): None when none is
+        self._progress_lock = threading.Lock()
         self._root_epoch = ""                   # (names the folder a page loaded its ticks from - see save_checked)
         self._desc_fetch_lock = threading.Lock()
         self._prefetch_lock = threading.Lock()     # (guards the four below - see gb_prefetch)
@@ -1892,7 +1906,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             if LOG_PATH:
                 lines.append(f"Log: {LOG_PATH}" + (" (the app folder isn't writable, so the log is in the temp folder)" if app_paths.LOG_FELL_BACK else "")
                              + "; every run adds to it, newest at the end")
-            lines.append(f"Staging folder: {Path(root).parent / 'sd-card-staging'}")
+            lines.append(f"Staging folder: {self._staging_dir()}")
             lines.append(f"Game files copy: source {base['source'] or 'none'}, copied {base['copied_at'] or 'never'}, icons {len(base['icons'])}, "
                          f"languages {','.join(base['locales']) or 'none'}, voice {base['voice_found']}/{base['voice_total']}, "
                          f"course pictures {base.get('course_pictures', 0)}, vehicle pictures {base.get('vehicle_pictures', 0)}")
@@ -1921,7 +1935,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         text = "\n".join(self._diag_lines_safe(short))
         if not short:
             logged = diag.tail(LOG_PATH) if LOG_PATH else ""
-            text += "\n\n--- end of mod-manager.log ---\n" + (logged or "(no log file: the app is running from source)")
+            text += "\n\n--- end of mod-manager.log ---\n" + (logged or "(this run isn't writing a log file)")
         return text
 
     def get_master_dir_status(self):
@@ -3106,6 +3120,11 @@ class Api(VoiceEditMixin, ModNotesMixin):
     def get_settings(self):
         return self._load_settings()
 
+    def get_default_settings(self):
+        """How every setting starts (DEFAULT_SETTINGS): what the Settings window's "Reset to default" goes back to. The page has no copy
+        of these - settings-registry.js asks here."""
+        return copy.deepcopy(DEFAULT_SETTINGS)
+
     def save_settings(self, settings):
         with self._settings_lock:
             merged = {**self._load_settings(), **settings}
@@ -3899,6 +3918,20 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if dest_path is not None and dest_path.is_file():
             dest_path.unlink()
         return {"success": True}
+
+    def show_log_file(self):
+        """Help's "Show log file": opens the file manager with mod-manager.log selected - the file a user is asked for when they ask for support.
+        There is no log file when the app runs from source (the messages go to the console it was started from)."""
+        if not LOG_PATH:
+            return {"success": False, "error": "This run isn't writing a log file."}
+        path = Path(LOG_PATH)
+        if not path.is_file():
+            return {"success": False, "error": f"The log file isn't there (it should be in {diag.scrub(str(path.parent))})."}
+        try:
+            show_in_file_manager(path, select=True)
+            return {"success": True}
+        except (OSError, subprocess.SubprocessError) as e:
+            return {"success": False, "error": f"Couldn't open the file manager. Details: {e}"}
 
     def reveal_path(self, path_str):
         """Opens the file manager at an arbitrary already-known folder path
@@ -5198,7 +5231,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return self._library.get(f"claims:{hash(key)}", key, lambda: self._compute_claims(keys, include_ui_icons=False),
                                  token=token, max_age=15)
 
-    def _compute_claims(self, checked_keys, include_ui_icons=True):
+    def _compute_claims(self, checked_keys, include_ui_icons=True, progress=None):
         """Walks every checked mod's romfs tree and figures out which mod claims
         each file path. Read-only - never touches the filesystem otherwise.
         Returns a namespace: claims, conflicts ((path, winner, loser) tuples),
@@ -5216,7 +5249,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         first listed mod that's actually among the current claimants silently
         wins, with nothing added to `conflicts`. `resolved` reports every path
         that took this path, as (path, winning mod key) pairs, so callers can
-        surface "N conflicts auto-resolved" instead of it being invisible."""
+        surface "N conflicts auto-resolved" instead of it being invisible.
+
+        `progress(done, total)`, when given, is called before each mod is read (a commit passes it, to show how far it is)."""
         selected = sorted(checked_keys)
         # normalized relpath -> list of every DISTINCT-content claim on it
         # (byte-identical duplicates across mods are collapsed into whichever
@@ -5231,7 +5266,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         excluded_counts = {}   # mod key -> how many of those are left out
         claimants = {}         # normalized path -> every mod (any content) that has it
 
-        for key in selected:
+        for done, key in enumerate(selected):
+            if progress:
+                progress(done, len(selected))
             category, unit_rel = key.split("/", 1)
             mod_romfs = self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME / category / unit_rel / "romfs"
             if not mod_romfs.is_dir():
@@ -5709,7 +5746,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
     def _commit_summary(self, checked_keys, res, exefs_keys, exefs_conflicts, exefs_problems):
         """Counts and plain-language warning cards for the Commit page (and the
         same shape returned by merge()). Each warning: {"kind", "severity"
-        ("info" | "todo" | "warn"), "title", "detail", "mods", "action"}."""
+        ("info" | "todo" | "warn"), "title", "detail", "mods", "action"}, plus "log_only": True for a note that is
+        only useful to someone reading the commit log (the page leaves it out; the log still lists it). The page shows
+        "todo" and "warn" as things to look at and "info" as notes. Keep "title" to a few words and "detail" to one sentence."""
         warnings = []
         settings = self._load_settings()
         mine = (settings.get("game_build_id") or "").strip().upper()
@@ -5718,8 +5757,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if res.missing:
             warnings.append({
                 "kind": "missing", "severity": "warn",
-                "title": f"{len(res.missing)} selected mod{'s' if len(res.missing) != 1 else ''} can't be found on disk",
-                "detail": "Their files are gone (deleted or moved). Deselect them or download them again - they aren't part of this commit.",
+                "title": f"{len(res.missing)} selected mod{'s are' if len(res.missing) != 1 else ' is'} missing from your computer",
+                "detail": "They're not in this commit. Deselect them or download them again.",
                 "mods": short(res.missing), "action": "open-mod",
             })
         if res.ui_archives_skipped:
@@ -5727,9 +5766,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             warnings.append({
                 "kind": "ui-archives", "severity": "info",
                 "title": f"{len(mods)} mod{'s' if len(mods) != 1 else ''} change menu pictures or names",
-                "detail": "Those changes can't be copied straight in (every mod ships its own copy of the same shared game "
-                          "files) - they're combined into one set of files automatically when you commit. Settings has the "
-                          "language it builds for and the built files themselves, if you want either.",
+                "detail": "They're combined into one set of files when you commit - nothing to do. The language it's built for is in Settings.",
                 "mods": mods, "action": "settings",
             })
             only = self.get_packed_only_units(res.mods_processed)
@@ -5737,7 +5774,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 warnings.append({
                     "kind": "packed-only", "severity": "info",
                     "title": f"{len(only)} mod{'s' if len(only) != 1 else ''} only change menu pictures or names",
-                    "detail": "Nothing from them is copied directly - they take effect automatically when you commit.",
+                    "detail": "Nothing from them is copied directly - they take effect when you commit.",
                     "mods": only, "action": "open-mod",
                 })
         if res.bgm_bars_skipped:
@@ -5745,15 +5782,14 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "kind": "bgm-bars", "severity": "info",
                 "title": f"{res.bgm_bars_skipped} course mod{'s' if res.bgm_bars_skipped != 1 else ''} bundle the shared music file",
                 "detail": "That one file (Audio/Static/BGM.bars) is never copied - two mods rebuilding it is the most common source of clashes, for almost no gain.",
-                "mods": [], "action": None,
+                "mods": [], "action": None, "log_only": True,
             })
         adds_nothing = [k for k, c in self._contributions(res).items() if c["total"] and not c["staged"]]
         if adds_nothing:
             warnings.append({
                 "kind": "adds-nothing", "severity": "todo",
                 "title": f"{len(adds_nothing)} selected mod{'s' if len(adds_nothing) != 1 else ''} add{'' if len(adds_nothing) != 1 else 's'} nothing to the commit",
-                "detail": "Every file in them is left out or replaced by another mod's version, so selecting them changes nothing in the game. "
-                          "Check the mod's Files button, or the clashes settled by earlier choices.",
+                "detail": "Every file in them is left out or replaced by another mod's version. Check the mod's Files button, or deselect it.",
                 "mods": adds_nothing, "action": "open-mod",
             })
         left_out_total = sum(res.excluded_counts.values())
@@ -5761,8 +5797,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             warnings.append({
                 "kind": "left-out", "severity": "info",
                 "title": f"{left_out_total} file{'s' if left_out_total != 1 else ''} left out on purpose",
-                "detail": "From " + ", ".join(f"{mod_label(m)} ({n})" for m, n in sorted(res.excluded_counts.items()))
-                          + ". You can include them again from each mod's Files button.",
+                "detail": "You can include them again from each mod's Files button.",
                 "mods": sorted(res.excluded_counts), "action": "open-mod",
             })
         if res.resolved:
@@ -5770,7 +5805,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "kind": "saved-preferences", "severity": "info",
                 "title": f"{len(res.resolved)} clash{'es' if len(res.resolved) != 1 else ''} settled by earlier choices",
                 "detail": "Saved preferences from before are still applied; Settings shows them.",
-                "mods": [], "action": None,
+                "mods": [], "action": None, "log_only": True,
             })
         if exefs_keys:
             wrong, maybe = [], []
@@ -5784,24 +5819,21 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 warnings.append({
                     "kind": "exefs-version", "severity": "warn",
                     "title": f"{len(wrong)} code patch{'es are' if len(wrong) != 1 else ' is'} for a different game version",
-                    "detail": f"They're built for another version than yours ({mine[:8]}...) and will do nothing on your game.",
+                    "detail": f"They'll do nothing on your game (yours is {mine[:8]}...).",
                     "mods": wrong, "action": "open-mod",
                 })
             if maybe:
                 warnings.append({
                     "kind": "exefs-version-maybe", "severity": "todo",
                     "title": f"{len(maybe)} code patch{'es were' if len(maybe) != 1 else ' was'} made for an older game version",
-                    "detail": "You said your game isn't one of the listed versions (probably newer), so these might not work on it. "
-                              "A game update often leaves the executable alone, in which case they still do. "
-                              "If one does nothing in the game, look for a newer version of the mod. "
-                              "Entering your exact build ID in Settings lets the app check for sure.",
+                    "detail": "They might not work on your game. If one does nothing, look for a newer version of the mod.",
                     "mods": maybe, "action": "open-mod",
                 })
             if not mine and settings.get("game_version") != NEWER_VERSION:
                 warnings.append({
                     "kind": "exefs-version-unknown", "severity": "info",
                     "title": f"{len(exefs_keys)} code patch{'es' if len(exefs_keys) != 1 else ''} - game version not set",
-                    "detail": "A code patch only works on the exact game version it was built for. Set your game version in Settings to be warned about mismatches.",
+                    "detail": "A patch only works on the version it was built for. Set your game version in Settings to be warned.",
                     "mods": list(exefs_keys), "action": "settings",
                 })
             for key, name, reason in exefs_problems:
@@ -5815,9 +5847,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             warnings.append({
                 "kind": "no-menu-icons", "severity": "info",
                 "title": "No menu icons or names will change",
-                "detail": "None of your selected mods changes a character's menu pictures or name in a way the app can use, so "
-                          "the game's own are kept (no common.sarc or menu.sarc is made). If a mod should have its own icons, open "
-                          "that character and check its Menu look card.",
+                "detail": "None of your mods change them in a way the app can use, so the game's own are kept. If one should, check that character's Menu look card.",
                 "mods": [], "action": None,
             })
         guessed = self._guessed_names()
@@ -5825,15 +5855,14 @@ class Api(VoiceEditMixin, ModNotesMixin):
             warnings.append({
                 "kind": "guessed-names", "severity": "todo",
                 "title": f"{len(guessed)} name{'s were' if len(guessed) != 1 else ' was'} guessed for a mod that doesn't say",
-                "detail": "A wrong guess would end up in the game's menus - check each one, or change it. It takes a few seconds.",
+                "detail": "A wrong guess ends up in the game's menus - check each one.",
                 "mods": [], "action": "guessed-names",
             })
         if needs:
             warnings.append({
                 "kind": "icon-choice", "severity": "todo",
-                "title": f"{len(needs)} character{'s have' if len(needs) != 1 else ' has'} icon pictures that need your pick",
-                "detail": "A mod ships several versions of its icon pictures (for example one per costume), so the app can't tell which is which. "
-                          "Open the character and choose in its Menu look card - until then the game's normal icons are used.",
+                "title": f"{len(needs)} character{'s need' if len(needs) != 1 else ' needs'} your icon pick",
+                "detail": "A mod ships several versions of its icons, so the app can't tell which is which. Until you pick, the game's normal icons are used.",
                 "mods": [], "items": [n["item"] for n in needs], "action": "open-items",
             })
         counts = {
@@ -5857,7 +5886,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         last = self._load_settings().get("last_commit")
         return {
             "can_commit": not groups, "empty": False, "groups": groups, "warnings": warnings, "counts": counts,
-            "staging_path": str(self.mod_root.parent / "sd-card-staging"),
+            "staging_path": str(self._staging_dir()),
             "already": bool(last) and last.get("sig") == self._commit_signature(checked_keys) and not self._content_changed(last, checked_keys),
         }
 
@@ -5880,11 +5909,61 @@ class Api(VoiceEditMixin, ModNotesMixin):
         self._log_commit(lines)
         return {"lines": lines, "conflict": False, "staged": False}
 
+    # --- where a commit is, for the page to show while merge() runs (it polls get_commit_progress() every moment) ---
+
+    _COMMIT_PHASES = {"prepare": "Getting ready", "icons": "Menu icons & text", "claims": "Checking files", "copy": "Copying files",
+                      "finish": "Finishing"}
+
+    def _progress_begin(self, phases):
+        with self._progress_lock:
+            self._progress = {"phases": [{"id": p, "label": self._COMMIT_PHASES[p]} for p in phases], "phase": phases[0],
+                              "done": 0, "total": None, "detail": "", "t0": time.monotonic()}
+
+    def _progress_phase(self, phase, total=None, detail=""):
+        """The commit moves on to `phase`; `total` is how many things it has to do there (None: not known)."""
+        with self._progress_lock:
+            if self._progress is not None:
+                self._progress.update(phase=phase, done=0, total=total, detail=detail)
+
+    def _progress_tick(self, phase, done, total=None, detail=None):
+        """Part-way through `phase` (ignored if the commit has moved on, or none is running - the same code also runs from Settings)."""
+        with self._progress_lock:
+            p = self._progress
+            if p is not None and p["phase"] == phase:
+                p["done"] = done
+                if total is not None:
+                    p["total"] = total
+                if detail is not None:
+                    p["detail"] = detail
+
+    def _progress_end(self):
+        with self._progress_lock:
+            self._progress = None
+
+    def get_commit_progress(self):
+        """Where a running commit is: {"active": False}, or the phases it goes through (id + label, in order), the one it is in, how far
+        through it ("done" of "total", total None when not known), a line of detail, and the seconds since it started. Cheap, and it takes
+        no lock but its own, so the page can ask while merge() holds the thread that is doing the work."""
+        with self._progress_lock:
+            p = self._progress
+            if p is None:
+                return {"active": False}
+            return {"active": True, "phases": list(p["phases"]), "phase": p["phase"], "done": p["done"], "total": p["total"],
+                    "detail": p["detail"], "elapsed": round(time.monotonic() - p["t0"], 1)}
+
     def merge(self, checked_keys):
+        try:
+            return self._merge(checked_keys)
+        finally:
+            self._progress_end()
+
+    def _merge(self, checked_keys):
+        ui_needed = self._ui_build_needed(checked_keys) if checked_keys else False
+        self._progress_begin(["prepare"] + (["icons"] if ui_needed else []) + ["claims", "copy", "finish"])
         self.sync_voice_edits()
         self.sync_part_pictures()   # (what a ticked mod supplies itself may have changed since the picture was set)
         lines = []
-        staging_root = self.mod_root.parent / "sd-card-staging"
+        staging_root = self._staging_dir()
         out_romfs = staging_root / "atmosphere" / "contents" / TITLE_ID / "romfs"
 
         if not checked_keys:
@@ -5895,9 +5974,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
         # Menu icons & text: built fresh here, before the copy pass below - so the ui-icons/romfs
         # files that pass already includes are always current for what's ticked right now. No
-        # separate step, and no need to stage them afterward (build_ui_setup()'s own staging is
-        # for when it's called on its own, from Settings).
-        if self._ui_build_needed(checked_keys):
+        # separate step, and no need to stage them afterward).
+        if ui_needed:
             settings = self._load_settings()
             locale = settings.get("ui_setup_locale") or "USen"
             build_locales = [locale]
@@ -5905,6 +5983,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 other = {"USen": "EUen", "EUen": "USen"}.get(locale)
                 if other:
                     build_locales.append(other)
+            # (the bar counts steps from the start, so it never has to slide and then start over: reading the mods' menu files, then
+            # common.sarc, menu.sarc and one message.sarc per language - _build_ui_archives corrects the total once it knows the real list)
+            self._progress_phase("icons", 3 + len(build_locales), "Reading your mods' menu files")
             ui_build = self._build_ui_archives(build_locales)
             if ui_build.get("success"):
                 lines.append(f"Menu icons & text: checked for {', '.join(build_locales)}.")
@@ -5925,7 +6006,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
                          + (f". {kept} file(s) built earlier in ui-icons/ are still included." if kept else " and the game's own are used."))
             lines.append("")
 
-        res = self._compute_claims(checked_keys)
+        self._progress_phase("claims", len(checked_keys))
+        res = self._compute_claims(checked_keys, progress=lambda done, total: self._progress_tick("claims", done, total))
         claims, conflicts, mods_processed, missing = res.claims, res.conflicts, res.mods_processed, res.missing
         ui_icons_files, bgm_bars_skipped, resolved = res.ui_icons_files, res.bgm_bars_skipped, res.resolved
         ui_archives_skipped, course_icons_files = res.ui_archives_skipped, res.course_icons_files
@@ -5957,15 +6039,20 @@ class Api(VoiceEditMixin, ModNotesMixin):
         # files at all), so the "Open staging folder" button has a target.
         try:
             staging_root.mkdir(parents=True, exist_ok=True)
+            self._progress_phase("copy", len(claims), "Clearing the previous copy")      # (deleting a big old copy takes a while too)
             if out_romfs.exists():
                 shutil.rmtree(out_romfs)
             # (created lazily by the copies below - a merge of only code patches,
             # or of mods that are entirely packed archives, leaves no empty romfs/)
 
-            for claim in claims.values():
+            self._progress_phase("copy", len(claims))
+            for n, claim in enumerate(claims.values(), 1):
                 dest = out_romfs / claim["rel"]
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(claim["src"], dest)
+                if n % 10 == 0 or n == len(claims):
+                    self._progress_tick("copy", n, len(claims))
+            self._progress_phase("finish")
 
             # exefs code patches -> atmosphere/exefs_patches/<prefix><slug>/<BUILD ID>.ips.
             # Only this app's own previous patch sets (EXEFS_STAGING_PREFIX) are
@@ -6114,7 +6201,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if warnings:   # (the cards the Commit page shows - they are not part of the log otherwise)
             lines.append("")
             lines.append("Notes shown on the Commit page:")
-            lines.extend(f"  - {w['title']}" for w in warnings)
+            lines.extend(f"  - {w['title']}" + (" (not shown on the page)" if w.get("log_only") else "") for w in warnings)
         now = datetime.now().isoformat(timespec="seconds")
         self.save_settings({"last_commit": {
             "sig": self._commit_signature(checked_keys), "content": self._commit_content_stamp(checked_keys), "at": now,
@@ -6239,10 +6326,15 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return True
 
     def open_staging_folder(self):
-        """Opens the sd-card-staging folder Api.merge() writes into (next to
-        the master directory) in the file manager, so the user never has to
-        hunt for it."""
-        return self.reveal_path(str(self.mod_root.parent / "sd-card-staging"))
+        """Opens the staging folder Api.merge() writes into (see _staging_dir()) in the file manager, so the user never has to
+        hunt for it. Made first if it isn't there yet (before the first commit, or after the user chose a new one): Settings offers
+        to open it at any time."""
+        folder = self._staging_dir()
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            return {"success": False, "error": f"Couldn't create that folder: {e}"}
+        return self.reveal_path(str(folder))
 
     # --- Menu icons & text (see ui_setup.py) ---------------------------------
     # Mods that change a character's icon or a course's name each ship their own
@@ -6353,10 +6445,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
             "locales": locales,
             "all_locales": [{"code": c, "label": l} for c, l in ui_setup.LOCALES.items()],
             "archives": [self._ui_archive_view(aid, plan[aid], choices) for aid in wanted],
-            "any_sources": any(v["changes"] for a in plan.values() for v in a["variants"] if not v.get("vanilla")),
             "game_files": self.get_base_files_status(),
             "icon_choices": self._auto_icons()[1],
-            "ui_folder": str(self.mod_root / "ui-icons" / "romfs" / "UI"),
             "ui_icons_text": ui_icons_status_text(self.mod_root),
         }
 
@@ -6377,7 +6467,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
             return {"success": False, "error": f"Couldn't read your mods' UI files ({type(e).__name__}: {e})"}
         ids = [aid for aid in ["common", "menu"] + [f"message:{l}" for l in locales] if aid in plan]
         results = []
-        for archive_id in ids:
+        for n, archive_id in enumerate(ids):
+            base, _, locale_ = archive_id.partition(":")
+            self._progress_tick("icons", 1 + n, 1 + len(ids), f"{base}.sarc{f' ({locale_})' if locale_ else ''} - {n + 1} of {len(ids)}")
             analysis = plan[archive_id]
             if not any(i != analysis["base"] for i in ui_setup._winners(analysis, choices).values()):
                 # nothing to change in this file: the game's own is used as it is
@@ -6399,23 +6491,13 @@ class Api(VoiceEditMixin, ModNotesMixin):
             except Exception as e:   # noqa: BLE001
                 diag.log("ui-build", f"building {archive_id} failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
                 results.append({"archive": archive_id, "error": f"{type(e).__name__}: {e}"})
+        self._progress_tick("icons", 1 + len(ids), 1 + len(ids))
         good = bool(results) and all(
             "error" not in r and r["verify"]["ok"] == r["verify"]["total"] for r in results)
         if good:
             self.save_settings({"last_ui_build": {
                 "sig": self._ui_signature(), "at": datetime.now().isoformat(timespec="seconds")}})
         return {"success": True, "results": results}
-
-    def build_ui_setup(self, locales=None):
-        """_build_ui_archives(), plus staging the result right away - for Settings' manual
-        "Rebuild now" (or "Check my work", which rebuilds nothing new but re-verifies), so looking
-        at the result (Open the folder / a Switch already set up with an older commit) doesn't need
-        a full commit first. A normal commit doesn't need this - merge() builds it directly."""
-        result = self._build_ui_archives(locales)
-        if not result.get("success"):
-            return result
-        staged = self.stage_ui_files()
-        return {**result, "staged": staged}
 
     def _ui_signature(self):
         """What the built UI files were made from: every checked mod's packed UI
@@ -6434,46 +6516,84 @@ class Api(VoiceEditMixin, ModNotesMixin):
         parts.extend(f"game|{aid}|{p.stat().st_mtime_ns}" for aid, p in sorted(self._game_files().items()))
         return hashlib.sha1("\n".join(parts).encode("utf-8")).hexdigest()[:16]
 
+    # --- the staging folder: where a commit builds what is copied to the Switch --------------------------------------------
+
+    def _default_staging_dir(self):
+        """Inside the data folder - unless an earlier version of the app already made one next to it (that is where it was before this
+        could be chosen), which is then kept using, so an install that is already set up carries on exactly as it was."""
+        legacy = self.mod_root.parent / STAGING_DIRNAME
+        return legacy if legacy.is_dir() else self.mod_root / STAGING_DIRNAME
+
+    def _staging_dir(self):
+        chosen = (self._load_settings().get("staging_folder") or "").strip()
+        if chosen == STAGING_IN_DATA:
+            return self.mod_root / STAGING_DIRNAME
+        return Path(chosen) if chosen else self._default_staging_dir()
+
+    def get_staging_status(self):
+        """Where a commit builds its files: {"path", "recommended_path", "is_recommended", "label"}. The recommended folder is the one inside the
+        data folder; "label" says what this one is - "Recommended", "Existing folder" (an older install's, next to the data folder, kept
+        until the user switches) or "Custom folder"."""
+        path = self._staging_dir()
+        recommended = self.mod_root / STAGING_DIRNAME
+        is_recommended = path.resolve() == recommended.resolve()
+        chosen = (self._load_settings().get("staging_folder") or "").strip()
+        label = "Recommended" if is_recommended else ("Existing folder" if not chosen else "Custom folder")
+        return {"path": str(path), "recommended_path": str(recommended), "is_recommended": is_recommended, "label": label}
+
+    def _save_staging_choice(self, stored):
+        """Remembers the choice; the last commit stops counting only if the folder really is a different one now."""
+        before = self._staging_dir()
+        self.save_settings({"staging_folder": stored})
+        if before.resolve() != self._staging_dir().resolve():
+            self.save_settings({"last_commit": None})
+
+    def pick_folder(self):
+        """A native folder picker (the same one the data folder uses). The chosen path, or None."""
+        return self.pick_master_dir()
+
+    def set_staging_dir(self, path_str):
+        """Builds future commits in `path_str` instead. Nothing is moved - the old folder is left as it is - and the last commit no longer
+        counts (its files are not in the new place), so the page asks for a new one. The folder must be one the app can write to, and not
+        the data folder itself or anything the app keeps its own files in."""
+        text = (path_str or "").strip()
+        if not text:
+            return {"success": False, "error": "Choose a folder first."}
+        path = Path(text).expanduser()
+        try:
+            resolved = path.resolve()
+            root = self.mod_root.resolve()
+        except OSError as e:
+            return {"success": False, "error": f"That folder can't be used: {e}"}
+        if resolved == root or any(resolved == root / item or (root / item) in resolved.parents for item in MASTER_DIR_ITEMS if item != STAGING_DIRNAME):
+            return {"success": False, "error": "That is where the app keeps its own files. Choose a different folder (or a new one inside the data folder)."}
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            return {"success": False, "error": f"Couldn't create or open that folder: {e}"}
+        if not os.access(path, os.W_OK):
+            return {"success": False, "error": "The app can't write to that folder. Choose another."}
+        if resolved == (root / STAGING_DIRNAME):
+            stored = STAGING_IN_DATA
+        elif resolved == self._default_staging_dir().resolve():
+            stored = ""
+        else:
+            stored = str(path)
+        self._save_staging_choice(stored)
+        return {"success": True, "error": None}
+
+    def use_recommended_staging_dir(self):
+        """Switches to the recommended folder, inside the data folder. Nothing is moved from the one it leaves; as when it is changed, the
+        last commit no longer counts."""
+        try:
+            (self.mod_root / STAGING_DIRNAME).mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            return {"success": False, "error": f"Couldn't create that folder: {e}"}
+        self._save_staging_choice(STAGING_IN_DATA)
+        return {"success": True, "error": None}
+
     def _staging_romfs(self):
-        return self.mod_root.parent / "sd-card-staging" / "atmosphere" / "contents" / TITLE_ID / "romfs"
-
-    def stage_ui_files(self):
-        """Puts the built UI files into the staging folder right away, so
-        finishing the UI step doesn't need a second commit. Only when a commit
-        has already made a staging romfs - otherwise the next commit picks them
-        up anyway. Returns how many files were staged."""
-        out_romfs = self._staging_romfs()
-        src_root = self.mod_root / "ui-icons" / "romfs"
-        if not out_romfs.is_dir() or not src_root.is_dir():
-            return 0
-        n = 0
-        for f in src_root.rglob("*"):
-            if f.is_file():
-                dest = out_romfs / f.relative_to(src_root)
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(f, dest)
-                n += 1
-        return n
-
-    def reset_ui_setup(self, locales=None):
-        """Undoes a build: moves the finished UI files out of ui-icons/ (into
-        the backups folder) so the game falls back to its own."""
-        settings = self._load_settings()
-        locales = locales or [settings.get("ui_setup_locale") or "USen"]
-        removed = []
-        for archive_id in ["common", "menu"] + [f"message:{l}" for l in locales]:
-            dest = ui_setup.archive_dest(self.mod_root, archive_id)
-            if dest.is_file():
-                ui_setup._backup(self.mod_root, dest)
-                dest.unlink()
-                removed.append(str(dest))
-                # ...and out of the staging folder too, so undoing takes effect
-                # on the next copy to the SD card without another commit.
-                staged = self._staging_romfs() / dest.relative_to(self.mod_root / "ui-icons" / "romfs")
-                if staged.is_file():
-                    staged.unlink()
-        self.save_settings({"last_ui_build": None})
-        return {"success": True, "removed": removed}
+        return self._staging_dir() / "atmosphere" / "contents" / TITLE_ID / "romfs"
 
     # --- "Menu look": what each menu screen shows for a character/course, and
     # letting the user supply an icon or name a mod doesn't ship (see
@@ -6991,7 +7111,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
     def set_base_files_source(self, path):
         """Copies the base game files from `path` (both the pristine and working copies - see game_files.py),
-        replacing whatever copy was there before ("Update from a new dump" in Settings). {"success", "status"} or
+        replacing whatever copy was there before ("Update from a new dump" in the Setup step). {"success", "status"} or
         {"success": False, "error": "plain words"}; nothing already copied is touched when this fails."""
         res = game_files.copy_both(path, self.mod_root)
         if not res["success"]:
@@ -7435,10 +7555,6 @@ class Api(VoiceEditMixin, ModNotesMixin):
             self._mark_part("part_names", item_name)
         return {"success": True}
 
-    def open_ui_setup_folder(self):
-        folder = self.mod_root / "ui-icons" / "romfs" / "UI"
-        folder.mkdir(parents=True, exist_ok=True)
-        return self.reveal_path(str(folder))
 
 
 def default_window_size():
@@ -7575,7 +7691,7 @@ if __name__ == "__main__":
     try:
         main()
     except Exception:
-        if LOG_PATH is None:
-            raise
+        if not app_paths.FROZEN or LOG_PATH is None:
+            raise   # (from source the traceback goes to the console, and the log, as it is)
         report_startup_failure(LOG_PATH)
         sys.exit(1)

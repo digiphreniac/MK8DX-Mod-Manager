@@ -21,7 +21,7 @@ Given a character or a course, it can:
   count) before you commit to anything.
 - Show and fix how a mod looks in the game's own menus (character-select
   icons, course pictures, names), and edit character voices.
-- Stage the combined result into `../sd-card-staging/atmosphere/contents/<title id>/`,
+- Stage the combined result into `<data folder>/sd-card-staging/atmosphere/contents/<title id>/` (or the folder chosen in Settings),
   ready to copy onto the Switch SD card.
 
 ## Running it from source
@@ -97,16 +97,25 @@ short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). Th
   repository's `README.md` and is the only place to edit the text users see in the download; CI fails if the package ends up
   with more than one.
 - First run: with no `app-config.json`, the master folder is `data` next to the app (`default_master_dir()` in
-  `mod_manager.py`; `sd-card-staging` is then next to it too). The wizard's first step, "Data folder" (`setup-wizard.js`), shows
+  `mod_manager.py`; `sd-card-staging` is then inside it - see `_staging_dir()`). The wizard's first step, "Data folder" (a setting of `settings-registry.js`, drawn the same in Settings), shows
   it marked Recommended (`get_master_dir_status()["is_default"]`); Next keeps it, "Change folder..." picks another (written to
   `app-config.json`), and "Use the recommended folder" (`use_default_master_dir()`) deletes that pointer again. When the default
   spot isn't writable the old full-screen folder picker is shown instead. The `data` folder is created at run time, never shipped
   in the zip, so extracting an update over an old install keeps the user's data.
 - A packaged build has no console, so `app_paths.redirect_output_to_log()` sends stdout/stderr to
   `mod-manager.log` next to the `.exe` (every run adds to it; see `docs/diagnostics.md`), and an uncaught startup error shows a
-  message box pointing at it. What goes in the log and what Help > Copy details contains: `docs/diagnostics.md`.
+  message box pointing at it. Run from source (`python src/mod_manager.py`) the same file is written in the repository folder (git-ignored)
+  and the console still gets everything: `redirect_output_to_log(tee=True)`. That happens only when the file is run as the program,
+  never on a plain import, so the tests and scripts that import `mod_manager` are untouched. What goes in the log, and Help > Show log file: `docs/diagnostics.md`.
 - Build with a mainstream Python and test the zip on a machine without Python: extract it to a short path,
   run the setup wizard, download a `.7z` mod, commit.
+
+### The app's icon
+
+The exe carries `tools/app-icon.ico` (the spec's `icon=`): Windows shows it on the file, the taskbar, alt-tab and the window's title bar, because
+pywebview takes the window's icon from the exe. From source the window shows Python's icon instead. To change it, run
+`python tools/make_icon.py path/to/picture.png`: it crops the picture to what is drawn, centres it on a square, and rewrites `tools/app-icon.png`
+(512 px) and `tools/app-icon.ico` (16 to 256 px).
 
 ### Publishing a release (GitHub Actions)
 

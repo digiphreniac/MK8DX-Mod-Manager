@@ -18,13 +18,13 @@ whole copy runs well under 300 MB, nowhere near a full RomFS dump.
 no `course_pictures` (`vehicle_pictures_all`) in its manifest (a copy from when only 16 of the vehicle pictures were kept has `vehicle_pictures` but not `vehicle_pictures_all`, and gets the rest). The first time Course Select or the Vehicles screen asks for a
 picture, `top_up_pictures()` fetches what is missing from the folder the copy was made from - if that still exists - into
 BOTH `original/` and `current/` (adding files only; nothing already there is touched) and records the count, so each is
-tried once. If the source folder is gone, the pictures come with the next "Update from a new dump" (Settings), and the
+tried once. If the source folder is gone, the pictures come with the next "Update from a new dump" (the Game files step of Setup), and the
 screens simply show their plain tiles meanwhile.
 
 **Two copies**, both under `<master root>/game-files/`:
 - `original/` - written once (`copy_both()`), never touched again except by "Update from a new dump" (which replaces
   it outright - no history of older game versions is kept). What a corrupted or missing `current/` would be
-  restored from, and what "view my original files" (Settings) opens.
+  restored from.
 - `current/` - what every other consumer actually reads (`find_current()` for icons, `find_current_voice()` for a
   character's voice). Nothing today writes into it in place - the two copies are identical from the moment they're
   made - but keeping them separate is what makes a cheap, blind reset possible without asking the user to
@@ -32,7 +32,7 @@ screens simply show their plain tiles meanwhile.
 
 `manifest.json` records what was found and copied (which icon archives, which locales, which character voice slots,
 the source folder shown for reference only - it doesn't need to still exist afterward - and when). `status()` reads
-it back for Settings and the Setup step; `done` requires both icon archives plus at least one locale (voice is
+it back for the Setup step and the flow bar; `done` requires both icon archives plus at least one locale (voice is
 best-effort - a dump missing a few characters' files is a warning, not a failure) **and the files really being on disk**
 (`status()["missing_on_disk"]` lists what isn't): a manifest left behind by a copy that was cut short, or by deleted files,
 no longer reads as done. Each copied file's magic bytes (`SARC` / `BARS`) are checked before it's trusted; anything that

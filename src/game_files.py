@@ -263,7 +263,7 @@ def _load_manifest(master_root: Path):
 
 
 def status(master_root: Path) -> dict:
-    """For Setup and Settings: {"done", "source", "copied_at", "icons": [...], "locales": [...], "voice_found",
+    """For the Setup step and the flow bar: {"done", "source", "copied_at", "icons": [...], "locales": [...], "voice_found",
     "voice_total", "problems"}. "done" is what gates the required setup step - the same minimum copy_both() requires."""
     manifest = _load_manifest(master_root)
     if not manifest or not (master_root / DIRNAME / "current").is_dir():
