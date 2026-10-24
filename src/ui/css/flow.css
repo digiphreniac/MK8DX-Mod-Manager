@@ -66,15 +66,26 @@
   .pg-status.ok { border-color: var(--ok); background: var(--ok-soft); }
   .pg-status.bad { border-color: var(--danger); background: var(--danger-soft); }
   .pg-status.wait { border-color: var(--warn); background: var(--warn-soft); }
-  .pg-warn { display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--panel-border); margin-bottom: 8px; font-size: 13px; line-height: 1.45; }
-  .pg-warn .dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; background: var(--text-dim); }
-  .pg-warn.todo .dot { background: var(--accent); }
-  .pg-warn.warn .dot { background: var(--warn); }
-  .pg-warn .wt { font-weight: 600; }
-  .pg-warn .wd { color: var(--text-dim); font-size: 12.5px; }
-  .pg-warn .wm { font-size: 12px; margin-top: 4px; }
-  .pg-warn .wm a { cursor: pointer; text-decoration: underline; color: inherit; margin-right: 10px; }
-  .pg-warn .wm a:hover { color: var(--accent); }
+  .pg-warn { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--panel-border);
+    border-left: 4px solid var(--text-dim); margin-bottom: 8px; font-size: 13px; line-height: 1.45; }
+  .pg-warn.todo { border-left-color: var(--accent); }
+  .pg-warn.warn { border-left-color: var(--warn); }
+  .pg-warn .pg-icon { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; color: var(--text-dim); }
+  .pg-warn .pg-icon svg { display: block; }
+  .pg-warn.todo .pg-icon { color: var(--accent); }
+  .pg-warn.warn .pg-icon { color: var(--warn); }
+  .pg-warn-text { flex: 1; min-width: 0; max-width: 64ch; }
+  .pg-warn .wt { font-weight: 600; font-size: 13.5px; }
+  .pg-warn .wd { color: var(--text); margin-top: 2px; }
+  .pg-warn .pg-warn-act { flex: 0 0 auto; align-self: center; margin-left: auto; }
+  .pg-warn .pg-list { margin-top: 6px; font-size: 12.5px; }
+  .pg-warn .pg-list-body { max-height: 180px; overflow-y: auto; }
+  .pg-warn .pg-list-body a { display: block; cursor: pointer; text-decoration: underline; padding: 2px 0; }
+  .pg-warn .pg-list-body a:hover { color: var(--accent); }
+  .pg-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  /* the quiet ones: behind one line, and their cards need no line of the fold-away section as well */
+  .pg-notes { margin-top: 14px; }
+  .pg-notes[open] > .pg-notes-body { margin-left: 0; padding-left: 0; border-left: 0; margin-top: 6px; }
   /* how far a commit is: one bar per phase (flow.js, updateCommitProgress) */
   .cp { border: 1px solid var(--panel-border); background: var(--panel); border-radius: 12px; padding: 14px 16px; margin: 0 0 16px 0; }
   .cp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }

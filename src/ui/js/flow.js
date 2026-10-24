@@ -296,31 +296,50 @@ async function renderCommitPage() {
   renderNextButton();
 }
 
+// A note on the Commit page, by what it asks of the user. The shape says so as well as the colour (a warning triangle, an arrow for "your move",
+// an "i"; drawn as pictures, so they look the same whatever fonts the computer has), the left stripe repeats it, and one action is a button at the right. A list of mods or characters is behind "Show the N mods", in a
+// box of limited height - the card is about what is wrong, and which mods is the second question.
+const PG_WARN_ICON = {
+  warn: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+  todo: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="m12 16 4-4-4-4"/></svg>',
+  info: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+};
+const PG_WARN_WORD = { warn: "Check: ", todo: "To do: ", info: "Note: " };
+
 function pgWarnEl(w) {
   const row = cgEl("div", "pg-warn " + w.severity);
-  row.appendChild(cgEl("span", "dot"));
-  const t = cgEl("div");
-  t.appendChild(cgEl("div", "wt", w.title));
+  const icon = cgEl("span", "pg-icon");
+  icon.setAttribute("aria-hidden", "true");
+  icon.innerHTML = PG_WARN_ICON[w.severity] || "";
+  row.appendChild(icon);
+  const t = cgEl("div", "pg-warn-text");
+  const title = cgEl("div", "wt");
+  title.append(cgEl("span", "pg-sr", PG_WARN_WORD[w.severity] || ""), w.title);
+  t.appendChild(title);
   t.appendChild(cgEl("div", "wd", w.detail));
-  if ((w.mods && w.mods.length) || (w.items && w.items.length) || w.action === "guessed-names" || w.action === "settings") {
-    const m = cgEl("div", "wm");
-    if (w.action === "guessed-names") m.appendChild(button("Review names", "ghost small", openGuessedNamesModal));
-    if (w.action === "settings") m.appendChild(button("Open Settings", "ghost small", () => openSettingsModal()));
-    for (const item of (w.items || []).slice(0, 8)) {
-      const a = cgEl("a", null, item);
-      a.addEventListener("click", () => { goStep("mods"); if (isItemName(item)) openItemCard(item); else openCharacterModal(item); });
-      m.appendChild(a);
+  const names = (w.items || []).map(item => ({ label: item, go: () => { goStep("mods"); if (isItemName(item)) openItemCard(item); else openCharacterModal(item); } }))
+    .concat((w.mods || []).map(k => ({ label: modLabel(k), go: () => jumpToModKey(k) })));
+  if (names.length) {
+    const noun = (w.items && w.items.length) ? "character" : "mod";
+    const list = document.createElement("details");
+    list.className = "pg-list";
+    list.appendChild(cgEl("summary", null, `Show the ${names.length === 1 ? noun : names.length + " " + noun + "s"}`));
+    const listBody = cgEl("div", "pg-list-body");
+    for (const n of names) {
+      const a = cgEl("a", null, n.label);
+      a.addEventListener("click", n.go);
+      listBody.appendChild(a);
     }
-    const shown = (w.mods || []).slice(0, 6);
-    for (const k of shown) {
-      const a = cgEl("a", null, modLabel(k));
-      a.addEventListener("click", () => jumpToModKey(k));
-      m.appendChild(a);
-    }
-    if ((w.mods || []).length > shown.length) m.appendChild(cgEl("span", "cg-note", `and ${w.mods.length - shown.length} more`));
-    t.appendChild(m);
+    list.appendChild(listBody);
+    t.appendChild(list);
   }
   row.appendChild(t);
+  const act = w.action === "guessed-names" ? button("Review names", "small", openGuessedNamesModal)
+    : w.action === "settings" ? button("Open Settings", "small", () => openSettingsModal()) : null;
+  if (act) {
+    act.classList.add("pg-warn-act");
+    row.appendChild(act);
+  }
   return row;
 }
 
@@ -338,16 +357,23 @@ function drawCommitPage() {
   const c = pv.counts;
   const res = commitPage.result;
   const committedNow = res && res.staged && pv.already;
+  // what the page shows of the notes: the ones that ask for something (warn, todo) first and open, the rest as "Notes" behind one line;
+  // a note only the log needs is left out
+  const shown = (pv.warnings || []).filter(w => !w.log_only);
+  const order = { warn: 0, todo: 1, info: 2 };
+  const attention = shown.filter(w => w.severity !== "info").sort((a, b) => order[a.severity] - order[b.severity]);
+  const notes = shown.filter(w => w.severity === "info");
+  const checks = attention.length ? ` - ${attention.length} thing${attention.length === 1 ? "" : "s"} to check` : "";
 
   if (pv.groups.length) {
     body.appendChild(statusCard("bad", "!", `${pv.groups.length} thing${pv.groups.length === 1 ? "" : "s"} need${pv.groups.length === 1 ? "s" : ""} your attention`,
       "Some mods change the same files. Settle each one below - it takes one click - and then you can commit."));
   } else if (committedNow) {
-    body.appendChild(statusCard("ok", "✓", "Committed",
+    body.appendChild(statusCard(attention.length ? "wait" : "ok", "✓", "Committed" + checks,
       `${c.mods} mods, ${c.files} files` + (c.code_patches ? `, ${c.code_patches} code patch${c.code_patches === 1 ? "" : "es"}` : "")
       + (c.left_out ? ` · ${c.left_out} file${c.left_out === 1 ? "" : "s"} left out on purpose` : "") + ` · ${formatWhen(res.at)}`));
   } else if (pv.already) {
-    body.appendChild(statusCard("ok", "✓", "Already committed - nothing has changed since",
+    body.appendChild(statusCard(attention.length ? "wait" : "ok", "✓", "Already committed - nothing has changed since" + checks,
       `${c.mods} mods, ${c.files} files. Commit again only if you change your mods.`));
   } else {
     body.appendChild(statusCard("wait", "→", `Ready to commit ${c.mods} mod${c.mods === 1 ? "" : "s"}`,
@@ -389,10 +415,18 @@ function drawCommitPage() {
     body.appendChild(statusCard("bad", "!", "Nothing was committed", (res.lines || []).join(" ")));
   }
 
-  if (pv.warnings.length) {
-    body.appendChild(cgEl("div", "pg-section", "Good to know"));
-    const order = { warn: 0, todo: 1, info: 2 };
-    for (const w of pv.warnings.slice().sort((a, b) => order[a.severity] - order[b.severity])) body.appendChild(pgWarnEl(w));
+  if (attention.length) {
+    body.appendChild(cgEl("div", "pg-section", "Needs your attention"));
+    for (const w of attention) body.appendChild(pgWarnEl(w));
+  }
+  if (notes.length) {
+    const group = document.createElement("details");
+    group.className = "pg-notes";
+    group.appendChild(cgEl("summary", null, `Notes (${notes.length})`));
+    const groupBody = cgEl("div", "pg-notes-body");
+    for (const w of notes) groupBody.appendChild(pgWarnEl(w));
+    group.appendChild(groupBody);
+    body.appendChild(group);
   }
 
   if (res && res.lines) {

@@ -69,7 +69,11 @@ and a slanted left side (bottom-left sticks out further than top-left), like the
    button, same as a genuine first run) whenever `setup.done` is false.
 2. **Choose mods** - the Character / Course / Vehicles / More / Full List tabs,
    with per-tab tick counts.
-3. **Commit** (was "Merge & Stage"). While it runs the page shows how far it is: one bar per phase (Getting ready, Menu icons & text when a mod
+3. **Commit** (was "Merge & Stage"). The notes under it (`_commit_summary()`, `pgWarnEl()`) are split by what they ask: **Needs your attention**
+   (`warn` and `todo`: open, each with an icon, a left stripe and, where there is one, a button) and **Notes (N)** (`info`: behind one line).
+   A note marked `log_only` (e.g. the shared music file, saved choices) is left off the page and kept in the commit log. Titles are a few words
+   and details one sentence; a list of mods is behind "Show the N mods", in a box of limited height. The Committed card says "- N things to
+   check" when there is anything in the first group. While it runs the page shows how far it is: one bar per phase (Getting ready, Menu icons & text when a mod
    changes them, Checking files, Copying files, Finishing), the finished ones full and the current one filling ("1,240 of 5,800 files"; it
    slides when it can't say how many yet), and the time so far. `merge()` keeps a small record (`_progress_*`) that the page reads through
    `get_commit_progress()` every 250 ms - pywebview runs each call on its own thread, so asking never waits for the commit. A new phase

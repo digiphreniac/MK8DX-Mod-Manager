@@ -5746,7 +5746,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
     def _commit_summary(self, checked_keys, res, exefs_keys, exefs_conflicts, exefs_problems):
         """Counts and plain-language warning cards for the Commit page (and the
         same shape returned by merge()). Each warning: {"kind", "severity"
-        ("info" | "todo" | "warn"), "title", "detail", "mods", "action"}."""
+        ("info" | "todo" | "warn"), "title", "detail", "mods", "action"}, plus "log_only": True for a note that is
+        only useful to someone reading the commit log (the page leaves it out; the log still lists it). The page shows
+        "todo" and "warn" as things to look at and "info" as notes. Keep "title" to a few words and "detail" to one sentence."""
         warnings = []
         settings = self._load_settings()
         mine = (settings.get("game_build_id") or "").strip().upper()
@@ -5755,8 +5757,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if res.missing:
             warnings.append({
                 "kind": "missing", "severity": "warn",
-                "title": f"{len(res.missing)} selected mod{'s' if len(res.missing) != 1 else ''} can't be found on disk",
-                "detail": "Their files are gone (deleted or moved). Deselect them or download them again - they aren't part of this commit.",
+                "title": f"{len(res.missing)} selected mod{'s are' if len(res.missing) != 1 else ' is'} missing from your computer",
+                "detail": "They're not in this commit. Deselect them or download them again.",
                 "mods": short(res.missing), "action": "open-mod",
             })
         if res.ui_archives_skipped:
@@ -5764,9 +5766,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             warnings.append({
                 "kind": "ui-archives", "severity": "info",
                 "title": f"{len(mods)} mod{'s' if len(mods) != 1 else ''} change menu pictures or names",
-                "detail": "Those changes can't be copied straight in (every mod ships its own copy of the same shared game "
-                          "files) - they're combined into one set of files automatically when you commit. Settings has the "
-                          "language it builds for and the built files themselves, if you want either.",
+                "detail": "They're combined into one set of files when you commit - nothing to do. The language it's built for is in Settings.",
                 "mods": mods, "action": "settings",
             })
             only = self.get_packed_only_units(res.mods_processed)
@@ -5774,7 +5774,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 warnings.append({
                     "kind": "packed-only", "severity": "info",
                     "title": f"{len(only)} mod{'s' if len(only) != 1 else ''} only change menu pictures or names",
-                    "detail": "Nothing from them is copied directly - they take effect automatically when you commit.",
+                    "detail": "Nothing from them is copied directly - they take effect when you commit.",
                     "mods": only, "action": "open-mod",
                 })
         if res.bgm_bars_skipped:
@@ -5782,15 +5782,14 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "kind": "bgm-bars", "severity": "info",
                 "title": f"{res.bgm_bars_skipped} course mod{'s' if res.bgm_bars_skipped != 1 else ''} bundle the shared music file",
                 "detail": "That one file (Audio/Static/BGM.bars) is never copied - two mods rebuilding it is the most common source of clashes, for almost no gain.",
-                "mods": [], "action": None,
+                "mods": [], "action": None, "log_only": True,
             })
         adds_nothing = [k for k, c in self._contributions(res).items() if c["total"] and not c["staged"]]
         if adds_nothing:
             warnings.append({
                 "kind": "adds-nothing", "severity": "todo",
                 "title": f"{len(adds_nothing)} selected mod{'s' if len(adds_nothing) != 1 else ''} add{'' if len(adds_nothing) != 1 else 's'} nothing to the commit",
-                "detail": "Every file in them is left out or replaced by another mod's version, so selecting them changes nothing in the game. "
-                          "Check the mod's Files button, or the clashes settled by earlier choices.",
+                "detail": "Every file in them is left out or replaced by another mod's version. Check the mod's Files button, or deselect it.",
                 "mods": adds_nothing, "action": "open-mod",
             })
         left_out_total = sum(res.excluded_counts.values())
@@ -5798,8 +5797,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             warnings.append({
                 "kind": "left-out", "severity": "info",
                 "title": f"{left_out_total} file{'s' if left_out_total != 1 else ''} left out on purpose",
-                "detail": "From " + ", ".join(f"{mod_label(m)} ({n})" for m, n in sorted(res.excluded_counts.items()))
-                          + ". You can include them again from each mod's Files button.",
+                "detail": "You can include them again from each mod's Files button.",
                 "mods": sorted(res.excluded_counts), "action": "open-mod",
             })
         if res.resolved:
@@ -5807,7 +5805,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "kind": "saved-preferences", "severity": "info",
                 "title": f"{len(res.resolved)} clash{'es' if len(res.resolved) != 1 else ''} settled by earlier choices",
                 "detail": "Saved preferences from before are still applied; Settings shows them.",
-                "mods": [], "action": None,
+                "mods": [], "action": None, "log_only": True,
             })
         if exefs_keys:
             wrong, maybe = [], []
@@ -5821,24 +5819,21 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 warnings.append({
                     "kind": "exefs-version", "severity": "warn",
                     "title": f"{len(wrong)} code patch{'es are' if len(wrong) != 1 else ' is'} for a different game version",
-                    "detail": f"They're built for another version than yours ({mine[:8]}...) and will do nothing on your game.",
+                    "detail": f"They'll do nothing on your game (yours is {mine[:8]}...).",
                     "mods": wrong, "action": "open-mod",
                 })
             if maybe:
                 warnings.append({
                     "kind": "exefs-version-maybe", "severity": "todo",
                     "title": f"{len(maybe)} code patch{'es were' if len(maybe) != 1 else ' was'} made for an older game version",
-                    "detail": "You said your game isn't one of the listed versions (probably newer), so these might not work on it. "
-                              "A game update often leaves the executable alone, in which case they still do. "
-                              "If one does nothing in the game, look for a newer version of the mod. "
-                              "Entering your exact build ID in Settings lets the app check for sure.",
+                    "detail": "They might not work on your game. If one does nothing, look for a newer version of the mod.",
                     "mods": maybe, "action": "open-mod",
                 })
             if not mine and settings.get("game_version") != NEWER_VERSION:
                 warnings.append({
                     "kind": "exefs-version-unknown", "severity": "info",
                     "title": f"{len(exefs_keys)} code patch{'es' if len(exefs_keys) != 1 else ''} - game version not set",
-                    "detail": "A code patch only works on the exact game version it was built for. Set your game version in Settings to be warned about mismatches.",
+                    "detail": "A patch only works on the version it was built for. Set your game version in Settings to be warned.",
                     "mods": list(exefs_keys), "action": "settings",
                 })
             for key, name, reason in exefs_problems:
@@ -5852,9 +5847,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             warnings.append({
                 "kind": "no-menu-icons", "severity": "info",
                 "title": "No menu icons or names will change",
-                "detail": "None of your selected mods changes a character's menu pictures or name in a way the app can use, so "
-                          "the game's own are kept (no common.sarc or menu.sarc is made). If a mod should have its own icons, open "
-                          "that character and check its Menu look card.",
+                "detail": "None of your mods change them in a way the app can use, so the game's own are kept. If one should, check that character's Menu look card.",
                 "mods": [], "action": None,
             })
         guessed = self._guessed_names()
@@ -5862,15 +5855,14 @@ class Api(VoiceEditMixin, ModNotesMixin):
             warnings.append({
                 "kind": "guessed-names", "severity": "todo",
                 "title": f"{len(guessed)} name{'s were' if len(guessed) != 1 else ' was'} guessed for a mod that doesn't say",
-                "detail": "A wrong guess would end up in the game's menus - check each one, or change it. It takes a few seconds.",
+                "detail": "A wrong guess ends up in the game's menus - check each one.",
                 "mods": [], "action": "guessed-names",
             })
         if needs:
             warnings.append({
                 "kind": "icon-choice", "severity": "todo",
-                "title": f"{len(needs)} character{'s have' if len(needs) != 1 else ' has'} icon pictures that need your pick",
-                "detail": "A mod ships several versions of its icon pictures (for example one per costume), so the app can't tell which is which. "
-                          "Open the character and choose in its Menu look card - until then the game's normal icons are used.",
+                "title": f"{len(needs)} character{'s need' if len(needs) != 1 else ' needs'} your icon pick",
+                "detail": "A mod ships several versions of its icons, so the app can't tell which is which. Until you pick, the game's normal icons are used.",
                 "mods": [], "items": [n["item"] for n in needs], "action": "open-items",
             })
         counts = {
@@ -6209,7 +6201,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if warnings:   # (the cards the Commit page shows - they are not part of the log otherwise)
             lines.append("")
             lines.append("Notes shown on the Commit page:")
-            lines.extend(f"  - {w['title']}" for w in warnings)
+            lines.extend(f"  - {w['title']}" + (" (not shown on the page)" if w.get("log_only") else "") for w in warnings)
         now = datetime.now().isoformat(timespec="seconds")
         self.save_settings({"last_commit": {
             "sig": self._commit_signature(checked_keys), "content": self._commit_content_stamp(checked_keys), "at": now,
