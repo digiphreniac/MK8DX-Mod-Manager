@@ -83,5 +83,5 @@ The **All done** page (Copy to Switch, once the user has said it worked) ends wi
 `flow.js`): like the page on GameBanana (the more likes it has, the more people see it), star the repository on GitHub, buy a coffee, join the Discord
 (`DISCORD_URL`; Help has the same link as a button). Each
 row opens its address in the browser (`open_external_url`). The addresses are constants in `state-and-helpers.js` (`GAMEBANANA_PAGE_URL`,
-`GITHUB_URL`, `SUPPORT_URL`); an empty `GAMEBANANA_PAGE_URL` hides the GameBanana row. The footer's "Support creator" link still goes to
+`GITHUB_URL`, `SUPPORT_URL`); an empty `GAMEBANANA_PAGE_URL` hides the GameBanana row. The footer's "Donate" link (its tooltip says it opens Buy Me a Coffee) still goes to
 the donation page.

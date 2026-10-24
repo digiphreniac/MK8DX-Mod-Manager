@@ -94,6 +94,13 @@ class SupportCard(unittest.TestCase):
     def test_the_footer_link_still_goes_to_the_donation_page(self):
         self.assertIn("openSupportPage", (JS / "help-and-icon-generator.js").read_text(encoding="utf-8"))
 
+    def test_the_footer_link_says_donate_and_says_where_it_goes(self):
+        html = (JS.parent / "index.html").read_text(encoding="utf-8")
+        link = html[html.index('<a id="support-link"'):html.index("</a>", html.index('<a id="support-link"'))]
+        self.assertIn(">Donate", link)
+        self.assertIn("Opens Buy Me a Coffee in your browser", link)
+        self.assertNotIn("Support creator", html)
+
 
 if __name__ == "__main__":
     unittest.main()
