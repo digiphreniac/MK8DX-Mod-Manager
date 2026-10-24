@@ -67,6 +67,11 @@ re-ticked) still calls for a re-commit. The Switch confirmation ("It works!", wh
 the Copy to Switch page into All done) is tied to both signatures together, and is also cleared whenever the user leaves the Commit page
 (`goStep()` calls `mark_switch_done(false)`), so Back to Commit and Next again shows the steps with the "Open staging folder" button, not All done. Change any input and the step turns amber again.
 
+The Commit page and the Commit button send `selectedKeys()` (every key marked selected in `state.checked`), not "the mods in the page's own
+list (`state.categories`) that are selected": that list is only reloaded by `loadMods()`, so a mod downloaded and selected in the same session
+wasn't in it and the page said "No mods are selected yet" while the step bar (which asks the backend) counted it. The backend reports a
+selected mod that is gone from the disk.
+
 A mod changed **in place** (the author's new version over the old one, a regenerated course icon) leaves the list of ticked mods as it
 was, so `last_commit` also records `content`: a fingerprint of the name, size and modification time of every file of the ticked mods
 (`_commit_content_stamp()`, remembered for up to a minute - a full pass over 30,000 files takes about a second - see `library_cache.py`; the Refresh button forces a fresh look). `commit.stale` and the Commit page's "already

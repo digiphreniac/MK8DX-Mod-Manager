@@ -199,7 +199,7 @@ async function renderCommitPage() {
     "Committing gathers every selected mod's files into one set, ready to copy to your Switch. Nothing on the Switch changes until you copy it there yourself.");
   const loading = loadingNote("Checking your mods...");
   body.appendChild(loading);
-  const keys = allKeys().filter(k => state.checked[k]);
+  const keys = selectedKeys();
   let preview, status;
   try {
     [preview, status] = await Promise.all([pywebview.api.preview_commit(keys), pywebview.api.get_flow_status()]);
@@ -333,7 +333,7 @@ function drawCommitPage() {
 async function doCommit() {
   commitPage.busy = true;
   drawCommitPage();
-  const keys = allKeys().filter(k => state.checked[k]);
+  const keys = selectedKeys();
   let result;
   try {
     result = await pywebview.api.merge(keys);
