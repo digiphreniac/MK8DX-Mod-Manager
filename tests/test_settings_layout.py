@@ -22,7 +22,7 @@ class TheLayout(unittest.TestCase):
         html = read("html", "settings-modal.html")
         self.assertEqual(html.count('class="settings-columns"'), 1)
         self.assertNotIn("settings-col\"", html)       # (no hand-made columns any more)
-        self.assertEqual(titles(html), ["Data folder", "UI icons &amp; text", "UI Icon Worklist", "Game version", "App experience",
+        self.assertEqual(titles(html), ["Data folder", "Game language", "UI Icon Worklist", "Game version", "App experience",
                                         "Conflicts and omitted files", "Maintenance"])
         self.assertEqual(html.count("<div"), html.count("</div>"))
 
@@ -107,17 +107,26 @@ class TheUiTextCard(unittest.TestCase):
         js = read("js", "settings-panels.js")
         for gone in ("Check my work", "prefer to do this by hand", "Switch-Toolbox", "gamebanana.com/tuts/15599"):
             self.assertNotIn(gone, js, gone)
-        self.assertIn("Open the folder", js)
+        # (what is built, file by file, is not listed and the folder is not offered: nothing there can be acted on)
+        for gone in ("Open the folder", "uisBuiltState", "uis-result", "Built automatically", "any_sources"):
+            self.assertNotIn(gone, js + read("js", "menu-icons-text.js") + read("css", "flow.css"), gone)
+        self.assertNotIn("def open_ui_setup_folder", (UI.parent / "mod_manager.py").read_text(encoding="utf-8"))
+
+    def test_the_card_keeps_the_language_the_conflict_picks_and_a_warning_for_a_damaged_file(self):
+        js = read("js", "settings-panels.js")
+        card = js[js.index("async function renderUiSetupSettingsCard()"):]
+        card = card[:card.index("\n}\n")]
+        self.assertIn('renderSettingsGroup("ui-text", languageHost)', card)
+        self.assertIn("None of your mods change this language", card)
+        self.assertIn("renderUiArchiveConflicts", card)
+        self.assertIn("a.verify.problems.length", card)       # (only a damaged file is worth a line)
+        self.assertIn("A built menu file has a problem", card)
 
     def test_there_are_no_rebuild_or_undo_buttons_and_nothing_points_at_them(self):
         # (a commit is the only thing that builds the menu files, and it would make a removed build again)
         card = read("js", "settings-panels.js")
         for gone in ("Rebuild now", "Undo (remove the built files)", "build_ui_setup", "reset_ui_setup", "uiSetup.lastBuild", "Files are saved to"):
             self.assertNotIn(gone, card, gone)
-        self.assertIn("Built automatically when you commit.", card)
-        status = read("js", "menu-icons-text.js")
-        self.assertIn("changes are in it - commit again", status)
-        self.assertNotIn("- rebuild", status)
         self.assertNotIn('click \\"Undo\\"', read("js", "flow.js"))       # (the troubleshooting tip no longer sends people to Undo)
         source = (UI.parent / "mod_manager.py").read_text(encoding="utf-8")
         for gone in ("def build_ui_setup", "def reset_ui_setup", "def stage_ui_files"):
@@ -129,7 +138,7 @@ class TheUiTextCard(unittest.TestCase):
         self.assertNotIn("Other languages they change", js)
         warning = js[js.index("const others = d.locales"):]
         warning = warning[:warning.index("\n  }\n")]
-        self.assertIn("!d.locales.some(l => l.code === d.locale)", warning)       # (only when none of them change the chosen language)
+        self.assertIn("!d.locales.some(l => chosen.includes(l.code))", warning)       # (only when none of them change the chosen language - or either English)
         self.assertIn("None of your mods change this language - they change", warning)
 
 

@@ -40,10 +40,9 @@ async function renderUiIconWorklist() {
   }
 }
 
-// Settings' "UI icons & text" card: a normal commit builds these automatically (see merge() in
+// Settings' "Game language" card: a normal commit builds these automatically (see merge() in
 // mod_manager.py), so this is language (a set-once, rarely-touched preference - not worth a card
-// of its own on the Commit page every time), the rare pick-which-mod-wins conflict, and everything
-// for looking at the result without committing, or undoing it. A preview of what
+// of its own on the Commit page every time) and the rare pick-which-mod-wins conflict. A preview of what
 // each ticked mod actually changes deliberately isn't rebuilt here - that's what the character/
 // course card's own Menu look already shows, in context, which is a better place for it than a
 // second copy here.
@@ -61,8 +60,9 @@ async function renderUiSetupSettingsCard() {
   const languageHost = document.createElement("div");
   body.appendChild(languageHost);
   await renderSettingsGroup("ui-text", languageHost);
-  const others = d.locales.filter(l => l.code !== d.locale).map(l => l.label);
-  if (others.length && !d.locales.some(l => l.code === d.locale)) {
+  const chosen = state.settings.ui_setup_extra_english && (d.locale === "USen" || d.locale === "EUen") ? ["USen", "EUen"] : [d.locale];   // (English (unspecified) builds both)
+  const others = d.locales.filter(l => !chosen.includes(l.code)).map(l => l.label);
+  if (others.length && !d.locales.some(l => chosen.includes(l.code))) {
     const shown = others.slice(0, 3).join(", ") + (others.length > 3 ? ` and ${others.length - 3} more` : "");
     body.appendChild(uisEl("p", "uis-note", `None of your mods change this language - they change ${shown}.`));
   }
@@ -73,26 +73,10 @@ async function renderUiSetupSettingsCard() {
     for (const el of conflictEls) body.appendChild(el);
   }
 
-  if (!d.any_sources) {
-    body.appendChild(uisEl("div", "settings-hint", "None of your currently selected mods change menu icons or names, so there's nothing built right now. Select one and this fills in."));
-    return;
-  }
-
-  const states = d.archives.map(a => ({ a, st: uisBuiltState(a) }));
-  for (const { a, st } of states) {
-    const [title, file] = uisArchiveTitle(a);
-    const row = uisEl("div", "uis-result");
-    row.appendChild(uisEl("span", "st " + st.kind, st.kind === "ok" ? "✓" : st.kind === "warn" ? "⚠" : "•"));
-    row.appendChild(uisEl("span", null, `${file} (${title}) - ${st.text}`));
-    body.appendChild(row);
-  }
-  body.appendChild(uisEl("p", "uis-note", "Built automatically when you commit."));
-
-  const acts = uisEl("div", "uis-actions");
-  const folderBtn = uisEl("button", "ghost small", "Open the folder");
-  folderBtn.addEventListener("click", () => pywebview.api.open_ui_setup_folder());
-  acts.appendChild(folderBtn);
-  body.appendChild(acts);
+  // (what was built, file by file, isn't listed: nothing here can be done about it - a commit builds it, and the step bar says when one is due.
+  // A file that is damaged is the one thing worth saying.)
+  const damaged = d.archives.filter(a => a.verify && a.verify.problems && a.verify.problems.length).map(a => uisArchiveTitle(a)[1]);
+  if (damaged.length) body.appendChild(uisEl("div", "uis-warn", `A built menu file has a problem (${damaged.join(", ")}) - commit again to build it fresh.`));
 }
 
 // Shared by the first-run setup overlay and the Settings "Change..." flow:

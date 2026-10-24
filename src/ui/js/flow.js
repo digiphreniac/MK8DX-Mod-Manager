@@ -442,7 +442,7 @@ function buildTroubleshooting() {
   const items = [
     "The game crashes on startup, or the menus are blank. This is usually a file made for a different game version. Deselect the mods that change menu pictures or names (all of them, to find out), then commit and copy again. (Tip: hold L while the game starts to turn all mods off for that launch.)",
     "A mod doesn't show up. Make sure it's selected and that you committed after selecting it. Code patches only work on the game version they were made for, so check your version in Setup.",
-    "Menu text is in the wrong language. Open Settings > UI icons & text, pick the language your Switch uses, then commit and copy again.",
+    "Menu text is in the wrong language. Open Settings > Game language, pick the language your Switch uses, then commit and copy again.",
     "A course or character still shows its old picture or name after you deselected its mod. Copying onto an SD card only adds and replaces files, so the old ones stay behind. Delete atmosphere/contents/0100152000022000/romfs on the SD card (or your emulator's mod folder), then copy the staging folder over fresh.",
   ];
   const ul = document.createElement("ul");

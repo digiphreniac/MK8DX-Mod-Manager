@@ -83,7 +83,7 @@ and a slanted left side (bottom-left sticks out further than top-left), like the
 page just for picking a language and pressing Build, when the analysis and the build were already
 fast and automatic underneath it. Checking guessed names and picking between conflicting icon
 versions moved onto the Commit page itself as warning cards; language, the (rare) pick-which-mod-
-wins conflict, and Open the folder all moved to Settings
+wins conflict moved to Settings
 instead - deliberately not a Commit-page card of its own, since language is a set-once preference,
 not something to review at every commit. See [Menu icons & text](menu-icons-and-text.md#menu-icons--text-combined-character-icons-and-coursecharacter-names) for the full picture.
 

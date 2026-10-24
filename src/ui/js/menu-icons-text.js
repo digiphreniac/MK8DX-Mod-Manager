@@ -1,8 +1,8 @@
 // ===== Menu icons & text =====
 // Reviewing and combining the packed UI archives (common.sarc, menu.sarc, message.sarc) that a
 // commit can't merge straight in - the actual build runs automatically inside merge() (see
-// mod_manager.py); this is the Commit page's review card, the Settings card (the language, the
-// status of each built file, Open the folder), and the guessed-names modal.
+// mod_manager.py); this is the Commit page's review card, the Settings card (the
+// language and conflict picks), and the guessed-names modal.
 const uiSetup = { data: null, guessed: [] };
 const UI_KIND_LABEL = { Chara: "select-screen icon", edChara: "results-screen icon", MapChara: "map icon", Part: "parts-menu picture" };
 
@@ -55,7 +55,7 @@ function drawGuessedNamesModal() {
   async function finish(changedBuild) {
     uiSetup.guessed = await pywebview.api.get_guessed_names();
     renderCharacterGrid();
-    if (changedBuild) uiSetup.data = null;   // Settings' "UI icons & text" card must re-read next time it's opened
+    if (changedBuild) uiSetup.data = null;   // Settings' "Game language" card must re-read next time it's opened
     drawGuessedNamesModal();
     refreshFlow();
     if (flow.step === "commit") renderCommitPage();
@@ -96,16 +96,6 @@ function uisArchiveTitle(a) {
   if (a.id === "common") return ["Map & results icons", "common.sarc"];
   if (a.id === "menu") return ["Character-select icons", "menu.sarc"];
   return [`Names & menu text - ${uiSetup.data.locale_label}`, "message.sarc"];
-}
-
-function uisBuiltState(a) {
-  const v = a.verify;
-  if (a.nothing) return { kind: "ok", text: "nothing to change - the game's own file is used" };
-  if (!v.exists) return { kind: "todo", text: "not built yet" };
-  if (v.problems && v.problems.length) return { kind: "warn", text: "there's a problem with this file" };
-  if (v.total === 0) return { kind: "ok", text: "built" };
-  if (v.ok === v.total) return { kind: "ok", text: `built - all ${v.total} changes in place` };
-  return { kind: "warn", text: `built, but only ${v.ok} of ${v.total} changes are in it - commit again` };
 }
 
 // The (rare) case of two different ticked mods changing the exact same icon or name entry to

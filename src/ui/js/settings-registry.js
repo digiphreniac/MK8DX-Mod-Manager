@@ -18,10 +18,13 @@ const SETTING_GROUPS = {
   "game-version": { title: "Game version", setupOrder: 1, setupSkip: { key: "game_version", value: "" } },
   // (Setup's step 2 is the Game files step: required, not a setting - see setup-wizard.js)
   "app-experience": { title: "App experience", setupOrder: 3, setupLead: "You can change these any time in Settings.", resettable: true },
-  "ui-text": { title: "UI icons & text", setupOrder: 4, setupTitle: "Your Switch's language" },
+  "ui-text": { title: "Game language", setupOrder: 4 },
 };
 
+// "English (unspecified)": the user doesn't know which English their Switch is set to, so both are built. It is stored as the two things
+// merge() reads - ui_setup_locale (USen) and ui_setup_extra_english (true) - and shown as one choice in the list.
 const ENGLISH_LOCALES = ["USen", "EUen"];
+const ENGLISH_EITHER = "en-either";
 
 const SETTINGS = [
   { key: "data_folder", group: "data-folder", kind: "folder", label: "Data folder", showInSetup: true,
@@ -44,19 +47,27 @@ const SETTINGS = [
     validate: (value) => value !== "" && !/^([0-9A-F]{16}|[0-9A-F]{32})$/.test(value) ? "A build ID is 32 hex characters (0-9, A-F), or just its first 16." : null },
 
   { key: "ui_setup_locale", group: "ui-text", kind: "select", label: "Language", showInSetup: true,
-    description: "Mods that rename characters or courses change text stored per language, and the game only reads the language your Switch is set to (System Settings → System → Language).",
-    read: () => state.settings.ui_setup_locale || "USen",
-    options: async () => (await pywebview.api.get_ui_locales()).map(l => ({ value: l.code, label: l.label })),
+    description: "Mods that rename characters or courses change text stored per language, and the game only reads the language your Switch is set to (System Settings → System → Language). Not sure which English? Choose English (unspecified) and the menus are built for both.",
+    read: () => {
+      const locale = state.settings.ui_setup_locale || "USen";
+      return state.settings.ui_setup_extra_english && ENGLISH_LOCALES.includes(locale) ? ENGLISH_EITHER : locale;
+    },
+    options: async () => {
+      const list = (await pywebview.api.get_ui_locales()).map(l => ({ value: l.code, label: l.label }));
+      list.splice(list.findIndex(l => l.value === "EUen") + 1, 0, { value: ENGLISH_EITHER, label: "English (unspecified)" });
+      return list;
+    },
+    write: async (value) => {
+      const either = value === ENGLISH_EITHER;
+      state.settings.ui_setup_locale = either ? "USen" : value;
+      state.settings.ui_setup_extra_english = either;
+      await pywebview.api.save_settings(state.settings);
+    },
     after: async () => {
       uiSetup.data = null;
       scheduleFlowRefresh();
       if (!document.getElementById("settings-modal-backdrop").hidden) await renderUiSetupSettingsCard();   // (the card also says what the mods change in it)
     } },
-  { key: "ui_setup_extra_english", group: "ui-text", kind: "toggle", showInSetup: false, description: "",
-    label: () => { const here = settingByKey("ui_setup_locale").read();
-      return `My Switch is set to English but I'm not sure which kind - also build ${here === "USen" ? "European/UK English (EUen)" : "American English (USen)"}, so it works either way`; },
-    visibleWhen: () => ENGLISH_LOCALES.includes(settingByKey("ui_setup_locale").read()),
-    after: () => scheduleFlowRefresh() },
 
   { key: "show_tile_counts", group: "app-experience", kind: "toggle", label: "Show mod counts on character tiles", description: "", showInSetup: false,
     after: () => renderCharacterGrid() },
@@ -131,7 +142,7 @@ async function refreshSettingHosts(group) {
   for (const [host, info] of [...settingHosts]) if (info.group === group && host.isConnected) await renderSettingsGroup(group, host, info.ctx);
 }
 
-// The groups the Settings window shows itself (the language group is drawn inside the "UI icons & text" card, which fills itself).
+// The groups the Settings window shows itself (the language group is drawn inside the "Game language" card, which fills itself).
 async function renderAllSettingsGroups() {
   for (const host of document.querySelectorAll("[data-settings-group]")) await renderSettingsGroup(host.dataset.settingsGroup, host);
 }

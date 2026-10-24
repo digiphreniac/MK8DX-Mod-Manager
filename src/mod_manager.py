@@ -6441,7 +6441,6 @@ class Api(VoiceEditMixin, ModNotesMixin):
             "locales": locales,
             "all_locales": [{"code": c, "label": l} for c, l in ui_setup.LOCALES.items()],
             "archives": [self._ui_archive_view(aid, plan[aid], choices) for aid in wanted],
-            "any_sources": any(v["changes"] for a in plan.values() for v in a["variants"] if not v.get("vanilla")),
             "game_files": self.get_base_files_status(),
             "icon_choices": self._auto_icons()[1],
             "ui_icons_text": ui_icons_status_text(self.mod_root),
@@ -7476,10 +7475,6 @@ class Api(VoiceEditMixin, ModNotesMixin):
             self._mark_part("part_names", item_name)
         return {"success": True}
 
-    def open_ui_setup_folder(self):
-        folder = self.mod_root / "ui-icons" / "romfs" / "UI"
-        folder.mkdir(parents=True, exist_ok=True)
-        return self.reveal_path(str(folder))
 
 
 def default_window_size():

@@ -41,7 +41,7 @@ def registry():
 class EverySettingIsDefinedOnce(unittest.TestCase):
     def test_each_setting_says_what_it_is_and_whether_it_is_in_setup(self):
         entries = registry()
-        self.assertGreaterEqual(len(entries), 9)
+        self.assertGreaterEqual(len(entries), 8)
         keys = [e["key"] for e in entries]
         self.assertEqual(len(keys), len(set(keys)))
         for e in entries:
@@ -67,6 +67,30 @@ class EverySettingIsDefinedOnce(unittest.TestCase):
             if e["kind"] != "folder":
                 self.assertIn(e["key"], mm.DEFAULT_SETTINGS, e["key"])
         self.assertEqual(mm.Api(None).get_default_settings(), mm.DEFAULT_SETTINGS)
+
+
+class SetupUsesTheCardsName(unittest.TestCase):
+    def test_a_step_has_the_name_of_its_card_and_the_language_one_is_called_game_language(self):
+        js = read("js", "settings-registry.js")
+        groups = js[js.index("const SETTING_GROUPS = {"):js.index("\n};\n", js.index("const SETTING_GROUPS = {"))]
+        self.assertNotIn("setupTitle:", groups)       # (no second name for a group in Setup)
+        self.assertIn('"ui-text": { title: "Game language"', groups)
+        self.assertIn('modal-card-title">Game language<', read("html", "settings-modal.html"))
+        flow = read("js", "flow.js")
+        self.assertIn("Open Settings > Game language, pick the language", flow)      # (the tip names the card as it is now)
+        self.assertNotIn("Settings > UI icons & text", flow)
+
+
+class TheLanguageList(unittest.TestCase):
+    def test_not_knowing_which_english_is_a_choice_in_the_list_not_a_second_setting(self):
+        js = read("js", "settings-registry.js")
+        self.assertNotIn('key: "ui_setup_extra_english"', js)        # (it is stored, but it is not a setting of its own)
+        language = registry()[[e["key"] for e in registry()].index("ui_setup_locale")]["text"]
+        self.assertIn('label: "English (unspecified)"', language)
+        self.assertIn("ui_setup_extra_english = either", language)
+        self.assertIn('ui_setup_locale = either ? "USen" : value', language)
+        self.assertRegex(language, r'findIndex\(l => l.value === "EUen"\) \+ 1')       # (right after the two Englishes)
+        self.assertIn("state.settings.ui_setup_extra_english", language)               # (an earlier choice of both shows as this one)
 
 
 class NoPlaceKnowsAParticularSetting(unittest.TestCase):

@@ -25,11 +25,12 @@ rarely-touched preference (already asked once during the Setup wizard), not some
 dedicated section competing for space on Commit every single time; the warning's **Open Settings**
 button (`"action": "settings"`) is there for the rare time someone does want to change it.
 
-Everything about menu icons & text that isn't "just commit" lives in Settings' **"UI icons & text"**
+Everything about menu icons & text that isn't "just commit" lives in Settings' **"Game language"**
 card (`renderUiSetupSettingsCard()` in `src/ui/js/settings-panels.js`) instead:
-- **Language** (`ui_setup_locale`; `message.sarc` is per language, icons are not) and an optional
-  "also build the other English" box (`ui_setup_extra_english`) - both persisted settings, read by
-  `merge()` at commit time.
+- **Language** (`ui_setup_locale`; `message.sarc` is per language, icons are not). The list has an
+  **English (unspecified)** choice for someone who doesn't know which English their Switch uses: it is stored as
+  `ui_setup_locale` = USen plus `ui_setup_extra_english` = true (so both Englishes are built), and shown as that one choice.
+  Both are persisted settings, read by `merge()` at commit time.
 - **The rare pick-which-mod-wins conflict** (`renderUiArchiveConflicts()`) - only when two different
   ticked mods change the exact same icon or text entry to different values (`_conflicts()` in
   `ui_setup.py`); `_winners()` already has a sane default (the first mod, alphabetically) so this is
@@ -38,8 +39,9 @@ card (`renderUiSetupSettingsCard()` in `src/ui/js/settings-panels.js`) instead:
   icon/text changes, one archive at a time) was dropped: it's redundant with what the character/
   course card's own Menu look already shows, in the context of that one character, which is a
   better place to review it than a second, decontextualized copy here.
-- A status line per archive ("not built yet", "built - all 111 changes in place", "... - commit again") and **Open the folder**.
-  There are no Rebuild or Undo buttons and no "do it by hand in another program" route: the files are built by every commit (and by
+- Nothing about the built files themselves: no status line per archive and no Open-the-folder button, since there is nothing to do
+  with them - the step bar says when a commit is due. The one exception is a single warning line when a built file is damaged
+  (its re-read check found a problem). There are no Rebuild or Undo buttons and no "do it by hand in another program" route: the files are built by every commit (and by
   nothing else - downloading or ticking a mod only updates the page's own reading of its menu files), and a commit replaces the three
   built archives (the old file is kept in `ui-icons-backups/`), so a hand-made copy saved at the same path would not survive the next
   one, and a removed build would be made again by the next commit. To drop a mod's menu changes, deselect the mod. Loose UI art a mod
