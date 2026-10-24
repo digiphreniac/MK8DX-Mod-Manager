@@ -49,9 +49,7 @@
   .page h2 { margin: 0 0 4px 0; font-size: 19px; }
   .page .pg-lead { margin: 0 0 16px 0; font-size: 13.5px; line-height: 1.5; color: var(--text-dim); }
   .flow-body .modal-card { margin-bottom: 16px; background: var(--bg-soft); }
-  .flow-body details { background: var(--bg-soft); border: 1px solid var(--panel-border); border-radius: 10px; padding: 8px 12px; margin: 0 0 10px 0; }
-  .flow-body details > summary { cursor: pointer; padding: 2px 0; font-size: 13px; font-weight: 600; }
-  .flow-body details[open] > summary { margin-bottom: 8px; }
+  .flow-body details { margin: 0 0 10px 0; }
   .flow-body .modal-card details { background: var(--panel); }
   .flow-body .pg-warn { background: var(--bg-soft); }
   /* "Copy log" sits at the far right of the "Details (full log)" row, whether the log is open or not */
@@ -148,7 +146,6 @@
   .uis-steps-list { margin: 0 0 8px 0; padding-left: 20px; font-size: 13.5px; line-height: 1.55; }
   .uis-steps-list li { margin-bottom: 6px; }
   .flow-body details { margin: 8px 0 0 0; font-size: 13px; }
-  .flow-body details summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
   .flow-body select { max-width: 100%; }
   #help-modal-backdrop {
     position: fixed;

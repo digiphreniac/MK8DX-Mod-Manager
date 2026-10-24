@@ -114,3 +114,76 @@
 .diag-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 9000; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 10px 16px; background: var(--danger-soft); color: var(--text); border-bottom: 2px solid var(--danger); font-size: 13.5px; }
 .diag-banner-text { flex: 1 1 320px; }
+
+
+/* ---- Drop-down lists (select): the same look as the buttons and text boxes, in the app's colours. The arrow is drawn here (two
+   triangles), not with a picture, so it follows the theme. A list with its own class (a smaller one, a wider one) only changes size. ---- */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--panel);
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-dim) 50%), linear-gradient(135deg, var(--text-dim) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  padding: 7px 32px 7px 11px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  max-width: 100%;
+  text-overflow: ellipsis;
+  transition: background-color 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+select:hover:not(:disabled) { background-color: var(--hover-bg); border-color: var(--hover-border); }
+select:focus { outline: none; }
+select:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+select:disabled { opacity: 0.5; cursor: not-allowed; }
+select option { background: var(--panel); color: var(--text); }
+
+/* ---- Fold-away sections (details / summary): a quiet box with a chevron that turns when it opens, instead of the browser's own triangle
+   and bare text. The box is the default; the few that sit inside a line of text (see .cg-files, .ml-custom) drop the box and keep the chevron. ---- */
+details {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--bg-soft);
+  padding: 0 12px;
+  font-size: 13px;
+}
+details[open] { padding-bottom: 10px; }
+details > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  cursor: pointer;
+  user-select: none;
+  color: var(--text-dim);
+  font-size: inherit;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: color 0.12s;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::marker { content: ""; }
+details > summary::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin: 0 3px 0 2px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+details[open] > summary::before { transform: rotate(45deg); }
+details > summary:hover { color: var(--text); }
+details > summary:focus { outline: none; }
+details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+details[open] > summary { margin-bottom: 4px; }
