@@ -15,7 +15,7 @@ function fillGameVersionOptions(sel, versions) {
   };
   add("", "I'm not sure");
   add("newer", "Not listed (probably newer)");
-  for (const v of versions) add(v.version, "Version " + v.version);
+  for (const v of versions) add(v.version, v.version);   // (just the number: typing "3" or "3.0" in the list jumps straight to it)
 }
 
 // `lead` is plain text, or a list of elements (shown in the same place, above the progress dots) for a page that needs more
