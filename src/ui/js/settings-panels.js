@@ -56,18 +56,16 @@ async function renderUiSetupSettingsCard() {
   body.replaceChildren();
   if (d.error) { body.appendChild(uisEl("div", "uis-warn", d.error)); return; }
 
-  // the language (and the English variant) are settings like any other: drawn by settings-registry.js. What the mods change in it is
-  // information about the mods, so it is said here.
+  // the language (and the English variant) are settings like any other: drawn by settings-registry.js. The one thing worth saying about the
+  // mods here is when they would do nothing: none of them change the chosen language, but some change another.
   const languageHost = document.createElement("div");
   body.appendChild(languageHost);
   await renderSettingsGroup("ui-text", languageHost);
-  const names = new Map(d.all_locales.map(l => [l.code, l.label]));
-  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-  const here = d.locales.find(l => l.code === d.locale);
-  let note = here ? `Your mods make ${plural(here.changes, "name/text change")} in this language, from ${plural(here.mods, "mod")}.` : "None of your mods change this language.";
-  const others = d.locales.filter(l => l.code !== d.locale).map(l => `${names.get(l.code)} (${l.changes})`);
-  if (others.length) note += " Other languages they change: " + others.join(", ") + ".";
-  body.appendChild(uisEl("p", "uis-note", note));
+  const others = d.locales.filter(l => l.code !== d.locale).map(l => l.label);
+  if (others.length && !d.locales.some(l => l.code === d.locale)) {
+    const shown = others.slice(0, 3).join(", ") + (others.length > 3 ? ` and ${others.length - 3} more` : "");
+    body.appendChild(uisEl("p", "uis-note", `None of your mods change this language - they change ${shown}.`));
+  }
 
   const conflictEls = d.archives.map(renderUiArchiveConflicts).filter(Boolean);
   if (conflictEls.length) {

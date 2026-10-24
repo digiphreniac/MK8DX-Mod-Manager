@@ -110,6 +110,15 @@ class TheUiTextCard(unittest.TestCase):
         for kept in ("Rebuild now", "Open the folder", "Undo (remove the built files)"):
             self.assertIn(kept, js, kept)
 
+    def test_the_language_picker_has_no_long_note_only_a_warning_when_the_mods_do_nothing(self):
+        js = read("js", "settings-panels.js")
+        self.assertNotIn("Your mods make", js)
+        self.assertNotIn("Other languages they change", js)
+        warning = js[js.index("const others = d.locales"):]
+        warning = warning[:warning.index("\n  }\n")]
+        self.assertIn("!d.locales.some(l => l.code === d.locale)", warning)       # (only when none of them change the chosen language)
+        self.assertIn("None of your mods change this language - they change", warning)
+
 
 if __name__ == "__main__":
     unittest.main()
