@@ -31,6 +31,9 @@ class SupportCard(unittest.TestCase):
     def test_the_github_address_is_the_projects_page(self):
         self.assertEqual(constant("GITHUB_URL"), "https://github.com/digiphreniac/MK8DX-Mod-Manager")
 
+    def test_the_discord_invite_is_the_communitys(self):
+        self.assertEqual(constant("DISCORD_URL"), "https://discord.gg/mNShnnu8j8")
+
     def test_the_donation_address_is_unchanged(self):
         self.assertEqual(constant("SUPPORT_URL"), "https://buymeacoffee.com/digiphreniac")
 
@@ -42,7 +45,7 @@ class SupportCard(unittest.TestCase):
         parent = Path(tempfile.mkdtemp(prefix="mk8dx-support-"))
         self.addCleanup(shutil.rmtree, parent, True)
         api = mm.Api(parent)
-        urls = [constant("GITHUB_URL"), constant("SUPPORT_URL")] + ([constant("GAMEBANANA_PAGE_URL")] if constant("GAMEBANANA_PAGE_URL") else [])
+        urls = [constant("GITHUB_URL"), constant("SUPPORT_URL"), constant("DISCORD_URL")] + ([constant("GAMEBANANA_PAGE_URL")] if constant("GAMEBANANA_PAGE_URL") else [])
         with mock.patch.object(mm.webbrowser, "open") as opened:
             for url in urls:
                 self.assertTrue(api.open_external_url(url)["success"], url)
@@ -63,6 +66,15 @@ class SupportCard(unittest.TestCase):
         self.assertIn(".filter(Boolean)", card)
         self.assertIn("The more likes the page has", card)
 
+    def test_the_discord_row_comes_last_and_help_and_the_readme_have_the_link_too(self):
+        flow = (JS / "flow.js").read_text(encoding="utf-8")
+        card = flow[flow.index("function supportCard()"):flow.index("async function renderSwitchPage()")]
+        self.assertLess(card.index("Buy me a coffee"), card.index("Join the Discord"))
+        root = JS.parent.parent.parent
+        self.assertIn('id="btn-open-discord"', (JS.parent / "html" / "help-modal.html").read_text(encoding="utf-8"))
+        self.assertIn("openExternal(DISCORD_URL)", (JS / "help-and-icon-generator.js").read_text(encoding="utf-8"))
+        self.assertIn(constant("DISCORD_URL"), (root / "README.md").read_text(encoding="utf-8"))
+
     def test_the_coffee_row_is_worded_as_an_invitation(self):
         flow = (JS / "flow.js").read_text(encoding="utf-8")
         self.assertIn("If you feel so inclined.", flow)
@@ -70,11 +82,11 @@ class SupportCard(unittest.TestCase):
 
     def test_every_row_has_its_own_picture_and_none_comes_from_outside_or_is_a_brand_logo(self):
         flow = (JS / "flow.js").read_text(encoding="utf-8")
-        icons = flow[flow.index("// Plain pictures for the three ways"):flow.index("function supportCard()")]
-        for name in ("like", "star", "coffee"):
+        icons = flow[flow.index("// Plain pictures for the ways to help"):flow.index("function supportCard()")]
+        for name in ("like", "star", "coffee", "chat"):
             self.assertIn(f'icon: "{name}"', flow)
             self.assertIn(f"  {name}: '<svg", icons)
-        self.assertEqual(icons.count("<svg"), 3)
+        self.assertEqual(icons.count("<svg"), 4)
         self.assertNotIn("http", icons)   # (nothing is fetched, and no namespace address either)
         self.assertIn("not the logos", icons)
         self.assertIn("pg-support-icon", (JS.parent / "css" / "flow.css").read_text(encoding="utf-8"))
