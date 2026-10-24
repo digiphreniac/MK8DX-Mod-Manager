@@ -38,12 +38,12 @@ card (`renderUiSetupSettingsCard()` in `src/ui/js/settings-panels.js`) instead:
   icon/text changes, one archive at a time) was dropped: it's redundant with what the character/
   course card's own Menu look already shows, in the context of that one character, which is a
   better place to review it than a second, decontextualized copy here.
-- A status line per archive, **Open the folder**, **Undo** (removes the built files; the game falls
-  back to its own), a manual **Rebuild now** (`build_ui_setup()` - `_build_ui_archives()` plus
-  staging the result immediately, since there's no commit right after to do that for it). There is no "do it by hand in another program"
-  route any more: the three built archives are replaced (the old file is kept in `ui-icons-backups/`) by every commit, so a hand-made
-  copy saved at the same path would not survive the next one. Loose UI art a mod ships that can't be merged is what the UI Icon
-  Worklist is for.
+- A status line per archive ("not built yet", "built - all 111 changes in place", "... - commit again") and **Open the folder**.
+  There are no Rebuild or Undo buttons and no "do it by hand in another program" route: the files are built by every commit (and by
+  nothing else - downloading or ticking a mod only updates the page's own reading of its menu files), and a commit replaces the three
+  built archives (the old file is kept in `ui-icons-backups/`), so a hand-made copy saved at the same path would not survive the next
+  one, and a removed build would be made again by the next commit. To drop a mod's menu changes, deselect the mod. Loose UI art a mod
+  ships that can't be merged is what the UI Icon Worklist is for.
 
 **Guessed names** (`_guessed_names()`, `"guessed-names"` Commit-page warning) still opens its own
 small modal to confirm or edit each one (`openGuessedNamesModal()`) - that one stayed a Commit-page
@@ -55,9 +55,7 @@ The actual build - writing the files into `ui-icons/`, backing up anything it re
 `ui-icons-backups/`, then re-reading each built file to check every change is really in it (a green
 tick per file) - happens inside `merge()`, so its result is just part of the normal commit log. A
 commit calls `_build_ui_archives()` directly (no separate staging step - the copy pass right after
-already picks up `ui-icons/romfs`), which is what removes the old "build, then also stage it"
-duplication; Settings' manual Rebuild now calls the public `build_ui_setup()` wrapper instead, which
-adds that staging back since there's no commit right after to do it.
+already picks up `ui-icons/romfs`); it is the only caller.
 
 `_ui_signature()` is what "has anything changed since the last build" means: every checked mod's
 packed UI archive (path/size/mtime), the language + "also build the other English" choice, the

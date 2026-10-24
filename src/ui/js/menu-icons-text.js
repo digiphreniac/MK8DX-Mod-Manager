@@ -1,11 +1,9 @@
 // ===== Menu icons & text =====
 // Reviewing and combining the packed UI archives (common.sarc, menu.sarc, message.sarc) that a
 // commit can't merge straight in - the actual build runs automatically inside merge() (see
-// mod_manager.py); this is the Commit page's review card, the Settings card (Open the folder /
-// Undo / manual rebuild / advanced-by-hand), and the guessed-names modal.
-// `lastBuild` is only for the Settings card's own manual "Rebuild now" (a normal commit doesn't
-// go through here - its result lines already say what got built).
-const uiSetup = { data: null, lastBuild: null, guessed: [] };
+// mod_manager.py); this is the Commit page's review card, the Settings card (the language, the
+// status of each built file, Open the folder), and the guessed-names modal.
+const uiSetup = { data: null, guessed: [] };
 const UI_KIND_LABEL = { Chara: "select-screen icon", edChara: "results-screen icon", MapChara: "map icon", Part: "parts-menu picture" };
 
 function uisEl(tag, cls, text) {
@@ -107,7 +105,7 @@ function uisBuiltState(a) {
   if (v.problems && v.problems.length) return { kind: "warn", text: "there's a problem with this file" };
   if (v.total === 0) return { kind: "ok", text: "built" };
   if (v.ok === v.total) return { kind: "ok", text: `built - all ${v.total} changes in place` };
-  return { kind: "warn", text: `built, but only ${v.ok} of ${v.total} changes are in it - rebuild` };
+  return { kind: "warn", text: `built, but only ${v.ok} of ${v.total} changes are in it - commit again` };
 }
 
 // The (rare) case of two different ticked mods changing the exact same icon or name entry to

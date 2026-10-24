@@ -86,51 +86,13 @@ async function renderUiSetupSettingsCard() {
     row.appendChild(uisEl("span", null, `${file} (${title}) - ${st.text}`));
     body.appendChild(row);
   }
-  body.appendChild(uisEl("p", "uis-note", "Built automatically the next time you commit. Files are saved to: " + d.ui_folder));
+  body.appendChild(uisEl("p", "uis-note", "Built automatically when you commit."));
 
   const acts = uisEl("div", "uis-actions");
-  const rebuildBtn = uisEl("button", "ghost small", "Rebuild now");
-  rebuildBtn.title = "Builds without waiting for a commit - useful to inspect the files, or if you undid them and want them back without re-committing.";
-  rebuildBtn.addEventListener("click", async () => {
-    rebuildBtn.disabled = true;
-    rebuildBtn.textContent = "Building...";
-    const locales = [d.locale];
-    if (state.settings.ui_setup_extra_english && (d.locale === "USen" || d.locale === "EUen")) {
-      locales.push(d.locale === "USen" ? "EUen" : "USen");
-    }
-    uiSetup.lastBuild = await pywebview.api.build_ui_setup(locales);
-    uiSetup.data = null;
-    await renderUiSetupSettingsCard();
-    scheduleFlowRefresh();
-  });
-  acts.appendChild(rebuildBtn);
   const folderBtn = uisEl("button", "ghost small", "Open the folder");
   folderBtn.addEventListener("click", () => pywebview.api.open_ui_setup_folder());
   acts.appendChild(folderBtn);
-  if (states.some(x => x.st.kind !== "todo")) {
-    const undoBtn = uisEl("button", "ghost small", "Undo (remove the built files)");
-    undoBtn.title = "Puts the game back to its own menus - your built files are kept in a backup folder";
-    undoBtn.addEventListener("click", async () => {
-      if (!confirm("Remove the built UI files? The game will use its own menu icons and text again (a backup copy is kept).")) return;
-      await pywebview.api.reset_ui_setup([d.locale, "USen", "EUen"]);
-      uiSetup.data = null;
-      await renderUiSetupSettingsCard();
-      scheduleFlowRefresh();
-    });
-    acts.appendChild(undoBtn);
-  }
   body.appendChild(acts);
-
-  const lb = uiSetup.lastBuild;
-  if (lb) {
-    if (!lb.success) {
-      body.appendChild(uisEl("div", "uis-warn", lb.error));
-    } else {
-      for (const r of lb.results) {
-        if (r.error) body.appendChild(uisEl("div", "uis-warn", `${r.archive}: ${r.error}`));
-      }
-    }
-  }
 }
 
 // Shared by the first-run setup overlay and the Settings "Change..." flow:

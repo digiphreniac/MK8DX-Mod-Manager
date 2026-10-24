@@ -107,8 +107,21 @@ class TheUiTextCard(unittest.TestCase):
         js = read("js", "settings-panels.js")
         for gone in ("Check my work", "prefer to do this by hand", "Switch-Toolbox", "gamebanana.com/tuts/15599"):
             self.assertNotIn(gone, js, gone)
-        for kept in ("Rebuild now", "Open the folder", "Undo (remove the built files)"):
-            self.assertIn(kept, js, kept)
+        self.assertIn("Open the folder", js)
+
+    def test_there_are_no_rebuild_or_undo_buttons_and_nothing_points_at_them(self):
+        # (a commit is the only thing that builds the menu files, and it would make a removed build again)
+        card = read("js", "settings-panels.js")
+        for gone in ("Rebuild now", "Undo (remove the built files)", "build_ui_setup", "reset_ui_setup", "uiSetup.lastBuild", "Files are saved to"):
+            self.assertNotIn(gone, card, gone)
+        self.assertIn("Built automatically when you commit.", card)
+        status = read("js", "menu-icons-text.js")
+        self.assertIn("changes are in it - commit again", status)
+        self.assertNotIn("- rebuild", status)
+        self.assertNotIn('click \\"Undo\\"', read("js", "flow.js"))       # (the troubleshooting tip no longer sends people to Undo)
+        source = (UI.parent / "mod_manager.py").read_text(encoding="utf-8")
+        for gone in ("def build_ui_setup", "def reset_ui_setup", "def stage_ui_files"):
+            self.assertNotIn(gone, source, gone)
 
     def test_the_language_picker_has_no_long_note_only_a_warning_when_the_mods_do_nothing(self):
         js = read("js", "settings-panels.js")

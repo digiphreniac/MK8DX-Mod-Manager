@@ -5975,8 +5975,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
         # Menu icons & text: built fresh here, before the copy pass below - so the ui-icons/romfs
         # files that pass already includes are always current for what's ticked right now. No
-        # separate step, and no need to stage them afterward (build_ui_setup()'s own staging is
-        # for when it's called on its own, from Settings).
+        # separate step, and no need to stage them afterward).
         if ui_needed:
             settings = self._load_settings()
             locale = settings.get("ui_setup_locale") or "USen"
@@ -6445,7 +6444,6 @@ class Api(VoiceEditMixin, ModNotesMixin):
             "any_sources": any(v["changes"] for a in plan.values() for v in a["variants"] if not v.get("vanilla")),
             "game_files": self.get_base_files_status(),
             "icon_choices": self._auto_icons()[1],
-            "ui_folder": str(self.mod_root / "ui-icons" / "romfs" / "UI"),
             "ui_icons_text": ui_icons_status_text(self.mod_root),
         }
 
@@ -6498,17 +6496,6 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "sig": self._ui_signature(), "at": datetime.now().isoformat(timespec="seconds")}})
         return {"success": True, "results": results}
 
-    def build_ui_setup(self, locales=None):
-        """_build_ui_archives(), plus staging the result right away - for Settings' manual
-        "Rebuild now" (or "Check my work", which rebuilds nothing new but re-verifies), so looking
-        at the result (Open the folder / a Switch already set up with an older commit) doesn't need
-        a full commit first. A normal commit doesn't need this - merge() builds it directly."""
-        result = self._build_ui_archives(locales)
-        if not result.get("success"):
-            return result
-        staged = self.stage_ui_files()
-        return {**result, "staged": staged}
-
     def _ui_signature(self):
         """What the built UI files were made from: every checked mod's packed UI
         archive (path + modification time), the language choice and the
@@ -6528,44 +6515,6 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
     def _staging_romfs(self):
         return self.mod_root.parent / "sd-card-staging" / "atmosphere" / "contents" / TITLE_ID / "romfs"
-
-    def stage_ui_files(self):
-        """Puts the built UI files into the staging folder right away, so
-        finishing the UI step doesn't need a second commit. Only when a commit
-        has already made a staging romfs - otherwise the next commit picks them
-        up anyway. Returns how many files were staged."""
-        out_romfs = self._staging_romfs()
-        src_root = self.mod_root / "ui-icons" / "romfs"
-        if not out_romfs.is_dir() or not src_root.is_dir():
-            return 0
-        n = 0
-        for f in src_root.rglob("*"):
-            if f.is_file():
-                dest = out_romfs / f.relative_to(src_root)
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(f, dest)
-                n += 1
-        return n
-
-    def reset_ui_setup(self, locales=None):
-        """Undoes a build: moves the finished UI files out of ui-icons/ (into
-        the backups folder) so the game falls back to its own."""
-        settings = self._load_settings()
-        locales = locales or [settings.get("ui_setup_locale") or "USen"]
-        removed = []
-        for archive_id in ["common", "menu"] + [f"message:{l}" for l in locales]:
-            dest = ui_setup.archive_dest(self.mod_root, archive_id)
-            if dest.is_file():
-                ui_setup._backup(self.mod_root, dest)
-                dest.unlink()
-                removed.append(str(dest))
-                # ...and out of the staging folder too, so undoing takes effect
-                # on the next copy to the SD card without another commit.
-                staged = self._staging_romfs() / dest.relative_to(self.mod_root / "ui-icons" / "romfs")
-                if staged.is_file():
-                    staged.unlink()
-        self.save_settings({"last_ui_build": None})
-        return {"success": True, "removed": removed}
 
     # --- "Menu look": what each menu screen shows for a character/course, and
     # letting the user supply an icon or name a mod doesn't ship (see
