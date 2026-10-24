@@ -139,6 +139,11 @@ async function goStep(step, opts) {
     openSetupWizard(0, true);
     return;
   }
+  // The "It works!" confirmation belongs to the copy the user just tested. Leaving the Commit page means they are about to copy again (or
+  // change their mods), so it is reset: otherwise Next would land straight on "All done" instead of the steps with the staging folder.
+  if (flow.step === "commit" && step !== "commit") {
+    try { await pywebview.api.mark_switch_done(false); } catch (e) { /* (the call wrapper has logged it; going on is still right) */ }
+  }
   if (flow.step === "mods" && step !== "mods" && !(opts && opts.skipGate) && !(await passUnfinishedGate())) return;
   if (step === "mods") {
     switchView(flow.lastModsView || "characters");

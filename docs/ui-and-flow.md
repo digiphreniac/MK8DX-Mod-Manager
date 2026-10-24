@@ -63,8 +63,9 @@ not something to review at every commit. See [Menu icons & text](menu-icons-and-
 mods + every left-out file) and, when anything needed combining, `last_ui_build`
 (see [Menu icons & text](menu-icons-and-text.md#menu-icons--text-combined-character-icons-and-coursecharacter-names) for what's in that signature) - `commit.stale`
 is true if *either* no longer matches, so a language change alone (no mods
-re-ticked) still calls for a re-commit. The Switch confirmation is tied to
-both signatures together. Change any input and the step turns amber again.
+re-ticked) still calls for a re-commit. The Switch confirmation ("It works!", which turns
+the Copy to Switch page into All done) is tied to both signatures together, and is also cleared whenever the user leaves the Commit page
+(`goStep()` calls `mark_switch_done(false)`), so Back to Commit and Next again shows the steps with the "Open staging folder" button, not All done. Change any input and the step turns amber again.
 
 A mod changed **in place** (the author's new version over the old one, a regenerated course icon) leaves the list of ticked mods as it
 was, so `last_commit` also records `content`: a fingerprint of the name, size and modification time of every file of the ticked mods
