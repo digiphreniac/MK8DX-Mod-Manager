@@ -172,7 +172,7 @@ async function openSetupWizard(index, rerun) {
       body.appendChild(f);
       return cb;
     };
-    const nsfw = mk("wiz-nsfw", "Show adult (NSFW) mods when browsing GameBanana", "Off by default. When enabled, app will include NSFW-rated mods found in GameBanana queries.", !!state.settings.show_nsfw);
+    const nsfw = mk("wiz-nsfw", "Show adult (NSFW) mods when browsing GameBanana", "When enabled, app will include NSFW-rated mods found in GameBanana queries.", !!state.settings.show_nsfw);
     const adv = mk("wiz-adv", "Advanced mode", "Shows verbose technical details in a few places. Nothing essential is hidden when disabled", !!state.settings.advanced_mode);
     nav(body, () => openSetupWizard(2, rerun), "Next", async () => {
       state.settings.show_nsfw = nsfw.checked;
