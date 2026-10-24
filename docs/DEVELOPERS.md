@@ -103,7 +103,8 @@ short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). Th
   spot isn't writable the old full-screen folder picker is shown instead. The `data` folder is created at run time, never shipped
   in the zip, so extracting an update over an old install keeps the user's data.
 - A packaged build has no console, so `app_paths.redirect_output_to_log()` sends stdout/stderr to
-  `mod-manager.log` next to the `.exe`, and an uncaught startup error shows a message box pointing at it.
+  `mod-manager.log` next to the `.exe` (every run adds to it; see `docs/diagnostics.md`), and an uncaught startup error shows a
+  message box pointing at it. What goes in the log and what Help > Copy details contains: `docs/diagnostics.md`.
 - Build with a mainstream Python and test the zip on a machine without Python: extract it to a short path,
   run the setup wizard, download a `.7z` mod, commit.
 
@@ -117,6 +118,11 @@ names a version that has no release yet:
 2. When it lands on `master`, the workflow builds the zip, checks its contents, and creates release `v<version>`
    (tag at that commit, auto-generated notes, the zip plus a `.sha256` file attached).
 3. A push that doesn't change the version finds `v<version>` already released and does nothing.
+
+The workflow also runs the packaged app with `--self-check` (no window; `mod_manager.self_check()`): it checks the page files, the data files,
+Pillow with WebP, 7-Zip and the backend, and exits non-zero if one is missing from the package. That step is `continue-on-error` until it has
+passed on a runner once - then delete that line in `release.yml` so a broken package stops the release. `.github/workflows/tests.yml` runs the
+unit tests on every pull request and push to `master`.
 
 To test the build without releasing, run the workflow by hand (Actions > Release > Run workflow): it builds and
 attaches the zip to the run as an artifact only. To redo a release, delete the release and its tag on GitHub,

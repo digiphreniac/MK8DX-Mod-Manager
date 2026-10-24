@@ -63,6 +63,19 @@ not something to review at every commit. See [Menu icons & text](menu-icons-and-
 mods + every left-out file) and, when anything needed combining, `last_ui_build`
 (see [Menu icons & text](menu-icons-and-text.md#menu-icons--text-combined-character-icons-and-coursecharacter-names) for what's in that signature) - `commit.stale`
 is true if *either* no longer matches, so a language change alone (no mods
-re-ticked) still calls for a re-commit. The Switch confirmation is tied to
-both signatures together. Change any input and the step turns amber again.
+re-ticked) still calls for a re-commit. The Switch confirmation ("It works!", which turns
+the Copy to Switch page into All done) is tied to both signatures together, and is also cleared whenever the user leaves the Commit page
+(`goStep()` calls `mark_switch_done(false)`), so Back to Commit and Next again shows the steps with the "Open staging folder" button, not All done. Change any input and the step turns amber again.
+
+A mod changed **in place** (the author's new version over the old one, a regenerated course icon) leaves the list of ticked mods as it
+was, so `last_commit` also records `content`: a fingerprint of the name, size and modification time of every file of the ticked mods
+(`_commit_content_stamp()`, remembered for up to a minute - a full pass over 30,000 files takes about a second - see `library_cache.py`; the Refresh button forces a fresh look). `commit.stale` and the Commit page's "already
+committed" are false once it differs. It is a separate field, not part of `sig`, so a commit made before it existed (no `content`)
+is never called stale because of it.
 `flowNextTarget()` in the frontend decides what Next says from the page you're on.
+
+The **All done** page (Copy to Switch, once the user has said it worked) ends with an "Enjoying your mods?" card (`supportCard()` in
+`flow.js`): like the page on GameBanana (the more likes it has, the more people see it), star the repository on GitHub, buy a coffee. Each
+row opens its address in the browser (`open_external_url`). The addresses are constants in `state-and-helpers.js` (`GAMEBANANA_PAGE_URL`,
+`GITHUB_URL`, `SUPPORT_URL`); an empty `GAMEBANANA_PAGE_URL` hides the GameBanana row. The footer's "Support creator" link still goes to
+the donation page.

@@ -9,8 +9,8 @@ notes, measurements and rules live in `docs/` (index below).
 
 - Install: `pip install -r requirements.txt` (pywebview, Pillow). Run: `python src/mod_manager.py`; `MK8DX_DEBUG=1` opens the
   webview dev tools. On this machine use the project's `.venv/bin/python` (the system Python has no `webview`).
-- The only automated tests are `tests/test_tick_state.py` (`python -m unittest discover -s tests`): they guard the ticked mods
-  against loss. Everything else is verified by calling the backend directly (`Api(Path(master_root))` - it takes a
+- Automated tests: `python -m unittest discover -s tests` (the `tests/` folder; `.github/workflows/tests.yml` runs them on every pull
+  request). `tests/test_tick_state.py` guards the ticked mods against loss. For the rest, verify by calling the backend directly (`Api(Path(master_root))` - it takes a
   `Path`, not a `str`) and by loading `src/ui` in a browser with `pywebview.api` stubbed to those calls. State what you
   did and did not exercise; the real pywebview bridge is easy to leave untested.
 - The frontend is served from `src/ui/`; everything the page loads must live there.
@@ -20,7 +20,7 @@ notes, measurements and rules live in `docs/` (index below).
 - Commit only when the user asks. End commit messages with the `Co-Authored-By` trailer the harness gives you.
 - `app-config.json` (machine-specific master folder) and `PROMPTS.md` (the user's own scratch prompts) are the user's; don't
   edit or rely on them. Never delete or rewrite anything under the user's master folder except through the app's own code
-  paths (`mods/`, `game-files/`, `ui-icons/`, ...). `game-files/original/` is written once and never touched again.
+  paths (`mods/`, `game-files/`, `ui-icons/`, ...). `game-files/original/` is written once and never touched again, except by "Update from a new dump", which swaps in a complete new copy only after it has been copied successfully (`game_files.copy_both()`).
 - When you change behaviour that a page in `docs/` describes, update that page in the same change. Put new design notes in
   the matching `docs/` page (or a new one), not in `README.md` or `docs/DEVELOPERS.md`, which stay short.
 - The in-app **Help** panel (`src/ui/html/help-modal.html`) is the user guide and must stay current with the UI.
@@ -39,6 +39,8 @@ notes, measurements and rules live in `docs/` (index below).
 - `tools/build_release.py` + `tools/mk8dx-mod-manager.spec` - the Windows release build; `.github/workflows/release.yml` publishes a
   GitHub Release when `VERSION` is bumped on `master` (see `docs/DEVELOPERS.md`, "Building a release"). A new bundled data file
   must be added to the spec's `datas`.
+- `src/diag.py` - the one place that writes to `mod-manager.log` (timestamps, usernames scrubbed, caps on the page's messages); `js/diagnostics.js`
+  is the page's side. A failure the app catches and carries on from should leave a `diag.log` line. `docs/diagnostics.md`.
 - `src/mod_notes.py` - the user's notes on mods (`mod-notes.json`); page side `src/ui/js/mod-notes.js`.
 - `src/gamebanana_api.py` - GameBanana client. `roster.json` - every character/course/part/item; `name-labels.json` - text ids.
 - `src/image_cache.py`, `library_cache.py`, `gb_desc_cache.py` - caches (see below).
@@ -105,3 +107,4 @@ notes, measurements and rules live in `docs/` (index below).
 | Voice editing | `docs/voice-editing.md` |
 | The user's notes on mods | `docs/mod-notes.md` |
 | `.ips` code patches | `docs/code-patches.md` |
+| The log, page errors, "Copy details" | `docs/diagnostics.md` |

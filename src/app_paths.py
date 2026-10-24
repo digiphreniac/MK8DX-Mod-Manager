@@ -23,25 +23,64 @@ else:
 BUNDLED_7ZIP_DIR = RESOURCE_DIR / "7zip"
 
 LOG_FILENAME = "mod-manager.log"
+LOG_MAX_BYTES = 1_000_000     # when the log is bigger than this at start-up, the oldest entries are cut...
+LOG_KEEP_BYTES = 500_000      # ...down to about this much of the newest
+LOG_FELL_BACK = False   # True when the log couldn't go next to the app and is in the temp folder instead
+_log_path = None        # set once the output has been pointed at the log (see redirect_output_to_log)
+
+
+def _trim_log(path):
+    """Keeps a log that every run adds to from growing for ever: past LOG_MAX_BYTES only the newest LOG_KEEP_BYTES stay, cut at a line."""
+    import os
+    try:
+        if path.stat().st_size <= LOG_MAX_BYTES:
+            return
+        with open(path, "rb") as f:
+            f.seek(-LOG_KEEP_BYTES, 2)
+            data = f.read()
+        newline = data.find(b"\n")
+        data = data[newline + 1:] if newline >= 0 else data
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_bytes(b"[older entries were cut to keep this file small]\n" + data)
+        os.replace(tmp, path)
+    except OSError:
+        pass   # (a log that can't be trimmed is still a log)
 
 
 def redirect_output_to_log():
     """A packaged (windowed) build has no console, so stdout/stderr are None. Point them at
     mod-manager.log next to the app (the temp folder if that isn't writable) so messages from
-    the app and its libraries are kept - the file is what to attach to a bug report.
-    Returns the log's path."""
+    the app and its libraries are kept - the file is what to attach to a bug report. Every run adds to the file (a line
+    marks where each starts), so relaunching to "try once more" doesn't destroy the evidence; the oldest entries are cut when it
+    grows past LOG_MAX_BYTES. Returns the log's path.
+
+    Done once per process: the app runs as `__main__` and some modules import it again by name (game_files does, late), which runs its
+    top level a second time - without this the second call would add a second "started" line and open the file again."""
     import os
+    from datetime import datetime
+    global LOG_FELL_BACK, _log_path
+    if _log_path is not None:
+        return _log_path
     stream = None
     for folder in (APP_ROOT, Path(os.environ.get("TEMP") or ".")):
         try:
-            stream = open(folder / LOG_FILENAME, "w", encoding="utf-8", buffering=1)
+            _trim_log(folder / LOG_FILENAME)
+            stream = open(folder / LOG_FILENAME, "a", encoding="utf-8", buffering=1)
+            stream.write(f"\n=== {datetime.now():%Y-%m-%d %H:%M:%S} - Mod Manager started ===\n")
+            LOG_FELL_BACK = folder != APP_ROOT
             break
         except OSError:
             continue
     if stream is None:
         stream = open(os.devnull, "w")
+    try:
+        import faulthandler
+        faulthandler.enable(file=stream)   # (a crash inside a native library still leaves where Python was)
+    except Exception:   # noqa: BLE001
+        pass
     sys.stdout = sys.stderr = stream
-    return stream.name
+    _log_path = stream.name
+    return _log_path
 
 
 def unblock_downloaded_files():

@@ -86,6 +86,20 @@ jobs:
           if ($readmes.Count -ne 1) { throw "Expected exactly one readme in the package, found $($readmes.Count)" }
           (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + "  " + (Split-Path $zip -Leaf) | Set-Content "$zip.sha256"
 
+      - name: Self-check the packaged app
+        # Opens no window: the app checks its own pieces (page files, data files, Pillow with WebP, 7-Zip, the backend) and
+        # exits non-zero if one is missing from the package. Not blocking yet, because it has not run on a runner before: once
+        # it has passed, delete the next line so a broken package stops the release.
+        if: steps.gate.outputs.build == 'true'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $app = "check\MK8DX Mod Manager"
+          $p = Start-Process "$app\MK8DX Mod Manager.exe" -ArgumentList "--self-check" -PassThru
+          if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw "The self-check did not finish within 2 minutes" }
+          if (Test-Path "$app\mod-manager.log") { Get-Content "$app\mod-manager.log" }
+          if ($p.ExitCode -ne 0) { throw "The packaged app's self-check failed (exit code $($p.ExitCode))" }
+
       - name: Start the packaged app once
         # Not blocking: a runner has no real desktop, so a failure here is a warning, not a stop.
         if: steps.gate.outputs.build == 'true'

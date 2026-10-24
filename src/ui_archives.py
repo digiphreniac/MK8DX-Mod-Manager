@@ -28,10 +28,13 @@ from pathlib import Path
 
 import bntx_decode
 
+import diag
+
 try:
     from PIL import Image
-except ImportError:  # previews just become unavailable
+except ImportError as _e:  # previews just become unavailable
     Image = None
+    diag.log("error", f"Pillow couldn't be loaded ({_e}): menu pictures can't be decoded, so icons will be blank")
 
 
 class ArchiveError(Exception):
@@ -359,7 +362,8 @@ def texture_png(tex: dict):
     try:
         raw = bntx_decode._deswizzle(tex["width"], tex["height"], 1, 4, tex["layout"] & 7, tex["data"])
         img = Image.frombytes("RGBA", (tex["width"], tex["height"]), raw)
-    except Exception:
+    except Exception as e:   # noqa: BLE001
+        diag.log_once(("texture_png", type(e).__name__), "warn", f"a texture couldn't be turned into a picture: {type(e).__name__}: {e}")
         return None
     buf = io.BytesIO()
     img.save(buf, format="PNG")

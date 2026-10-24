@@ -99,12 +99,12 @@ async function openSetupWizard(index, rerun) {
         renderMasterDirConfirmStep(body, chosen, afterRootChanged, () => openSetupWizard(0, rerun));
         return;
       }
-      const result = await pywebview.api.set_master_dir(chosen, false);
+      const result = await diag.attempt(() => pywebview.api.set_master_dir(chosen, false));
       if (!result.success) { failed(result.error); return; }
       await afterRootChanged();
     };
     const useRecommended = async () => {
-      const result = await pywebview.api.use_default_master_dir();
+      const result = await diag.attempt(() => pywebview.api.use_default_master_dir());
       if (!result.success) { failed(result.error); return; }
       await afterRootChanged();
     };
@@ -204,7 +204,8 @@ async function openSetupWizard(index, rerun) {
   } else {
     const body = wizardFrame(5, "You're all set", "App config complete. Next up, you'll browse and select the mods you want to install.");
     nav(body, () => openSetupWizard(4, rerun), "Start choosing mods", async () => {
-      await pywebview.api.complete_setup();
+      const done = await diag.attempt(() => pywebview.api.complete_setup());
+      if (done && done.success === false) { diag.banner("setup", "Setup couldn't be finished. " + done.error); return; }
       closeSetupWizard();
       await loadSettings();
       await loadMods();

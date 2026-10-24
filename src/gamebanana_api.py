@@ -7,7 +7,9 @@ Uses only the standard library (urllib) so no new pip dependency is needed.
 """
 
 import copy
+import errno
 import hashlib
+import http.client
 import json
 import re
 import shutil
@@ -25,6 +27,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import app_paths
+import diag
 
 USER_AGENT = "mk8dx-mod-manager (personal local tool)"
 API_V13 = "https://gamebanana.com/apiv13"
@@ -515,20 +518,37 @@ def download_file(url: str, dest_path: Path, expected_size=None, expected_md5=No
 
 def _download_direct(url: str, dest_path: Path, expected_size=None, expected_md5=None):
     tmp_path = dest_path.with_suffix(dest_path.suffix + ".part")
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    where = urllib.parse.urlsplit(url)
+    short = f"{where.netloc}{where.path}"   # (no query string: it can carry tokens)
+    status = content_type = None
     try:
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})   # (raises ValueError for an empty or odd address)
         with urllib.request.urlopen(req, timeout=60) as resp, open(tmp_path, "wb") as out:
+            status, content_type = getattr(resp, "status", None), resp.headers.get("Content-Type")
             shutil.copyfileobj(resp, out)
-    except (urllib.error.URLError, OSError) as e:
+    except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError) as e:
         tmp_path.unlink(missing_ok=True)
+        diag.log("download", f"failed: {short}: {type(e).__name__}: {e} (HTTP status {getattr(e, 'code', None) or status or 'n/a'}, "
+                             f"{diag.free_gb(dest_path.parent)})")
+        if getattr(e, "errno", None) == errno.ENOSPC:
+            raise GameBananaError("Download failed: the disk is full.") from e
         raise GameBananaError(f"Download failed: {e}") from e
+    except BaseException:   # (anything unforeseen: still no half-downloaded file left behind)
+        tmp_path.unlink(missing_ok=True)
+        raise
 
     actual_size = tmp_path.stat().st_size
     if expected_size is not None and actual_size != expected_size:
+        with open(tmp_path, "rb") as f:
+            head = f.read(200)
         tmp_path.unlink(missing_ok=True)
+        is_page = head.lstrip()[:1] == b"<"
+        diag.log("download", f"wrong size: {short}: got {actual_size} bytes, GameBanana said {expected_size}; HTTP status {status or 'n/a'}, "
+                             f"content type {content_type or 'n/a'}, starts with {head[:80]!r}")
         raise GameBananaError(
             f"Downloaded size ({actual_size} bytes) doesn't match GameBanana's "
             f"reported size ({expected_size} bytes) - possibly a corrupted or partial download."
+            + (" The file looks like a web page rather than an archive (GameBanana may have refused the download)." if is_page else "")
         )
 
     if expected_md5:
@@ -573,7 +593,8 @@ def _extract_with_bsdtar(archive_path: Path, dest_dir: Path) -> bool:
     tar = shutil.which("bsdtar")
     if not tar:
         return False
-    result = subprocess.run([tar, "-xf", str(archive_path), "-C", str(dest_dir)], capture_output=True, text=True)
+    result = subprocess.run([tar, "-xf", str(archive_path), "-C", str(dest_dir)], capture_output=True, text=True,
+                            encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL)
     return result.returncode == 0
 
 
@@ -584,22 +605,39 @@ def extract_archive(archive_path: Path, dest_dir: Path):
     sevenzip = find_7zip()
 
     if sevenzip:
-        result = subprocess.run(
-            [str(sevenzip), "x", str(archive_path), f"-o{dest_dir}", "-y"],
-            capture_output=True, text=True,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),   # no console flash from the windowed app
-        )
-        if result.returncode != 0:
+        try:
+            result = subprocess.run(
+                [str(sevenzip), "x", str(archive_path), f"-o{dest_dir}", "-y"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",   # (7-Zip's own output is not always UTF-8)
+                stdin=subprocess.DEVNULL,   # (a password-protected archive must fail, not wait for someone to type)
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),   # no console flash from the windowed app
+            )
+        except OSError as e:   # (there, but can't run: antivirus quarantined it, or a file of it is damaged)
+            diag.log("extract", f"7-Zip at {sevenzip} could not be started: {type(e).__name__}: {e}")
+            if archive_path.suffix.lower() != ".zip":
+                raise GameBananaError(f"7-Zip couldn't be started ({e}). Your antivirus may have blocked it.") from e
+            result = None
+        if result is not None:
+            if result.returncode == 0:
+                return
+            diag.log("extract", f"{archive_path.name}: 7-Zip exit code {result.returncode}: {(result.stderr or result.stdout or '')[-500:].strip()}")
             # Some 7-Zip builds can't read every RAR5 archive ("Unsupported Method"); the system's bsdtar (libarchive - macOS,
             # and tar.exe on Windows 10+) can, so give it a go before giving up.
             if _extract_with_bsdtar(archive_path, dest_dir):
+                diag.log("extract", f"{archive_path.name}: bsdtar unpacked it instead")
                 return
             raise GameBananaError(f"7-Zip extraction failed: {result.stdout}\n{result.stderr}")
-        return
 
     if archive_path.suffix.lower() == ".zip":
-        with zipfile.ZipFile(archive_path) as zf:
-            zf.extractall(dest_dir)
+        try:
+            with zipfile.ZipFile(archive_path) as zf:
+                zf.extractall(dest_dir)
+        except zipfile.BadZipFile as e:
+            diag.log("extract", f"{archive_path.name} is not a valid zip: {e}")
+            raise GameBananaError(f"'{archive_path.name}' isn't a valid zip file ({e}) - the download may be damaged.") from e
+        except OSError as e:
+            diag.log("extract", f"{archive_path.name}: couldn't unpack with zipfile: {type(e).__name__}: {e} ({diag.free_gb(dest_dir)})")
+            raise GameBananaError(f"Couldn't unpack '{archive_path.name}': {e}") from e
         return
 
     raise GameBananaError(

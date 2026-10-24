@@ -139,6 +139,11 @@ async function goStep(step, opts) {
     openSetupWizard(0, true);
     return;
   }
+  // The "It works!" confirmation belongs to the copy the user just tested. Leaving the Commit page means they are about to copy again (or
+  // change their mods), so it is reset: otherwise Next would land straight on "All done" instead of the steps with the staging folder.
+  if (flow.step === "commit" && step !== "commit") {
+    try { await pywebview.api.mark_switch_done(false); } catch (e) { /* (the call wrapper has logged it; going on is still right) */ }
+  }
   if (flow.step === "mods" && step !== "mods" && !(opts && opts.skipGate) && !(await passUnfinishedGate())) return;
   if (step === "mods") {
     switchView(flow.lastModsView || "characters");
@@ -192,9 +197,19 @@ async function renderCommitPage() {
   body.replaceChildren();
   pageHead(body, "Commit your mods",
     "Committing gathers every selected mod's files into one set, ready to copy to your Switch. Nothing on the Switch changes until you copy it there yourself.");
-  body.appendChild(loadingNote("Checking your mods..."));
+  const loading = loadingNote("Checking your mods...");
+  body.appendChild(loading);
   const keys = allKeys().filter(k => state.checked[k]);
-  const [preview, status] = await Promise.all([pywebview.api.preview_commit(keys), pywebview.api.get_flow_status()]);
+  let preview, status;
+  try {
+    [preview, status] = await Promise.all([pywebview.api.preview_commit(keys), pywebview.api.get_flow_status()]);
+  } catch (e) {   // (without this the page said "Checking your mods..." for ever)
+    const failed = cgEl("div");
+    failed.appendChild(statusCard("bad", "!", "Couldn't check your mods", diag.describe(e)));
+    failed.appendChild(button("Try again", "ghost", renderCommitPage));
+    loading.replaceWith(failed);
+    return;
+  }
   commitPage.preview = preview;
   flow.status = status;
   if (!commitPage.preview.already && !commitPage.busy) commitPage.result = null;
@@ -323,7 +338,9 @@ async function doCommit() {
   try {
     result = await pywebview.api.merge(keys);
   } catch (e) {
-    result = { lines: ["Commit failed: " + e], conflict: false, staged: false };
+    let header = "";
+    try { header = await pywebview.api.get_diagnostics(true); } catch (e2) { /* (the details are a bonus) */ }
+    result = { lines: (header ? [header, ""] : []).concat(["Commit failed: " + e]), conflict: false, staged: false };
   }
   commitPage.busy = false;
   commitPage.result = result;
@@ -353,6 +370,47 @@ function buildTroubleshooting() {
   return trouble;
 }
 
+// Plain pictures for the three ways to help (a thumbs-up, a star, a cup of coffee), drawn for this app: not the logos of GameBanana, GitHub or
+// Buy Me a Coffee, which are theirs and come with rules about who may show them. They take the colour of the text around them.
+const SUPPORT_ICONS = {
+  like: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="3" y="10" width="4" height="10" rx="1"/>'
+    + '<path d="M9 20V10.5l3.2-6.2c.3-.6 1-.8 1.6-.5.6.3.9 1 .7 1.6L14 9h4.6c1.2 0 2 1.1 1.7 2.2l-1.6 6.6c-.2.8-.9 1.2-1.7 1.2H9z"/></g></svg>',
+  star: '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon fill="currentColor" points="12,2.5 14.9,8.9 21.8,9.6 16.6,14.2 18.1,21 12,17.5 5.9,21 7.4,14.2 2.2,9.6 9.1,8.9"/></svg>',
+  coffee: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9z"/>'
+    + '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2M11 3.5v2M14 3.5v2"/></svg>',
+};
+
+// The "enjoying your mods?" card on the All done page: three quick ways to help, each with why it matters (see state-and-helpers.js).
+function supportCard() {
+  const card = cgEl("div", "modal-card pg-support-card");
+  const head = cgEl("div", "modal-card-header");
+  head.appendChild(cgEl("span", "modal-card-title", "Enjoying your mods?"));
+  card.appendChild(head);
+  const pad = cgEl("div", "uis-pad");
+  pad.appendChild(cgEl("div", "pg-support-intro", "This app is free and made by one person. If it saved you some time, these take a few seconds and help a lot:"));
+  const ways = [
+    GAMEBANANA_PAGE_URL && { icon: "like", label: "Like it on GameBanana", why: "The more likes the page has, the more people find it.", open: "Open GameBanana", url: GAMEBANANA_PAGE_URL },
+    { icon: "star", label: "Star it on GitHub", why: "It helps other modders find the project.", open: "Open GitHub", url: GITHUB_URL },
+    { icon: "coffee", label: "Buy me a coffee", why: "If you feel so inclined.", open: "Open Buy Me a Coffee", url: SUPPORT_URL },
+  ].filter(Boolean);
+  for (const way of ways) {
+    const row = cgEl("div", "pg-support-way");
+    const left = cgEl("div", "pg-support-left");
+    const icon = cgEl("span", "pg-support-icon");
+    icon.innerHTML = SUPPORT_ICONS[way.icon];   // (fixed pictures defined above, nothing from outside)
+    left.appendChild(icon);
+    const text = cgEl("div", "pg-support-text");
+    text.appendChild(cgEl("div", "pg-support-label", way.label));
+    text.appendChild(cgEl("div", "pg-support-why", way.why));
+    left.appendChild(text);
+    row.appendChild(left);
+    row.appendChild(button(way.open, "ghost small", () => openExternal(way.url)));
+    pad.appendChild(row);
+  }
+  card.appendChild(pad);
+  return card;
+}
+
 async function renderSwitchPage() {
   await refreshFlow();
   const body = document.getElementById("switch-body");
@@ -370,17 +428,14 @@ async function renderSwitchPage() {
     return;
   }
   if (st.switch.done) {
-    // All done: no checklist any more (it's finished). Back goes to the previous step, with a nudge to support the app beside it, and
-    // the troubleshooting tips stay here for anyone who finds it isn't working after all.
+    // All done: no checklist any more (it's finished). Back goes to the previous step, then the ways to support the app (like, star,
+    // donate), and the troubleshooting tips stay here for anyone who finds it isn't working after all.
     body.appendChild(statusCard("ok", "🎉", "All done - your mods work on your Switch",
       "If you change your mods later, the steps above will light up again and you can come back here."));
     const row = cgEl("div", "pg-cta pg-done-actions");
     row.appendChild(button("Back", "ghost", () => goStep("commit")));
-    const support = cgEl("div", "pg-support");
-    support.appendChild(cgEl("span", null, "Enjoying your mods? This app is free. If it saved you some time, you can chip in for a coffee."));
-    support.appendChild(button("Support creator", "ghost small", openSupportPage));
-    row.appendChild(support);
     body.appendChild(row);
+    body.appendChild(supportCard());
     body.appendChild(buildTroubleshooting());
     return;
   } else {

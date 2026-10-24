@@ -21,14 +21,17 @@ How it fits together
 import base64
 import functools
 import json
+import os
 import safe_io
 import re
 import shutil
 import threading
+import time
 import wave
 from array import array
 from pathlib import Path
 
+import diag
 import voice_audio as va
 from library_cache import mutates_library
 import voice_edit as ve
@@ -66,6 +69,21 @@ def _locked(method):
         with lock:
             return method(self, *args, **kwargs)
     return wrapper
+
+
+def _replace_dir(fresh: Path, final: Path, old: Path) -> None:
+    """Puts the folder `fresh` where `final` is, without ever leaving `final` missing: the old one is moved aside first and put back if
+    the swap fails (the error is raised after that), and removed only when the new one is in place."""
+    shutil.rmtree(old, ignore_errors=True)
+    if final.is_dir():
+        os.replace(final, old)
+    try:
+        os.replace(fresh, final)
+    except OSError:
+        if old.is_dir() and not final.exists():
+            os.replace(old, final)
+        raise
+    shutil.rmtree(old, ignore_errors=True)
 
 
 def _signature(path: Path) -> str:
@@ -232,6 +250,8 @@ class VoiceEditMixin:
         bases = self._voice_bases(character)
         files, problems, used = {}, [], {}
         cache = {}
+        sizes = {}
+        started = time.monotonic()
         for slot, base in sorted(bases.items()):
             kind, stem = slot.split(":")
             if base is None:
@@ -260,16 +280,25 @@ class VoiceEditMixin:
             if repl:
                 sub1, sub2, prefix = KIND_PREFIX[kind]
                 files[f"{sub1}/{sub2}/{prefix}{stem}.bars"] = ve.rebuild(blob, repl)
+                sizes[f"{prefix}{stem}.bars"] = (len(blob), len(files[f"{sub1}/{sub2}/{prefix}{stem}.bars"]), len(repl))
         if not files:
             self._voice_suspend(character)
             return {"problems": problems or ["There is no voice file to start from."]}
         romfs = unit_dir / "romfs"
-        if romfs.is_dir():
-            shutil.rmtree(romfs)
-        for rel, out in files.items():
-            dest = romfs / rel
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(out)
+        fresh = unit_dir / "romfs.new"
+        shutil.rmtree(fresh, ignore_errors=True)   # (left over from a rebuild that was interrupted)
+        try:   # written beside the old one and swapped in: a failure (antivirus, a full disk) keeps the previous Custom voice mod
+            for rel, out in files.items():
+                dest = fresh / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(out)
+            _replace_dir(fresh, romfs, unit_dir / "romfs.old")
+        except OSError as e:
+            shutil.rmtree(fresh, ignore_errors=True)
+            diag.log("voice", f"writing the Custom voice mod for {character} failed: {type(e).__name__}: {e} ({diag.free_gb(unit_dir)}); the previous one was kept")
+            return {"problems": problems + [f"Couldn't write the voice files ({e}). The previous version was kept."]}
+        diag.log("voice", f"{character}: wrote {len(files)} voice file(s) in {int((time.monotonic() - started) * 1000)} ms - "
+                          + "; ".join(f"{name} {before} -> {after} bytes, {n} sound(s) replaced" for name, (before, after, n) in sorted(sizes.items())))
         (unit_dir / "About this mod.txt").write_text(
             "Made by the mod manager from the voice lines you muted or replaced (Voice section of the character's card).\n"
             "Do not edit this folder by hand: change the lines in the app and it is written again.\n", encoding="utf-8")
@@ -400,7 +429,11 @@ class VoiceEditMixin:
                         continue
                 self._voice_apply_exclusions(character)
             return {"changed": changed}
-        except Exception:
+        except Exception as e:   # noqa: BLE001
+            import diag
+            import traceback
+            diag.log_once(("voice-sync", type(e).__name__, str(e)[:80]), "error",
+                          f"keeping the Custom voice mods up to date failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
             return {"changed": 0}      # (never let this get in the way of ticking a mod)
 
     # ---------------------------------------------------------------- what the editor shows
@@ -659,6 +692,8 @@ class VoiceEditMixin:
             except ve.VoiceEditError as e:
                 return {"success": False, "error": str(e)}
         self._voice_save(data)
+        diag.log("voice", f"{character}: line {key} set to {mode}"
+                          + (" " + str({k: v for k, v in edits.get(key, {}).items() if isinstance(v, (int, float)) and not isinstance(v, bool)}) if mode == "custom" else ""))
         try:
             res = self._voice_build(character)
         except (ve.VoiceEditError, OSError, va.VoiceError) as e:

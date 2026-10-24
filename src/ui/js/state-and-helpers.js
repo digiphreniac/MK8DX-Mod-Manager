@@ -24,7 +24,7 @@ function saveChecked() {
     }
     for (const [k, v] of Object.entries(changes)) { state.checkedSaved[k] = v; if (checkedPending[k] === v) delete checkedPending[k]; }
     return true;
-  }).catch(e => { console.error("saving the selected mods failed", e); return false; });
+  }).catch(e => { console.error("saving the selected mods failed", e); diag.banner("tick-save", "Your last selection couldn't be saved, so it may be gone when the app restarts. Select it again. " + diag.describe(e)); return false; });
   return checkedSaveChain;
 }
 let viewMode = "characters";
@@ -65,6 +65,11 @@ const SIMPLE_CATEGORIES = [
 // Where the "Support creator" links (the footer, the All done page) lead.
 const SUPPORT_URL = "https://buymeacoffee.com/digiphreniac";
 function openSupportPage() { pywebview.api.open_external_url(SUPPORT_URL); }
+// The other two ways to help, shown on the All done page (see supportCard() in flow.js). The more likes the GameBanana page has, the
+// more people see it. An empty address hides that row, so a missing one never sends anybody anywhere.
+const GAMEBANANA_PAGE_URL = "https://gamebanana.com/tools/24624";
+const GITHUB_URL = "https://github.com/digiphreniac/MK8DX-Mod-Manager";
+function openExternal(url) { pywebview.api.open_external_url(url); }
 const ITEMS_CATEGORY = "items";
 const ITEMS_OTHER = "Items";
 const ITEMS_OTHER_LABEL = "Other items";

@@ -67,7 +67,9 @@ a description - nobody's traced what triggers them (checked against real Switch 
   guessing.
 * **The Custom voice mod.** The result is an ordinary mod, `mods/extracted/characters/<Character>/Custom voice/romfs/Audio/...`
   (only the archives that have an edit), ticked when it is first made and merged by Commit like any mod. Its tick is the
-  user's: unticking it turns the edits off without losing them.
+  user's: unticking it turns the edits off without losing them. It is rebuilt beside the old one (`romfs.new`) and swapped in
+  (`voice_api._replace_dir()`), so a rebuild that fails - antivirus, a full disk - keeps the previous Custom voice mod; each edit
+  and each rebuild (file sizes before and after, how many sounds, how long) is a line in the log.
 * **The mod it was made from** would clash with the Custom voice mod on the same file, so while the Custom voice mod is ticked the
   app leaves that mod's copy of the file out of the merge (an ordinary left-out file, `kept_from` = the Custom voice mod, visible
   in its Files list) and puts it back when the Custom voice mod is unticked, removed, or has no edits left. Only the archives the
