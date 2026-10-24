@@ -34,10 +34,12 @@
   #settings-modal-body .modal-card:last-child { margin-bottom: 0; }
   /* Two columns of cards when there is room for two (each at least 420px), one when there isn't, and the browser balances them: the cards
      keep their order and the split falls where the two columns come out about as tall as each other, however tall each card is right now
-     (some fill in after the window opens, and "Advanced"-style sections open and close). #settings-modal-body is what scrolls, and the
+     (some fill in after the window opens, and fold-away sections open and close). #settings-modal-body is what scrolls, and the
      columns sit in a box of automatic height inside it - columns inside a scrolling box of fixed height would spill sideways instead. */
   .settings-columns { column-count: 2; column-width: 420px; column-gap: 22px; }
   .settings-columns > .modal-card { break-inside: avoid; }
+  /* a row of options: each one after the first sits a little apart from whatever (a hint, another option) is above it */
+  .settings-body > .settings-checkbox-label ~ .settings-checkbox-label { margin-top: 14px; }
 
   /* Conflicts and omitted files: its own modal, opened from the card in Settings (it can grow long when there are many mods).
      The Review button sits to the left of the one-line summary. */

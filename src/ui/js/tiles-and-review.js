@@ -86,7 +86,7 @@ function buildTile(displayName, units, onClick, gbAttempted, opts) {
       tile.title = tile.dataset.countNote = "No mods yet";
     }
   } else if (overlayCount && opts.showCount === false) {
-    // Counts are switched off (Settings > Character Select). One state is still worth a quiet cue:
+    // Counts are switched off (Settings > App experience). One state is still worth a quiet cue:
     // mods are downloaded but none is ticked yet. The numbers stay in the tile's tooltip.
     tile.dataset.countNote = `${selected} of ${total} mod${total === 1 ? "" : "s"} selected`;
     if (selected === 0) {

@@ -22,9 +22,18 @@ class TheLayout(unittest.TestCase):
         html = read("html", "settings-modal.html")
         self.assertEqual(html.count('class="settings-columns"'), 1)
         self.assertNotIn("settings-col\"", html)       # (no hand-made columns any more)
-        self.assertEqual(titles(html), ["Master Directory", "UI icons &amp; text", "UI Icon Worklist", "Game version", "GameBanana Browsing",
-                                        "Character Select", "Advanced", "Conflicts and omitted files", "Maintenance"])
+        self.assertEqual(titles(html), ["Data folder", "UI icons &amp; text", "UI Icon Worklist", "Game version", "App experience",
+                                        "Conflicts and omitted files", "Maintenance"])
         self.assertEqual(html.count("<div"), html.count("</div>"))
+
+    def test_app_experience_holds_the_four_options_in_order_and_only_the_last_two_explain_themselves(self):
+        html = read("html", "settings-modal.html")
+        card = html[html.index("App experience"):html.index('id="conflicts-card"')]
+        ids = re.findall(r'<input type="checkbox" id="([^"]+)"', card)
+        self.assertEqual(ids, ["setting-show-tile-counts", "setting-play-select-voice", "setting-show-nsfw", "setting-advanced-mode"])
+        self.assertIn("Play character-select sounds", card)
+        self.assertEqual(card.count('class="settings-hint"'), 2)
+        self.assertLess(card.index("setting-show-nsfw"), card.index('class="settings-hint"'))      # (no hint before the NSFW option)
 
     def test_the_window_is_wide_and_the_columns_balance_themselves(self):
         css = read("css", "settings.css")

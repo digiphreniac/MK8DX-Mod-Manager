@@ -7,12 +7,12 @@
     <div id="settings-modal-body">
       <div class="settings-columns">
       <div class="modal-card">
-        <div class="modal-card-header"><span class="modal-card-title">Master Directory</span></div>
+        <div class="modal-card-header"><span class="modal-card-title">Data folder</span></div>
         <div class="settings-body">
           <div id="setting-master-dir-path" class="settings-path-display"></div>
           <button id="btn-change-master-dir" class="small">Change&hellip;</button>
           <div class="settings-hint">
-            Where this app keeps your downloaded mods, settings and caches. Unless you change it, that is a folder called <code>data</code> next to the app. Changing it lets you optionally bring your existing files along to the new folder.
+            Choose where the app keeps your downloaded mods and settings. Mods can be large, so pick a place with plenty of free space.
           </div>
         </div>
       </div>
@@ -45,45 +45,29 @@
         </div>
       </div>
       <div class="modal-card">
-        <div class="modal-card-header"><span class="modal-card-title">GameBanana Browsing</span></div>
-        <div class="settings-body">
-          <label class="settings-checkbox-label">
-            <input type="checkbox" id="setting-show-nsfw">
-            Show NSFW mods
-          </label>
-          <div class="settings-hint">
-            When off, mods GameBanana marks with a content visibility rating are hidden from "Browse GameBanana" lists and searches. Pasting a direct link to a specific mod always works regardless of this setting.
-          </div>
-        </div>
-      </div>
-      <div class="modal-card">
-        <div class="modal-card-header"><span class="modal-card-title">Character Select</span></div>
+        <div class="modal-card-header"><span class="modal-card-title">App experience</span></div>
         <div class="settings-body">
           <label class="settings-checkbox-label">
             <input type="checkbox" id="setting-show-tile-counts">
             Show mod counts on character tiles
           </label>
-          <div class="settings-hint">
-            Off by default. When on, each character tile shows a badge like 1/4 (mods selected / mods downloaded). When off, a tile that has mods downloaded but none selected gets a small hollow ring instead, and hovering a tile still tells you the numbers.
-          </div>
-          <label class="settings-checkbox-label" style="margin-top: 14px;">
+          <label class="settings-checkbox-label">
             <input type="checkbox" id="setting-play-select-voice">
-            Play a character's select sound
+            Play character-select sounds
+          </label>
+          <label class="settings-checkbox-label">
+            <input type="checkbox" id="setting-show-nsfw">
+            Show NSFW mods
           </label>
           <div class="settings-hint">
-            On by default. Each time you click a character's tile, and when a character's mod becomes finished (its name and icons checked, or nothing to check), the app plays the character-select voice from its selected mods - the sound the game makes when you pick it - and the speaker on its tile lights up while it plays. Nothing plays for a character whose mods don't include one.
+            Off by default. When enabled, app will include NSFW-rated mods found in GameBanana queries.
           </div>
-        </div>
-      </div>
-      <div class="modal-card">
-        <div class="modal-card-header"><span class="modal-card-title">Advanced</span></div>
-        <div class="settings-body">
           <label class="settings-checkbox-label">
             <input type="checkbox" id="setting-advanced-mode">
             Advanced mode
           </label>
           <div class="settings-hint">
-            Shows extra technical detail (for example the full list of files in a conflict is open by default). Nothing essential is hidden without it - conflicts and omitted files are always available in the section below.
+            Shows verbose technical details in a few places. Nothing essential is hidden when disabled.
           </div>
         </div>
       </div>
