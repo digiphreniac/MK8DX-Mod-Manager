@@ -14,10 +14,10 @@ Tooltips, scrollbars and waiting states; the four-step flow (Setup, Choose mods,
   (`--app-max` in the stylesheet): on a wider window the extra room goes to the sides, and the header, tabs, pages and
   footer stay lined up.
 - **Drop-down lists and fold-away sections** have one look each, in `css/layout.css`: a `select` is drawn like a button or a text box (panel
-  colour, thin border, its arrow made from two CSS triangles so it follows the theme), and a `details` is a quiet box whose `summary` has a
-  chevron that turns when it opens, instead of the browser's own control. A list with its own class only changes size (keep room on the
-  right for the arrow, and write `background-color`, not `background:`, which would wipe the arrow). The few fold-away sections that sit
-  inside a line of text (`.cg-files`, `.ml-custom`) drop the box and keep the chevron. The opened list of a drop-down is drawn by the system.
+  colour, thin border, its arrow made from two CSS triangles so it follows the theme), and a `details` has no box: its `summary` is dim text with a
+  small chevron that turns when it opens, instead of the browser's own triangle, and what is inside is indented under it with a line down
+  its left (a single wrapper child gives one unbroken line; a child with vertical margins would break it). A list with its own class only changes size (keep room on the
+  right for the arrow, and write `background-color`, not `background:`, which would wipe the arrow). The opened list of a drop-down is drawn by the system.
 - **Waiting is shown, not hidden.** A character tile with ticked mods pulses until the app has read what those mods change
   (the icon and name) - on opening the app, and again after a tick. In a character's card, ticking or unticking a mod turns
   the Name and Icons sections into a loading state at once (the status line says "reading the appearance...", the chip says

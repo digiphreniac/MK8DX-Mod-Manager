@@ -64,19 +64,28 @@ class Details(unittest.TestCase):
         self.assertIn("rotate(-45deg)", chevron)
         self.assertIn("rotate(45deg)", block("details[open] > summary::before"))
 
-    def test_the_box_has_the_apps_colours_and_the_summary_can_be_reached_by_keyboard(self):
+    def test_a_fold_away_section_has_no_box_and_the_summary_can_be_reached_by_keyboard(self):
         box = block("details")
-        for needed in ("var(--panel-border)", "var(--bg-soft)", "border-radius"):
-            self.assertIn(needed, box)
+        for boxed in ("border", "background", "padding", "box-shadow"):
+            self.assertNotIn(boxed, box)
         self.assertIn("var(--accent)", block("details > summary:focus-visible"))
         self.assertIn("var(--text)", block("details > summary:hover"))
 
-    def test_the_ones_that_sit_inside_a_line_of_text_keep_the_chevron_but_not_the_box(self):
-        conflicts = read("conflicts.css")
-        for selector in (".cg-files", ".ml-custom", ".ml-custom-body details"):
-            body = next(b for s, b in rules(conflicts) if s == selector)
-            self.assertIn("background: none", body, selector)
-            self.assertIn("border: 0", body, selector)
+    def test_what_is_inside_an_open_section_is_indented_with_a_line_down_its_left(self):
+        inside = block("details[open] > :not(summary):not(.pg-log)")
+        self.assertIn("border-left: 2px solid color-mix(in srgb, var(--text-dim)", inside)
+        self.assertRegex(inside, r"padding-left:\s*1\d+px")
+        self.assertRegex(inside, r"margin-left:\s*\d+px")
+        self.assertIn("margin-left", block("details[open] > .pg-log"))      # (the log has its own box: indent only)
+        self.assertNotIn("border-left", block("details[open] > .pg-log"))
+
+    def test_no_stylesheet_puts_a_box_back_round_one(self):
+        boxed = re.compile(r"(^|;|\s)(border|background|background-color|padding|border-radius)\s*:\s*(?!none|0\b|transparent)")
+        for path in CSS.glob("*.css"):
+            for selector, body in rules(path.read_text(encoding="utf-8")):
+                if re.fullmatch(r"(\.[\w-]+\s+)*(details|\.cg-files|\.ml-custom|\.cc-move)(\[open\])?", selector) \
+                        or selector in (".flow-body details", ".ml-custom-body details", ".flow-body .modal-card details"):
+                    self.assertNotRegex(body, boxed, f"{path.name}: {selector}")
 
     def test_the_places_that_had_their_own_box_no_longer_repeat_it(self):
         flow = read("flow.css")

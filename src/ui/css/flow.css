@@ -50,7 +50,6 @@
   .page .pg-lead { margin: 0 0 16px 0; font-size: 13.5px; line-height: 1.5; color: var(--text-dim); }
   .flow-body .modal-card { margin-bottom: 16px; background: var(--bg-soft); }
   .flow-body details { margin: 0 0 10px 0; }
-  .flow-body .modal-card details { background: var(--panel); }
   .flow-body .pg-warn { background: var(--bg-soft); }
   /* "Copy log" sits at the far right of the "Details (full log)" row, whether the log is open or not */
   .pg-log-summary { position: relative; padding-right: 96px; }
