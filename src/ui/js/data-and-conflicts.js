@@ -66,6 +66,7 @@ async function loadSettings() {
   document.getElementById("setting-advanced-mode").checked = !!state.settings.advanced_mode;
   document.getElementById("setting-show-tile-counts").checked = !!state.settings.show_tile_counts;
   document.getElementById("setting-play-select-voice").checked = state.settings.play_select_voice !== false;
+  updateAppExperienceReset();
   const dirStatus = await pywebview.api.get_master_dir_status();
   document.getElementById("setting-master-dir-path").textContent = dirStatus.path || "(not set)";
   renderUiIconWorklist();

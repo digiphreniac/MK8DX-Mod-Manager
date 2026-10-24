@@ -35,6 +35,19 @@ class TheLayout(unittest.TestCase):
         self.assertEqual(card.count('class="settings-hint"'), 2)
         self.assertLess(card.index("setting-show-nsfw"), card.index('class="settings-hint"'))      # (no hint before the NSFW option)
 
+    def test_app_experience_can_be_reset_and_the_defaults_match_the_backends(self):
+        html = read("html", "settings-modal.html")
+        header = html[html.index("App experience"):]
+        header = header[:header.index("</div>")]
+        self.assertIn('id="btn-reset-app-experience"', header)
+        self.assertIn("Reset to default", header)
+        js = read("js", "settings-panels.js")
+        found = dict(re.findall(r"(\w+): (true|false)", re.search(r"const APP_EXPERIENCE_DEFAULTS = \{([^}]*)\}", js).group(1)))
+        source = (UI.parent / "mod_manager.py").read_text(encoding="utf-8")
+        for key, value in found.items():
+            self.assertRegex(source, rf'"{key}": {value.capitalize()},', key)      # (DEFAULT_SETTINGS says the same)
+        self.assertEqual(sorted(found), ["advanced_mode", "play_select_voice", "show_nsfw", "show_tile_counts"])
+
     def test_the_window_is_wide_and_the_columns_balance_themselves(self):
         css = read("css", "settings.css")
         self.assertRegex(css, r"#settings-modal \{[^}]*width: min\(1040px, calc\(100vw - 40px\)\)")

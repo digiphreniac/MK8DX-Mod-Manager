@@ -231,6 +231,30 @@ document.getElementById("setting-advanced-mode").addEventListener("change", asyn
   renderConflicts();
 });
 
+// "App experience" > Reset to default: the four options back to how they start (these match DEFAULT_SETTINGS in mod_manager.py).
+// The button is only available while something differs, and each option's own side effect is repeated for the ones that changed.
+const APP_EXPERIENCE_DEFAULTS = { show_tile_counts: false, play_select_voice: true, show_nsfw: false, advanced_mode: false };
+const APP_EXPERIENCE_BOXES = {
+  show_tile_counts: "setting-show-tile-counts", play_select_voice: "setting-play-select-voice",
+  show_nsfw: "setting-show-nsfw", advanced_mode: "setting-advanced-mode",
+};
+function updateAppExperienceReset() {
+  const differs = Object.entries(APP_EXPERIENCE_DEFAULTS).some(([key, value]) => document.getElementById(APP_EXPERIENCE_BOXES[key]).checked !== value);
+  document.getElementById("btn-reset-app-experience").disabled = !differs;
+}
+document.getElementById("btn-reset-app-experience").closest(".modal-card").addEventListener("change", updateAppExperienceReset);
+document.getElementById("btn-reset-app-experience").addEventListener("click", async () => {
+  const changed = Object.keys(APP_EXPERIENCE_DEFAULTS).filter(k => document.getElementById(APP_EXPERIENCE_BOXES[k]).checked !== APP_EXPERIENCE_DEFAULTS[k]);
+  for (const key of changed) {
+    state.settings[key] = APP_EXPERIENCE_DEFAULTS[key];
+    document.getElementById(APP_EXPERIENCE_BOXES[key]).checked = APP_EXPERIENCE_DEFAULTS[key];
+  }
+  updateAppExperienceReset();
+  await pywebview.api.save_settings(state.settings);
+  if (changed.includes("show_tile_counts")) renderCharacterGrid();
+  if (changed.includes("advanced_mode")) renderConflicts();
+});
+
 // Shared by the first-run setup overlay and the Settings "Change..." flow:
 // renders the "here's what you picked, bring your files or start fresh?"
 // step into `container`, given a folder the user just chose via the native
