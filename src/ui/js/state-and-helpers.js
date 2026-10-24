@@ -124,6 +124,13 @@ const CUP_EMOJI = {
   "Spiny Cup": "\u{1F994}",      // 🦔
 };
 
+// The mods the user has selected, as the backend knows them. Deliberately not "every mod the page has listed that is selected": that list
+// (state.categories) is only reloaded by loadMods(), so a mod downloaded and selected in this very session isn't in it yet, and the Commit
+// page said "No mods are selected yet". The backend checks each key (a selected mod that is gone from the disk is reported there).
+function selectedKeys() {
+  return Object.keys(state.checked || {}).filter(k => state.checked[k]);
+}
+
 function allKeys() {
   const keys = [];
   for (const cat in state.categories) {
