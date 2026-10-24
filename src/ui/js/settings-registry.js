@@ -7,7 +7,8 @@
 //
 // A setting: { key, group, kind, label, description, showInSetup, ... }
 //   description  plain text; a newline in it (a backslash and an n, inside the quotes) starts a new line.
-//   kind      "toggle" (a checkbox), "select" (needs options()), "text" (optional validate()/normalize()/datalist()), or "folder".
+//   kind      "toggle" (a checkbox), "select" (needs options()), "text" (optional validate()/normalize()/datalist()), "folder" (the data
+//             folder) or "path" (any other folder: status(), choose(path) and reset() say how).
 //   label     text, or a function returning the text (a label that depends on another setting).
 //   read()    the current value (default: state.settings[key], else the default); write(value) saves it (default: save_settings).
 //   after()   what else has to happen once it changed (redraw something, refresh the flow bar ...).
@@ -16,6 +17,7 @@
 
 const SETTING_GROUPS = {
   "data-folder": { title: "Data folder", setupOrder: 0 },
+  "staging-folder": { title: "Staging folder" },
   "game-version": { title: "Game version", setupOrder: 1, setupSkip: { key: "game_version", value: "" } },
   // (Setup's step 2 is the Game files step: required, not a setting - see setup-wizard.js)
   "app-experience": { title: "App experience", setupOrder: 3, setupLead: "You can change these any time in Settings.", resettable: true },
@@ -30,6 +32,13 @@ const ENGLISH_EITHER = "en-either";
 const SETTINGS = [
   { key: "data_folder", group: "data-folder", kind: "folder", label: "Data folder", showInSetup: true,
     description: "Choose where the app keeps your downloaded mods and settings. Mods can be large, so pick a place with plenty of free space." },
+
+  { key: "staging_folder", group: "staging-folder", kind: "path", label: "Staging folder", showInSetup: false,
+    description: "Where a commit puts the finished files, ready to copy to your Switch. You don't need to change this. If you do, the next commit fills the new folder and the old one is left as it is.",
+    status: () => pywebview.api.get_staging_status(),
+    choose: (path) => pywebview.api.set_staging_dir(path),
+    reset: () => pywebview.api.use_recommended_staging_dir(),
+    after: async () => { await refreshFlow(); if (flow.step === "commit") renderCommitPage(); } },
 
   { key: "game_version", group: "game-version", kind: "select", label: "Which version is your game?", showInSetup: true, refreshGroup: true,
     description: "A few mods (typically only code patches like \"Mechanics\" mods) only work on certain versions of Mario Kart 8 Deluxe. If you know your version, the app will alert you of any known issues before you try copying files onto your Switch. The game version is shown on the title screen on the bottom left.",
@@ -156,6 +165,10 @@ async function buildSettingControl(def, ctx) {
     await fillFolderControl(def, box, ctx);
     return box;
   }
+  if (def.kind === "path") {
+    await fillPathControl(def, box);
+    return box;
+  }
   if (def.kind === "toggle") {
     const row = cgEl("label", "settings-checkbox-label");
     const cb = document.createElement("input");
@@ -206,16 +219,47 @@ async function buildSettingControl(def, ctx) {
   return box;
 }
 
+// Where a folder is: its path, marked Recommended when it is the recommended one (status says is_recommended, or is_default for the data
+// folder), and by its own `label` when it has one ("Existing folder").
+function folderCard(dir) {
+  const recommended = dir.is_recommended !== undefined ? dir.is_recommended : dir.is_default;
+  const where = cgEl("div", "wiz-folder" + (recommended ? " is-default" : ""));
+  where.appendChild(cgEl("span", "wiz-pill" + (recommended ? " rec" : ""), dir.label || (recommended ? "Recommended" : "Custom folder")));
+  where.appendChild(cgEl("code", "wiz-folder-path", dir.path || dir.default_path || "(not set)"));
+  return where;
+}
+
+// Any other folder setting (a "path"): where it is, a button to choose another, and one to go back to the default. Nothing here knows
+// which folder it is - the setting's status(), choose() and reset() do.
+async function fillPathControl(def, box) {
+  const dir = await def.status();
+  box.replaceChildren(folderCard(dir));
+  if (def.description) box.appendChild(cgEl("div", "setting-hint", def.description));
+  const errorBox = cgEl("div", "wiz-error");
+  errorBox.hidden = true;
+  box.appendChild(errorBox);
+  const done = async (result) => {
+    if (!result.success) { errorBox.textContent = result.error; errorBox.hidden = false; return; }
+    state.settings = await pywebview.api.get_settings();
+    if (def.after) await def.after();
+    await fillPathControl(def, box);
+  };
+  const row = cgEl("div", "uis-actions");
+  row.appendChild(button("Change folder...", "small", async () => {
+    const chosen = await pywebview.api.pick_folder();
+    if (chosen) await done(await def.choose(chosen));
+  }));
+  if (!dir.is_recommended) row.appendChild(button("Use the recommended folder", "ghost small", async () => done(await def.reset())));
+  box.appendChild(row);
+}
+
 // The data folder: where it is, and how to change it. Before setup has been finished there is nothing to bring along, so a new folder is
 // simply used; afterwards the user is asked whether to bring their mods and settings (renderMasterDirConfirmStep).
 async function fillFolderControl(def, box, ctx) {
   const dir = await pywebview.api.get_master_dir_status();
   const firstRun = !(state.settings && state.settings.setup_done);
   box.replaceChildren();
-  const where = cgEl("div", "wiz-folder" + (dir.is_default ? " is-default" : ""));
-  where.appendChild(cgEl("span", "wiz-pill" + (dir.is_default ? " rec" : ""), dir.is_default ? "Recommended" : "Custom folder"));
-  where.appendChild(cgEl("code", "wiz-folder-path", dir.path || dir.default_path || "(not set)"));
-  box.appendChild(where);
+  box.appendChild(folderCard(dir));
   if (def.description) box.appendChild(cgEl("div", "setting-hint", def.description));
   const errorBox = cgEl("div", "wiz-error");
   errorBox.hidden = true;

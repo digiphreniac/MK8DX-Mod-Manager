@@ -21,7 +21,7 @@ Given a character or a course, it can:
   count) before you commit to anything.
 - Show and fix how a mod looks in the game's own menus (character-select
   icons, course pictures, names), and edit character voices.
-- Stage the combined result into `../sd-card-staging/atmosphere/contents/<title id>/`,
+- Stage the combined result into `<data folder>/sd-card-staging/atmosphere/contents/<title id>/` (or the folder chosen in Settings),
   ready to copy onto the Switch SD card.
 
 ## Running it from source
@@ -97,7 +97,7 @@ short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). Th
   repository's `README.md` and is the only place to edit the text users see in the download; CI fails if the package ends up
   with more than one.
 - First run: with no `app-config.json`, the master folder is `data` next to the app (`default_master_dir()` in
-  `mod_manager.py`; `sd-card-staging` is then next to it too). The wizard's first step, "Data folder" (a setting of `settings-registry.js`, drawn the same in Settings), shows
+  `mod_manager.py`; `sd-card-staging` is then inside it - see `_staging_dir()`). The wizard's first step, "Data folder" (a setting of `settings-registry.js`, drawn the same in Settings), shows
   it marked Recommended (`get_master_dir_status()["is_default"]`); Next keeps it, "Change folder..." picks another (written to
   `app-config.json`), and "Use the recommended folder" (`use_default_master_dir()`) deletes that pointer again. When the default
   spot isn't writable the old full-screen folder picker is shown instead. The `data` folder is created at run time, never shipped

@@ -41,11 +41,11 @@ def registry():
 class EverySettingIsDefinedOnce(unittest.TestCase):
     def test_each_setting_says_what_it_is_and_whether_it_is_in_setup(self):
         entries = registry()
-        self.assertGreaterEqual(len(entries), 8)
+        self.assertGreaterEqual(len(entries), 9)
         keys = [e["key"] for e in entries]
         self.assertEqual(len(keys), len(set(keys)))
         for e in entries:
-            self.assertIn(e["kind"], ("toggle", "select", "text", "folder"), e["key"])
+            self.assertIn(e["kind"], ("toggle", "select", "text", "folder", "path"), e["key"])
             self.assertTrue(e["has_label"] and e["has_description"], e["key"])
 
     def test_the_settings_in_setup_are_exactly_those_flagged(self):
@@ -112,6 +112,8 @@ class NoPlaceKnowsAParticularSetting(unittest.TestCase):
     def test_no_name_or_description_is_written_a_second_time(self):
         for e in registry():
             for field in ("label", "description"):
+                if field == "label" and e["kind"] in ("folder", "path"):
+                    continue       # (a folder setting has no label of its own on the page: its card, and its Setup step, carry the name)
                 found = re.search(rf'\b{field}: "((?:[^"\\]|\\.)*)"', e["text"])
                 if not found or len(found.group(1)) < 12:
                     continue

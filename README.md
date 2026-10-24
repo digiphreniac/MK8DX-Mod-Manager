@@ -78,9 +78,10 @@ The four steps are shown across the top of the window:
    the combined files. Nothing on your SD card is touched.
 4. **Copy to Switch** - copy the staged files onto your SD card.
 
-The built files appear in a folder called **`sd-card-staging`**, created **next to** the
-`data` folder, in `sd-card-staging\atmosphere\contents\0100152000022000\`. The
-app can open it for you. Copy the `atmosphere` folder from there onto the root of your SD card,
+The built files appear in a folder called **`sd-card-staging`**, inside the
+`data` folder, in `sd-card-staging\atmosphere\contents\0100152000022000\`. (An install that
+already had one next to the `data` folder keeps using it until you switch it. **Settings > Staging
+folder** can point it somewhere else.) The app can open it for you. Copy the `atmosphere` folder from there onto the root of your SD card,
 merging when asked. The in-app **Help** button explains each screen in more detail.
 
 ## Troubleshooting

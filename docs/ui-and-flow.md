@@ -18,6 +18,10 @@ Tooltips, scrollbars and waiting states; the four-step flow (Setup, Choose mods,
   changing it does (`write`, `after`); `renderSettingsGroup()` draws it identically in both places and `changeSetting()` saves it. How
   each starts comes from `Api.get_default_settings()` (= `DEFAULT_SETTINGS`), which the cards' **Reset to default** uses too. Nothing in
   `setup-wizard.js` or `settings-panels.js` may know about one particular setting.
+- **Staging folder** (Settings, `kind: "path"` in `settings-registry.js`): where a commit builds the files to copy to the Switch - inside the
+  data folder (Recommended) unless the user chose another (Custom folder) or an older install already has one beside it (Existing folder;
+  "Use the recommended folder" switches to the one inside). It is not a Setup step (`showInSetup: false`).
+  Changing it moves nothing and makes the page ask for a new commit.
 - **Settings** is a wide window (up to 1040px) with two columns of cards when there is room for two (each at least 420px), one when there
   isn't. The cards (`.settings-columns` in `html/settings-modal.html`) keep their order and the browser balances the columns by height
   (CSS multi-column, `break-inside: avoid`), so the split moves by itself as cards fill in or grow. The columns sit in a box of automatic

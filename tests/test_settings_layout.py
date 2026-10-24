@@ -22,7 +22,7 @@ class TheLayout(unittest.TestCase):
         html = read("html", "settings-modal.html")
         self.assertEqual(html.count('class="settings-columns"'), 1)
         self.assertNotIn("settings-col\"", html)       # (no hand-made columns any more)
-        self.assertEqual(titles(html), ["Data folder", "Game language", "UI Icon Worklist", "Game version", "App experience",
+        self.assertEqual(titles(html), ["Data folder", "Staging folder", "Game language", "UI Icon Worklist", "Game version", "App experience",
                                         "Conflicts and omitted files", "Maintenance"])
         self.assertEqual(html.count("<div"), html.count("</div>"))
 

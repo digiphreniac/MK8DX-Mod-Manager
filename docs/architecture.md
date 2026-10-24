@@ -59,6 +59,11 @@ The backend modules, every file the app keeps in the master folder, how the fron
   - see [Menu icons & text](menu-icons-and-text.md#menu-icons--text-combined-character-icons-and-coursecharacter-names)); a commit
   replaces those three files (keeping the old one in `ui-icons-backups/`). Any other file the user puts there themselves, such as
   a loose texture from the UI Icon Worklist, stays separate from the checklist. Always merged in.
+- `sd-card-staging/` - what a commit builds, ready to copy onto the SD card (`atmosphere/contents/<title id>/romfs`, `atmosphere/exefs_patches/`).
+  The recommended place is inside the data folder (so it moves with it); an install from before that keeps the folder it already has
+  *next to* the data folder, shown as "Existing folder", until **Use the recommended folder** switches it. **Settings > Staging folder**
+  (`staging_folder`: "" = the default, `@data` = inside the data folder whatever else exists, or a path; `Api._staging_dir()`) chooses another. Nothing is moved when it changes, and
+  the last commit stops counting (its files are not in the new place). It is not asked in Setup.
 - `ui-icons-backups/` - a timestamped copy of any file in `ui-icons/` that a
   build replaced or removed (never deleted automatically)
 - `excluded-files.json` - files each mod must NOT contribute to a commit (how

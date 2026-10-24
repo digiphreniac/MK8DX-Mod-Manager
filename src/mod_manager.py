@@ -221,7 +221,13 @@ DEFAULT_SETTINGS = {
     # exact identifier the code-patch checks use - choosing a known version
     # fills it in.
     "game_version": "",
+    # Where a commit puts the files to copy to the Switch (see Api._staging_dir()): "" = the default, STAGING_IN_DATA = the folder inside the
+    # data folder (the recommended one, whatever else exists), or a folder the user chose in Settings.
+    "staging_folder": "",
 }
+# The staging folder's name (what a commit builds, ready to copy to the SD card): the recommended place is inside the data folder.
+STAGING_DIRNAME = "sd-card-staging"
+STAGING_IN_DATA = "@data"      # (stored for "inside the data folder": a path would go stale if the data folder were moved)
 # Everything that lives under the configurable master directory - moved as a
 # unit when the user changes it with "bring my existing files along". This is
 # strictly user data (downloads, checked/desired-mod state, caches) - it does
@@ -238,6 +244,7 @@ MASTER_DIR_ITEMS = [
     ui_setup.OVERRIDES_FILENAME, ui_setup.OVERRIDES_DIRNAME, NOTES_FILENAME,
     # (these were missing, so "Bring my files" left them behind: the setup wizard came back and Custom voice mods lost their record)
     game_files.DIRNAME, VOICE_EDITS_FILENAME, VOICE_CUSTOM_DIRNAME, LOOK_REVIEWS_FILENAME,
+    STAGING_DIRNAME,      # (the default staging folder lives in the data folder, so it goes along with it)
 ]
 # ...and the previous good copy each app-owned file keeps beside it (see safe_io.write_json_atomic)
 MASTER_DIR_ITEMS += [name + ".bak" for name in (STATE_FILENAME, GB_MODS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME, EXCLUDED_FILES_FILENAME,
@@ -1899,7 +1906,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             if LOG_PATH:
                 lines.append(f"Log: {LOG_PATH}" + (" (the app folder isn't writable, so the log is in the temp folder)" if app_paths.LOG_FELL_BACK else "")
                              + "; every run adds to it, newest at the end")
-            lines.append(f"Staging folder: {Path(root).parent / 'sd-card-staging'}")
+            lines.append(f"Staging folder: {self._staging_dir()}")
             lines.append(f"Game files copy: source {base['source'] or 'none'}, copied {base['copied_at'] or 'never'}, icons {len(base['icons'])}, "
                          f"languages {','.join(base['locales']) or 'none'}, voice {base['voice_found']}/{base['voice_total']}, "
                          f"course pictures {base.get('course_pictures', 0)}, vehicle pictures {base.get('vehicle_pictures', 0)}")
@@ -5887,7 +5894,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         last = self._load_settings().get("last_commit")
         return {
             "can_commit": not groups, "empty": False, "groups": groups, "warnings": warnings, "counts": counts,
-            "staging_path": str(self.mod_root.parent / "sd-card-staging"),
+            "staging_path": str(self._staging_dir()),
             "already": bool(last) and last.get("sig") == self._commit_signature(checked_keys) and not self._content_changed(last, checked_keys),
         }
 
@@ -5964,7 +5971,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         self.sync_voice_edits()
         self.sync_part_pictures()   # (what a ticked mod supplies itself may have changed since the picture was set)
         lines = []
-        staging_root = self.mod_root.parent / "sd-card-staging"
+        staging_root = self._staging_dir()
         out_romfs = staging_root / "atmosphere" / "contents" / TITLE_ID / "romfs"
 
         if not checked_keys:
@@ -6327,10 +6334,10 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return True
 
     def open_staging_folder(self):
-        """Opens the sd-card-staging folder Api.merge() writes into (next to
+        """Opens the staging folder Api.merge() writes into (see _staging_dir();
         the master directory) in the file manager, so the user never has to
         hunt for it."""
-        return self.reveal_path(str(self.mod_root.parent / "sd-card-staging"))
+        return self.reveal_path(str(self._staging_dir()))
 
     # --- Menu icons & text (see ui_setup.py) ---------------------------------
     # Mods that change a character's icon or a course's name each ship their own
@@ -6512,8 +6519,84 @@ class Api(VoiceEditMixin, ModNotesMixin):
         parts.extend(f"game|{aid}|{p.stat().st_mtime_ns}" for aid, p in sorted(self._game_files().items()))
         return hashlib.sha1("\n".join(parts).encode("utf-8")).hexdigest()[:16]
 
+    # --- the staging folder: where a commit builds what is copied to the Switch --------------------------------------------
+
+    def _default_staging_dir(self):
+        """Inside the data folder - unless an earlier version of the app already made one next to it (that is where it was before this
+        could be chosen), which is then kept using, so an install that is already set up carries on exactly as it was."""
+        legacy = self.mod_root.parent / STAGING_DIRNAME
+        return legacy if legacy.is_dir() else self.mod_root / STAGING_DIRNAME
+
+    def _staging_dir(self):
+        chosen = (self._load_settings().get("staging_folder") or "").strip()
+        if chosen == STAGING_IN_DATA:
+            return self.mod_root / STAGING_DIRNAME
+        return Path(chosen) if chosen else self._default_staging_dir()
+
+    def get_staging_status(self):
+        """Where a commit builds its files: {"path", "recommended_path", "is_recommended", "label"}. The recommended folder is the one inside the
+        data folder; "label" says what this one is - "Recommended", "Existing folder" (an older install's, next to the data folder, kept
+        until the user switches) or "Custom folder"."""
+        path = self._staging_dir()
+        recommended = self.mod_root / STAGING_DIRNAME
+        is_recommended = path.resolve() == recommended.resolve()
+        chosen = (self._load_settings().get("staging_folder") or "").strip()
+        label = "Recommended" if is_recommended else ("Existing folder" if not chosen else "Custom folder")
+        return {"path": str(path), "recommended_path": str(recommended), "is_recommended": is_recommended, "label": label}
+
+    def _save_staging_choice(self, stored):
+        """Remembers the choice; the last commit stops counting only if the folder really is a different one now."""
+        before = self._staging_dir()
+        self.save_settings({"staging_folder": stored})
+        if before.resolve() != self._staging_dir().resolve():
+            self.save_settings({"last_commit": None})
+
+    def pick_folder(self):
+        """A native folder picker (the same one the data folder uses). The chosen path, or None."""
+        return self.pick_master_dir()
+
+    def set_staging_dir(self, path_str):
+        """Builds future commits in `path_str` instead. Nothing is moved - the old folder is left as it is - and the last commit no longer
+        counts (its files are not in the new place), so the page asks for a new one. The folder must be one the app can write to, and not
+        the data folder itself or anything the app keeps its own files in."""
+        text = (path_str or "").strip()
+        if not text:
+            return {"success": False, "error": "Choose a folder first."}
+        path = Path(text).expanduser()
+        try:
+            resolved = path.resolve()
+            root = self.mod_root.resolve()
+        except OSError as e:
+            return {"success": False, "error": f"That folder can't be used: {e}"}
+        if resolved == root or any(resolved == root / item or (root / item) in resolved.parents for item in MASTER_DIR_ITEMS if item != STAGING_DIRNAME):
+            return {"success": False, "error": "That is where the app keeps its own files. Choose a different folder (or a new one inside the data folder)."}
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            return {"success": False, "error": f"Couldn't create or open that folder: {e}"}
+        if not os.access(path, os.W_OK):
+            return {"success": False, "error": "The app can't write to that folder. Choose another."}
+        if resolved == (root / STAGING_DIRNAME):
+            stored = STAGING_IN_DATA
+        elif resolved == self._default_staging_dir().resolve():
+            stored = ""
+        else:
+            stored = str(path)
+        self._save_staging_choice(stored)
+        return {"success": True, "error": None}
+
+    def use_recommended_staging_dir(self):
+        """Switches to the recommended folder, inside the data folder. Nothing is moved from the one it leaves; as when it is changed, the
+        last commit no longer counts."""
+        try:
+            (self.mod_root / STAGING_DIRNAME).mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            return {"success": False, "error": f"Couldn't create that folder: {e}"}
+        self._save_staging_choice(STAGING_IN_DATA)
+        return {"success": True, "error": None}
+
     def _staging_romfs(self):
-        return self.mod_root.parent / "sd-card-staging" / "atmosphere" / "contents" / TITLE_ID / "romfs"
+        return self._staging_dir() / "atmosphere" / "contents" / TITLE_ID / "romfs"
 
     # --- "Menu look": what each menu screen shows for a character/course, and
     # letting the user supply an icon or name a mod doesn't ship (see
