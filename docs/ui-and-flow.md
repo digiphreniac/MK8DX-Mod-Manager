@@ -13,10 +13,15 @@ Tooltips, scrollbars and waiting states; the four-step flow (Setup, Choose mods,
 - **Scrollbars** are slim and use the app's colours (light and dark). The window's content is capped at 1800px wide
   (`--app-max` in the stylesheet): on a wider window the extra room goes to the sides, and the header, tabs, pages and
   footer stay lined up.
+- **Settings are defined once** in `js/settings-registry.js` (`SETTINGS`, in groups = the cards; the groups with a `showInSetup` setting
+  are also the Setup steps). Each setting has a key, kind (toggle / select / text / folder), label, description, `showInSetup`, and what
+  changing it does (`write`, `after`); `renderSettingsGroup()` draws it identically in both places and `changeSetting()` saves it. How
+  each starts comes from `Api.get_default_settings()` (= `DEFAULT_SETTINGS`), which the cards' **Reset to default** uses too. Nothing in
+  `setup-wizard.js` or `settings-panels.js` may know about one particular setting.
 - **Settings** is a wide window (up to 1040px) with two columns of cards when there is room for two (each at least 420px), one when there
   isn't. The cards (`.settings-columns` in `html/settings-modal.html`) keep their order and the browser balances the columns by height
   (CSS multi-column, `break-inside: avoid`), so the split moves by itself as cards fill in or grow. The columns sit in a box of automatic
-  height inside the scrolling body: multi-column inside a scrolling box of fixed height would spill sideways. The "App experience" card (the four on/off options) has a **Reset to default** button at the right of its header, enabled only while an option differs from its default (`APP_EXPERIENCE_DEFAULTS` in `settings-panels.js`, kept equal to `DEFAULT_SETTINGS`).
+  height inside the scrolling body: multi-column inside a scrolling box of fixed height would spill sideways. The "App experience" card (the four on/off options) has a **Reset to default** button at the right of its header (`data-reset-group`), enabled only while an option differs from its default.
   "Conflicts and omitted files" is a **Review** button with a
   one-line summary beside it; the list itself is in `html/conflicts-modal.html`, a modal opened from Settings (`openConflictsModal()`; Escape closes it first).
   The modal is kept short: a bar under its header always shows the count ("3 need settling - 104 files left out", or "All settled ..."),
@@ -43,10 +48,12 @@ two icon buttons (Refresh, the circular arrow, which turns while it reloads; Set
 and a slanted left side (bottom-left sticks out further than top-left), like the game's own (`get_flow_status()` in
 `mod_manager.py` is the single source of truth; the frontend just renders it):
 
-1. **Setup** - first run: master folder (existing flow), then a required wizard: game version
-   (`set_game_version()`; a known version also sets `game_build_id`, which the code-patch "wrong
-   version" checks use), **your game's files** (required, no skip - see [Base game files](base-game-files.md#base-game-files-a-required-local-copy)),
-   options (NSFW, Advanced mode), and Switch language (`ui_setup_locale`). `setup.done`
+1. **Setup** - first run: a required wizard. Every step but one is a group of *settings*, drawn by the same code as the Settings window
+   (`settings-registry.js`: a setting's name, description, control and what it does are defined once, and a setting is in Setup only
+   because its `showInSetup` flag is set): the data folder, game version (`set_game_version()`; a known version also sets
+   `game_build_id`, which the code-patch "wrong version" checks use), the options (NSFW, Advanced mode) and Switch language
+   (`ui_setup_locale`). The odd one out is **your game's files** (a required copy, not a setting, no skip - see
+   [Base game files](base-game-files.md#base-game-files-a-required-local-copy)). `setup.done`
    (`get_flow_status()`) is true only once both the `setup_done` flag is set AND the base-files
    copy exists (`game_files.status().done`) - a base-files copy that goes missing sends the step
    bar back to "Setup" even if the wizard was completed before. Reopen from the step bar. The

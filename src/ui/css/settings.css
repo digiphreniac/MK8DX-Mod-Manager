@@ -38,8 +38,6 @@
      columns sit in a box of automatic height inside it - columns inside a scrolling box of fixed height would spill sideways instead. */
   .settings-columns { column-count: 2; column-width: 420px; column-gap: 22px; }
   .settings-columns > .modal-card { break-inside: avoid; }
-  /* a row of options: each one after the first sits a little apart from whatever (a hint, another option) is above it */
-  .settings-body > .settings-checkbox-label ~ .settings-checkbox-label { margin-top: 14px; }
 
   /* Conflicts and omitted files: its own modal, opened from the card in Settings (it can grow long when there are many mods).
      The Review button sits to the left of the one-line summary. */

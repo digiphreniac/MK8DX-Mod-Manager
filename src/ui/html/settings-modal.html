@@ -8,13 +8,7 @@
       <div class="settings-columns">
       <div class="modal-card">
         <div class="modal-card-header"><span class="modal-card-title">Data folder</span></div>
-        <div class="settings-body">
-          <div id="setting-master-dir-path" class="settings-path-display"></div>
-          <button id="btn-change-master-dir" class="small">Change&hellip;</button>
-          <div class="settings-hint">
-            Choose where the app keeps your downloaded mods and settings. Mods can be large, so pick a place with plenty of free space.
-          </div>
-        </div>
+        <div class="settings-body" data-settings-group="data-folder"></div>
       </div>
       <div class="modal-card">
         <div class="modal-card-header"><span class="modal-card-title">UI icons &amp; text</span></div>
@@ -31,45 +25,11 @@
       </div>
       <div class="modal-card">
         <div class="modal-card-header"><span class="modal-card-title">Game version</span></div>
-        <div class="settings-body">
-          <label for="setting-game-version">Which version is your game?</label>
-          <select id="setting-game-version" class="settings-text-input"></select>
-          <label for="setting-game-build-id">Game build ID (optional)</label>
-          <input type="text" id="setting-game-build-id" class="settings-text-input" list="known-build-ids"
-                 maxlength="32" spellcheck="false" placeholder="32 hex characters (or the first 16), e.g. 6A85262F21B903649BD7C62628D26E43">
-          <datalist id="known-build-ids"></datalist>
-          <div id="setting-game-build-id-error" class="settings-hint" style="color: var(--danger);" hidden></div>
-          <div class="settings-hint">
-            Only needed for code patches (.ips) - it lets the app warn you about patches built for a different game version.
-          </div>
-        </div>
+        <div class="settings-body" data-settings-group="game-version"></div>
       </div>
       <div class="modal-card">
-        <div class="modal-card-header"><span class="modal-card-title">App experience</span><button id="btn-reset-app-experience" class="small">Reset to default</button></div>
-        <div class="settings-body">
-          <label class="settings-checkbox-label">
-            <input type="checkbox" id="setting-show-tile-counts">
-            Show mod counts on character tiles
-          </label>
-          <label class="settings-checkbox-label">
-            <input type="checkbox" id="setting-play-select-voice">
-            Play character-select sounds
-          </label>
-          <label class="settings-checkbox-label">
-            <input type="checkbox" id="setting-show-nsfw">
-            Show NSFW mods
-          </label>
-          <div class="settings-hint">
-            When enabled, app will include NSFW-rated mods found in GameBanana queries.
-          </div>
-          <label class="settings-checkbox-label">
-            <input type="checkbox" id="setting-advanced-mode">
-            Advanced mode
-          </label>
-          <div class="settings-hint">
-            Shows verbose technical details in a few places. Nothing essential is hidden when disabled.
-          </div>
-        </div>
+        <div class="modal-card-header"><span class="modal-card-title">App experience</span><button data-reset-group="app-experience" class="small">Reset to default</button></div>
+        <div class="settings-body" data-settings-group="app-experience"></div>
       </div>
       <div class="modal-card" id="conflicts-card">
         <div class="modal-card-header"><span class="modal-card-title">Conflicts and omitted files</span></div>

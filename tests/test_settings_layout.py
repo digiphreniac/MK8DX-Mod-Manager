@@ -26,28 +26,6 @@ class TheLayout(unittest.TestCase):
                                         "Conflicts and omitted files", "Maintenance"])
         self.assertEqual(html.count("<div"), html.count("</div>"))
 
-    def test_app_experience_holds_the_four_options_in_order_and_only_the_last_two_explain_themselves(self):
-        html = read("html", "settings-modal.html")
-        card = html[html.index("App experience"):html.index('id="conflicts-card"')]
-        ids = re.findall(r'<input type="checkbox" id="([^"]+)"', card)
-        self.assertEqual(ids, ["setting-show-tile-counts", "setting-play-select-voice", "setting-show-nsfw", "setting-advanced-mode"])
-        self.assertIn("Play character-select sounds", card)
-        self.assertEqual(card.count('class="settings-hint"'), 2)
-        self.assertLess(card.index("setting-show-nsfw"), card.index('class="settings-hint"'))      # (no hint before the NSFW option)
-
-    def test_app_experience_can_be_reset_and_the_defaults_match_the_backends(self):
-        html = read("html", "settings-modal.html")
-        header = html[html.index("App experience"):]
-        header = header[:header.index("</div>")]
-        self.assertIn('id="btn-reset-app-experience"', header)
-        self.assertIn("Reset to default", header)
-        js = read("js", "settings-panels.js")
-        found = dict(re.findall(r"(\w+): (true|false)", re.search(r"const APP_EXPERIENCE_DEFAULTS = \{([^}]*)\}", js).group(1)))
-        source = (UI.parent / "mod_manager.py").read_text(encoding="utf-8")
-        for key, value in found.items():
-            self.assertRegex(source, rf'"{key}": {value.capitalize()},', key)      # (DEFAULT_SETTINGS says the same)
-        self.assertEqual(sorted(found), ["advanced_mode", "play_select_voice", "show_nsfw", "show_tile_counts"])
-
     def test_the_window_is_wide_and_the_columns_balance_themselves(self):
         css = read("css", "settings.css")
         self.assertRegex(css, r"#settings-modal \{[^}]*width: min\(1040px, calc\(100vw - 40px\)\)")
@@ -66,9 +44,7 @@ class TheLayout(unittest.TestCase):
 
     def test_every_id_the_scripts_use_is_still_there(self):
         html = read("html", "settings-modal.html")
-        for needed in ("ui-setup-settings-body", "ui-icon-worklist-body", "setting-game-version", "setting-game-build-id", "setting-show-nsfw",
-                       "setting-advanced-mode", "btn-clear-all-mods", "btn-change-master-dir", "setting-master-dir-path", "btn-open-conflicts",
-                       "conflicts-summary"):
+        for needed in ("ui-setup-settings-body", "ui-icon-worklist-body", "btn-clear-all-mods", "btn-open-conflicts", "conflicts-summary"):
             self.assertIn(f'id="{needed}"', html, needed)
 
 

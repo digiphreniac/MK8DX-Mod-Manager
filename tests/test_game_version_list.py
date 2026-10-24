@@ -19,14 +19,16 @@ JS = Path(__file__).resolve().parent.parent / "src" / "ui" / "js"
 
 class GameVersionList(unittest.TestCase):
     def test_each_version_is_listed_by_its_number_alone(self):
-        wizard = (JS / "setup-wizard.js").read_text(encoding="utf-8")
-        function = wizard[wizard.index("function fillGameVersionOptions("):wizard.index("// `lead` is plain text")]
+        registry = (JS / "settings-registry.js").read_text(encoding="utf-8")
+        function = registry[registry.index("function gameVersionChoices("):]
+        function = function[:function.index("\n}\n")]
         self.assertIn("add(v.version, v.version);", function)
         self.assertNotIn('"Version "', function)
 
     def test_the_two_other_choices_come_first_and_start_with_a_letter(self):
-        wizard = (JS / "setup-wizard.js").read_text(encoding="utf-8")
-        function = wizard[wizard.index("function fillGameVersionOptions("):wizard.index("// `lead` is plain text")]
+        registry = (JS / "settings-registry.js").read_text(encoding="utf-8")
+        function = registry[registry.index("function gameVersionChoices("):]
+        function = function[:function.index("\n}\n")]
         labels = re.findall(r'add\("[^"]*", "([^"]*)"\)', function)
         self.assertEqual(labels, ["I'm not sure", "Not listed (probably newer)"])
         self.assertFalse(any(label[0].isdigit() for label in labels))

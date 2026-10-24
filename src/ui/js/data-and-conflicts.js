@@ -49,26 +49,8 @@ document.getElementById("btn-refresh").addEventListener("click", async (e) => {
 
 async function loadSettings() {
   state.settings = await pywebview.api.get_settings();
-  document.getElementById("setting-show-nsfw").checked = !!state.settings.show_nsfw;
-  document.getElementById("setting-game-build-id").value = state.settings.game_build_id || "";
-  const versions = await pywebview.api.get_game_versions();
-  const versionSel = document.getElementById("setting-game-version");
-  fillGameVersionOptions(versionSel, versions);
-  versionSel.value = state.settings.game_version || "";
-  const knownIds = document.getElementById("known-build-ids");
-  knownIds.replaceChildren();
-  for (const v of versions) {
-    const o = document.createElement("option");
-    o.value = v.build_id;
-    o.textContent = "v" + v.version;
-    knownIds.appendChild(o);
-  }
-  document.getElementById("setting-advanced-mode").checked = !!state.settings.advanced_mode;
-  document.getElementById("setting-show-tile-counts").checked = !!state.settings.show_tile_counts;
-  document.getElementById("setting-play-select-voice").checked = state.settings.play_select_voice !== false;
-  updateAppExperienceReset();
-  const dirStatus = await pywebview.api.get_master_dir_status();
-  document.getElementById("setting-master-dir-path").textContent = dirStatus.path || "(not set)";
+  await loadSettingDefaults();
+  await renderAllSettingsGroups();      // (the Settings window's cards: settings-registry.js draws every setting)
   renderUiIconWorklist();
   renderConflicts();
 }

@@ -41,6 +41,7 @@
     "js/add-mod.js",
     "js/data-and-conflicts.js",
     "js/settings-panels.js",
+    "js/settings-registry.js",
     "js/menu-icons-text.js",
     "js/menu-look.js",
     "js/flow.js",

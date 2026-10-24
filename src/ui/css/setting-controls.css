@@ -1,0 +1,6 @@
+  /* A setting drawn by settings-registry.js: the same in the Settings window and in the Setup wizard */
+  .setting + .setting { margin-top: 14px; }
+  .setting-label { display: block; font-size: 13px; font-weight: 600; }
+  .setting-hint { font-size: 12px; color: var(--text-dim); line-height: 1.45; margin-top: 6px; }
+  .setting-error { color: var(--danger); }
+  .setting .uis-actions { margin-top: 10px; }

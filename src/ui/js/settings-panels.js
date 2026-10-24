@@ -56,43 +56,18 @@ async function renderUiSetupSettingsCard() {
   body.replaceChildren();
   if (d.error) { body.appendChild(uisEl("div", "uis-warn", d.error)); return; }
 
-  const sel = document.createElement("select");
-  const byCode = new Map(d.locales.map(l => [l.code, l]));
-  for (const l of d.all_locales) {
-    const o = document.createElement("option");
-    o.value = l.code;
-    const info = byCode.get(l.code);
-    o.textContent = info ? `${l.label} - ${info.changes} name/text change${info.changes === 1 ? "" : "s"} from ${info.mods} mod${info.mods === 1 ? "" : "s"}` : `${l.label} - none of your mods change this language`;
-    sel.appendChild(o);
-  }
-  sel.value = d.locale;
-  sel.addEventListener("change", async () => {
-    state.settings.ui_setup_locale = sel.value;
-    await pywebview.api.save_settings(state.settings);
-    uiSetup.data = null;
-    scheduleFlowRefresh();
-    await renderUiSetupSettingsCard();
-  });
-  body.appendChild(sel);
-  if (d.locale === "USen" || d.locale === "EUen") {
-    const lab = uisEl("label", "uis-note");
-    lab.style.display = "block";
-    lab.style.cursor = "pointer";
-    lab.style.marginBottom = "4px";
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = !!state.settings.ui_setup_extra_english;
-    cb.style.marginRight = "6px";
-    cb.addEventListener("change", async () => {
-      state.settings.ui_setup_extra_english = cb.checked;
-      await pywebview.api.save_settings(state.settings);
-      scheduleFlowRefresh();
-    });
-    lab.appendChild(cb);
-    lab.appendChild(document.createTextNode(
-      `My Switch is set to English but I'm not sure which kind - also build ${d.locale === "USen" ? "European/UK English (EUen)" : "American English (USen)"}, so it works either way`));
-    body.appendChild(lab);
-  }
+  // the language (and the English variant) are settings like any other: drawn by settings-registry.js. What the mods change in it is
+  // information about the mods, so it is said here.
+  const languageHost = document.createElement("div");
+  body.appendChild(languageHost);
+  await renderSettingsGroup("ui-text", languageHost);
+  const names = new Map(d.all_locales.map(l => [l.code, l.label]));
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const here = d.locales.find(l => l.code === d.locale);
+  let note = here ? `Your mods make ${plural(here.changes, "name/text change")} in this language, from ${plural(here.mods, "mod")}.` : "None of your mods change this language.";
+  const others = d.locales.filter(l => l.code !== d.locale).map(l => `${names.get(l.code)} (${l.changes})`);
+  if (others.length) note += " Other languages they change: " + others.join(", ") + ".";
+  body.appendChild(uisEl("p", "uis-note", note));
 
   const conflictEls = d.archives.map(renderUiArchiveConflicts).filter(Boolean);
   if (conflictEls.length) {
@@ -183,78 +158,6 @@ async function renderUiSetupSettingsCard() {
   body.appendChild(adv);
 }
 
-document.getElementById("setting-show-nsfw").addEventListener("change", async (e) => {
-  state.settings.show_nsfw = e.target.checked;
-  await pywebview.api.save_settings(state.settings);
-});
-
-document.getElementById("setting-game-version").addEventListener("change", async (e) => {
-  await pywebview.api.set_game_version(e.target.value);
-  state.settings = await pywebview.api.get_settings();
-  document.getElementById("setting-game-build-id").value = state.settings.game_build_id || "";
-  document.getElementById("setting-game-build-id-error").hidden = true;
-  flow.status = await pywebview.api.get_flow_status();
-  renderStepBar();
-});
-
-document.getElementById("setting-game-build-id").addEventListener("change", async (e) => {
-  const errEl = document.getElementById("setting-game-build-id-error");
-  const value = e.target.value.trim().toUpperCase();
-  // Empty (check off), 32 hex characters, or just the first 16 (how the app matches them) - anything else is a typo
-  // that would otherwise silently flag every patch as the wrong version.
-  if (value !== "" && !/^([0-9A-F]{16}|[0-9A-F]{32})$/.test(value)) {
-    errEl.textContent = "A build ID is 32 hex characters (0-9, A-F), or just its first 16.";
-    errEl.hidden = false;
-    return;
-  }
-  errEl.hidden = true;
-  e.target.value = value;
-  state.settings.game_build_id = value;
-  await pywebview.api.save_settings(state.settings);
-});
-
-document.getElementById("setting-show-tile-counts").addEventListener("change", async (e) => {
-  state.settings.show_tile_counts = e.target.checked;
-  await pywebview.api.save_settings(state.settings);
-  renderCharacterGrid();
-});
-
-document.getElementById("setting-play-select-voice").addEventListener("change", async (e) => {
-  state.settings.play_select_voice = e.target.checked;
-  await pywebview.api.save_settings(state.settings);
-  if (!e.target.checked) voiceStop();
-});
-
-document.getElementById("setting-advanced-mode").addEventListener("change", async (e) => {
-  state.settings.advanced_mode = e.target.checked;
-  await pywebview.api.save_settings(state.settings);
-  renderConflicts();
-});
-
-// "App experience" > Reset to default: the four options back to how they start (these match DEFAULT_SETTINGS in mod_manager.py).
-// The button is only available while something differs, and each option's own side effect is repeated for the ones that changed.
-const APP_EXPERIENCE_DEFAULTS = { show_tile_counts: false, play_select_voice: true, show_nsfw: false, advanced_mode: false };
-const APP_EXPERIENCE_BOXES = {
-  show_tile_counts: "setting-show-tile-counts", play_select_voice: "setting-play-select-voice",
-  show_nsfw: "setting-show-nsfw", advanced_mode: "setting-advanced-mode",
-};
-function updateAppExperienceReset() {
-  const differs = Object.entries(APP_EXPERIENCE_DEFAULTS).some(([key, value]) => document.getElementById(APP_EXPERIENCE_BOXES[key]).checked !== value);
-  document.getElementById("btn-reset-app-experience").disabled = !differs;
-}
-document.getElementById("btn-reset-app-experience").closest(".modal-card").addEventListener("change", updateAppExperienceReset);
-document.getElementById("btn-reset-app-experience").addEventListener("click", async () => {
-  const changed = Object.keys(APP_EXPERIENCE_DEFAULTS).filter(k => document.getElementById(APP_EXPERIENCE_BOXES[k]).checked !== APP_EXPERIENCE_DEFAULTS[k]);
-  for (const key of changed) {
-    state.settings[key] = APP_EXPERIENCE_DEFAULTS[key];
-    document.getElementById(APP_EXPERIENCE_BOXES[key]).checked = APP_EXPERIENCE_DEFAULTS[key];
-  }
-  updateAppExperienceReset();
-  await pywebview.api.save_settings(state.settings);
-  if (changed.includes("show_tile_counts")) renderCharacterGrid();
-  if (changed.includes("advanced_mode")) renderConflicts();
-});
-
 // Shared by the first-run setup overlay and the Settings "Change..." flow:
 // renders the "here's what you picked, bring your files or start fresh?"
 // step into `container`, given a folder the user just chose via the native
@@ -340,40 +243,6 @@ async function runMasterDirSetup() {
   }, runMasterDirSetup);
 }
 document.getElementById("btn-setup-choose-folder").addEventListener("click", runMasterDirSetup);
-
-function openChangeMasterDirModal() {
-  document.getElementById("modal-backdrop").classList.add("above-settings");
-  openCharacter = null;
-  document.getElementById("modal-title").textContent = "Change Master Directory";
-  const body = document.getElementById("modal-body");
-  body.innerHTML = "";
-
-  const container = document.createElement("div");
-  body.appendChild(container);
-
-  async function start() {
-    const chosen = await pywebview.api.pick_master_dir();
-    if (!chosen) return;
-    renderMasterDirConfirmStep(container, chosen, async () => {
-      closeModal();
-      await loadMods();
-      await loadSettings();
-    }, start);
-  }
-
-  const intro = document.createElement("p");
-  intro.className = "clear-all-warning";
-  intro.textContent = "Choose a new folder for your mods, downloads, and settings.";
-  container.appendChild(intro);
-  const chooseBtn = document.createElement("button");
-  chooseBtn.className = "primary small";
-  chooseBtn.textContent = "Choose Folder…";
-  chooseBtn.addEventListener("click", start);
-  container.appendChild(chooseBtn);
-
-  document.getElementById("modal-backdrop").hidden = false;
-}
-document.getElementById("btn-change-master-dir").addEventListener("click", openChangeMasterDirModal);
 
 function openClearAllConfirmModal() {
   document.getElementById("modal-backdrop").classList.add("above-settings");

@@ -3111,6 +3111,11 @@ class Api(VoiceEditMixin, ModNotesMixin):
     def get_settings(self):
         return self._load_settings()
 
+    def get_default_settings(self):
+        """How every setting starts (DEFAULT_SETTINGS): what the Settings window's "Reset to default" goes back to. The page has no copy
+        of these - settings-registry.js asks here."""
+        return copy.deepcopy(DEFAULT_SETTINGS)
+
     def save_settings(self, settings):
         with self._settings_lock:
             merged = {**self._load_settings(), **settings}
