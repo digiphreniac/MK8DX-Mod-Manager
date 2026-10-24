@@ -706,7 +706,6 @@ document.getElementById("tab-more").addEventListener("click", () => { switchView
 document.getElementById("tab-list").addEventListener("click", () => switchView("list"));
 
 function openSettingsModal() {
-  renderGameFilesBlock(document.getElementById("gamefiles-body"), scheduleFlowRefresh);
   document.getElementById("settings-modal-backdrop").hidden = false;
   renderUiIconWorklist();
   renderUiSetupSettingsCard();

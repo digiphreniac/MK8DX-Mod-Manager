@@ -289,44 +289,28 @@ function gameDataInstructions() {
   return guide;
 }
 
-// One block used by Settings and by the required Setup step.
-async function renderGameFilesBlock(container, onChange, compact) {
+// The Game files block of the required Setup step - the one place the game's files are chosen (Setup can be reopened any time from the step
+// bar; the voice editor has its own button for the case where they are missing). When the copy exists it says so plainly and offers to
+// update it from a new dump; the guide on how to get the files is shown above it by the step itself.
+async function renderGameFilesBlock(container, onChange) {
   const st = await pywebview.api.get_base_files_status();
   container.replaceChildren();
+  const refresh = async () => { await renderGameFilesBlock(container, onChange); if (onChange) onChange(); };
+  const row = cgEl("div", "uis-actions");
   if (st.done) {
-    if (compact) {
-      // The Setup step: say plainly that the original isn't needed any more, with links to both folders.
-      const msg = wizEl("div", "uis-good", "The app has created a ");
-      msg.append(st.copy_dir ? wizFolderLink("copy", st.copy_dir) : "copy",
-        " of the necessary game files. Feel free to delete your ",
-        st.source_exists ? wizFolderLink("original game dump", st.source) : "original game dump", ".");
-      container.appendChild(msg);
-    } else {
-      const when = formatWhen(st.copied_at) || "";
-      container.appendChild(cgEl("div", "uis-good", `Copied${when ? " " + when : ""}${st.source ? " from " + st.source : ""} - `
-        + `icons and text in ${st.locales.length} language${st.locales.length === 1 ? "" : "s"}, voice for ${st.voice_found} of ${st.voice_total} characters.`));
-    }
+    // Say plainly that the original isn't needed any more, with links to both folders.
+    const msg = wizEl("div", "uis-good", "The app has created a ");
+    msg.append(st.copy_dir ? wizFolderLink("copy", st.copy_dir) : "copy",
+      " of the necessary game files. Feel free to delete your ",
+      st.source_exists ? wizFolderLink("original game dump", st.source) : "original game dump", ".");
+    container.appendChild(msg);
     if (st.problems.length) container.appendChild(cgEl("div", "uis-warn", `${st.problems.length} file${st.problems.length === 1 ? "" : "s"} in that copy looked wrong and ${st.problems.length === 1 ? "was" : "were"} skipped: ${st.problems.join("; ")}`));
     if (st.voice_found < st.voice_total) container.appendChild(cgEl("div", "uis-note", `${st.voice_total - st.voice_found} character${st.voice_total - st.voice_found === 1 ? "" : "s"}' voice ${st.voice_total - st.voice_found === 1 ? "wasn't" : "weren't"} found in that folder - muting/replacing their default voice needs a selected voice mod for now instead.`));
-    const refresh = async () => { await renderGameFilesBlock(container, onChange, compact); if (onChange) onChange(); };
-    const row = cgEl("div", "uis-actions");
     row.appendChild(button("Update from a new dump...", "small", async () => { if (await chooseGameFiles()) await refresh(); }));
-    container.appendChild(row);
-    container.appendChild(gameFilesPathRow(refresh));
   } else {
-    if (!compact) container.appendChild(cgEl("p", "uis-p", "Menu icons, menu text, and every character's own default voice are all built on the game's own files. Choose them once and it works everywhere - no mod has to include them, and every character can be edited even with no voice mod selected."));
-    const refresh = async () => { await renderGameFilesBlock(container, onChange, compact); if (onChange) onChange(); };
-    const row = cgEl("div", "uis-actions");
     row.appendChild(button("Choose the folder...", "primary small", async () => { if (await chooseGameFiles()) await refresh(); }));
-    container.appendChild(row);
-    container.appendChild(gameFilesPathRow(refresh));
   }
-  if (!compact) {   // (the Setup step shows the guide itself, above this block)
-    const det = document.createElement("details");
-    det.appendChild(cgEl("summary", null, "Where do I get these?"));
-    det.appendChild(gameDataInstructions());
-    det.appendChild(cgEl("div", "uis-note", "The folder is only read once, to make a small local copy (a few hundred MB, not the whole extraction) - you don't need to keep it around afterward."));
-    container.appendChild(det);
-  }
+  container.appendChild(row);
+  container.appendChild(gameFilesPathRow(refresh));
 }
 

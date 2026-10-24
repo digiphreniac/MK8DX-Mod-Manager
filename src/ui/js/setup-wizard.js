@@ -154,7 +154,7 @@ async function openSetupWizard(index, rerun) {
     row.appendChild(nextBtn);
     body.appendChild(row);
     const refresh = async () => { nextBtn.disabled = !(await pywebview.api.get_base_files_status()).done; };
-    await renderGameFilesBlock(block, refresh, true);
+    await renderGameFilesBlock(block, refresh);
     await refresh();
   } else if (index === 3) {
     const body = wizardFrame(3, "Options", "You can change these any time in Settings.");

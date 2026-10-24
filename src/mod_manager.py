@@ -7010,7 +7010,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
     def set_base_files_source(self, path):
         """Copies the base game files from `path` (both the pristine and working copies - see game_files.py),
-        replacing whatever copy was there before ("Update from a new dump" in Settings). {"success", "status"} or
+        replacing whatever copy was there before ("Update from a new dump" in the Setup step). {"success", "status"} or
         {"success": False, "error": "plain words"}; nothing already copied is touched when this fails."""
         res = game_files.copy_both(path, self.mod_root)
         if not res["success"]:
