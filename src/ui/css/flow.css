@@ -132,6 +132,7 @@
   .uis-result .st.warn { color: var(--warn); }
   .uis-result .path { font-family: var(--mono); font-size: 11px; color: var(--text-dim); overflow-wrap: anywhere; }
   .uis-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+  .uis-paste-toggle { margin-left: 8px; }      /* (on top of the row's gap: set apart from the folder button it sits beside) */
   .uis-path-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
   .uis-path-row input {
     flex: 1;

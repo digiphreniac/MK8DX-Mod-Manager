@@ -174,10 +174,10 @@ async function useGameFilesPath(path) {
   return r.status;
 }
 
-// A collapsed "...or paste a path instead" row, revealed on click. `onUse` is called (and
-// expected to re-render) after a successful copy, same as the "Choose the folder..." button.
-function gameFilesPathRow(onUse) {
-  const wrap = cgEl("div");
+// "Or paste a path instead": a button added to the row of the folder button (`actions`, to the right of it, with a little space between), and
+// the row it reveals - returned, for the caller to put under `actions`. `onUse` is called (and expected to re-render) after a successful
+// copy, same as the "Choose the folder..." button.
+function gameFilesPathRow(onUse, actions) {
   const inputRow = cgEl("div", "uis-path-row");
   inputRow.hidden = true;
   const input = document.createElement("input");
@@ -193,13 +193,13 @@ function gameFilesPathRow(onUse) {
   });
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") go.click(); });
   inputRow.append(input, go);
-  const toggle = button("Or paste a path instead", "ghost small", () => {
+  const toggle = button("Or paste a path instead", "ghost small uis-paste-toggle", () => {
     toggle.hidden = true;
     inputRow.hidden = false;
     input.focus();
   });
-  wrap.append(toggle, inputRow);
-  return wrap;
+  actions.appendChild(toggle);
+  return inputRow;
 }
 
 // ---- "Where do I get these?": how to get the game's files, shared by the Setup step and Settings ----
@@ -311,6 +311,6 @@ async function renderGameFilesBlock(container, onChange) {
     row.appendChild(button("Choose the folder...", "primary small", async () => { if (await chooseGameFiles()) await refresh(); }));
   }
   container.appendChild(row);
-  container.appendChild(gameFilesPathRow(refresh));
+  container.appendChild(gameFilesPathRow(refresh, row));
 }
 
