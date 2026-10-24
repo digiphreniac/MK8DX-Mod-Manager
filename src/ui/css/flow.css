@@ -192,5 +192,8 @@
   .pg-done-actions { margin-bottom: 14px; }
   .pg-support-intro { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.4; }
   .pg-support-way { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 0; border-top: 1px solid var(--divider); }
+  .pg-support-left { display: flex; align-items: center; gap: 12px; }
+  .pg-support-icon { flex: 0 0 auto; width: 26px; height: 26px; display: flex; color: var(--accent); }
+  .pg-support-icon svg { width: 100%; height: 100%; }
   .pg-support-label { font-size: 13px; font-weight: 600; }
   .pg-support-why { font-size: 12.5px; color: var(--text-dim); margin-top: 1px; }

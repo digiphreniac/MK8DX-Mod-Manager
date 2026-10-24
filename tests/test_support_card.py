@@ -63,6 +63,22 @@ class SupportCard(unittest.TestCase):
         self.assertIn(".filter(Boolean)", card)
         self.assertIn("The more likes the page has", card)
 
+    def test_the_coffee_row_is_worded_as_an_invitation(self):
+        flow = (JS / "flow.js").read_text(encoding="utf-8")
+        self.assertIn("If you feel so inclined.", flow)
+        self.assertNotIn("Optional, and it keeps the updates coming", flow)
+
+    def test_every_row_has_its_own_picture_and_none_comes_from_outside_or_is_a_brand_logo(self):
+        flow = (JS / "flow.js").read_text(encoding="utf-8")
+        icons = flow[flow.index("// Plain pictures for the three ways"):flow.index("function supportCard()")]
+        for name in ("like", "star", "coffee"):
+            self.assertIn(f'icon: "{name}"', flow)
+            self.assertIn(f"  {name}: '<svg", icons)
+        self.assertEqual(icons.count("<svg"), 3)
+        self.assertNotIn("http", icons)   # (nothing is fetched, and no namespace address either)
+        self.assertIn("not the logos", icons)
+        self.assertIn("pg-support-icon", (JS.parent / "css" / "flow.css").read_text(encoding="utf-8"))
+
     def test_the_footer_link_still_goes_to_the_donation_page(self):
         self.assertIn("openSupportPage", (JS / "help-and-icon-generator.js").read_text(encoding="utf-8"))
 
