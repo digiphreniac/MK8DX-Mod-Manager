@@ -1708,6 +1708,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
         self._notes_lock = threading.RLock()   # (the notes and flags on mods: see mod_notes.py)
         self._state_lock = threading.RLock()   # (every read-modify-write of the ticked mods happens under it)
         self._settings_lock = threading.RLock()   # (and of the settings: two saves at once must not lose each other's change)
+        self._progress = None                  # where a running commit is (see get_commit_progress): None when none is
+        self._progress_lock = threading.Lock()
         self._root_epoch = ""                   # (names the folder a page loaded its ticks from - see save_checked)
         self._desc_fetch_lock = threading.Lock()
         self._prefetch_lock = threading.Lock()     # (guards the four below - see gb_prefetch)
@@ -5222,7 +5224,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return self._library.get(f"claims:{hash(key)}", key, lambda: self._compute_claims(keys, include_ui_icons=False),
                                  token=token, max_age=15)
 
-    def _compute_claims(self, checked_keys, include_ui_icons=True):
+    def _compute_claims(self, checked_keys, include_ui_icons=True, progress=None):
         """Walks every checked mod's romfs tree and figures out which mod claims
         each file path. Read-only - never touches the filesystem otherwise.
         Returns a namespace: claims, conflicts ((path, winner, loser) tuples),
@@ -5240,7 +5242,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         first listed mod that's actually among the current claimants silently
         wins, with nothing added to `conflicts`. `resolved` reports every path
         that took this path, as (path, winning mod key) pairs, so callers can
-        surface "N conflicts auto-resolved" instead of it being invisible."""
+        surface "N conflicts auto-resolved" instead of it being invisible.
+
+        `progress(done, total)`, when given, is called before each mod is read (a commit passes it, to show how far it is)."""
         selected = sorted(checked_keys)
         # normalized relpath -> list of every DISTINCT-content claim on it
         # (byte-identical duplicates across mods are collapsed into whichever
@@ -5255,7 +5259,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         excluded_counts = {}   # mod key -> how many of those are left out
         claimants = {}         # normalized path -> every mod (any content) that has it
 
-        for key in selected:
+        for done, key in enumerate(selected):
+            if progress:
+                progress(done, len(selected))
             category, unit_rel = key.split("/", 1)
             mod_romfs = self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME / category / unit_rel / "romfs"
             if not mod_romfs.is_dir():
@@ -5904,7 +5910,57 @@ class Api(VoiceEditMixin, ModNotesMixin):
         self._log_commit(lines)
         return {"lines": lines, "conflict": False, "staged": False}
 
+    # --- where a commit is, for the page to show while merge() runs (it polls get_commit_progress() every moment) ---
+
+    _COMMIT_PHASES = {"prepare": "Getting ready", "icons": "Menu icons & text", "claims": "Checking files", "copy": "Copying files",
+                      "finish": "Finishing"}
+
+    def _progress_begin(self, phases):
+        with self._progress_lock:
+            self._progress = {"phases": [{"id": p, "label": self._COMMIT_PHASES[p]} for p in phases], "phase": phases[0],
+                              "done": 0, "total": None, "detail": "", "t0": time.monotonic()}
+
+    def _progress_phase(self, phase, total=None, detail=""):
+        """The commit moves on to `phase`; `total` is how many things it has to do there (None: not known)."""
+        with self._progress_lock:
+            if self._progress is not None:
+                self._progress.update(phase=phase, done=0, total=total, detail=detail)
+
+    def _progress_tick(self, phase, done, total=None, detail=None):
+        """Part-way through `phase` (ignored if the commit has moved on, or none is running - the same code also runs from Settings)."""
+        with self._progress_lock:
+            p = self._progress
+            if p is not None and p["phase"] == phase:
+                p["done"] = done
+                if total is not None:
+                    p["total"] = total
+                if detail is not None:
+                    p["detail"] = detail
+
+    def _progress_end(self):
+        with self._progress_lock:
+            self._progress = None
+
+    def get_commit_progress(self):
+        """Where a running commit is: {"active": False}, or the phases it goes through (id + label, in order), the one it is in, how far
+        through it ("done" of "total", total None when not known), a line of detail, and the seconds since it started. Cheap, and it takes
+        no lock but its own, so the page can ask while merge() holds the thread that is doing the work."""
+        with self._progress_lock:
+            p = self._progress
+            if p is None:
+                return {"active": False}
+            return {"active": True, "phases": list(p["phases"]), "phase": p["phase"], "done": p["done"], "total": p["total"],
+                    "detail": p["detail"], "elapsed": round(time.monotonic() - p["t0"], 1)}
+
     def merge(self, checked_keys):
+        try:
+            return self._merge(checked_keys)
+        finally:
+            self._progress_end()
+
+    def _merge(self, checked_keys):
+        ui_needed = self._ui_build_needed(checked_keys) if checked_keys else False
+        self._progress_begin(["prepare"] + (["icons"] if ui_needed else []) + ["claims", "copy", "finish"])
         self.sync_voice_edits()
         self.sync_part_pictures()   # (what a ticked mod supplies itself may have changed since the picture was set)
         lines = []
@@ -5921,7 +5977,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         # files that pass already includes are always current for what's ticked right now. No
         # separate step, and no need to stage them afterward (build_ui_setup()'s own staging is
         # for when it's called on its own, from Settings).
-        if self._ui_build_needed(checked_keys):
+        if ui_needed:
             settings = self._load_settings()
             locale = settings.get("ui_setup_locale") or "USen"
             build_locales = [locale]
@@ -5929,6 +5985,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 other = {"USen": "EUen", "EUen": "USen"}.get(locale)
                 if other:
                     build_locales.append(other)
+            # (the bar counts steps from the start, so it never has to slide and then start over: reading the mods' menu files, then
+            # common.sarc, menu.sarc and one message.sarc per language - _build_ui_archives corrects the total once it knows the real list)
+            self._progress_phase("icons", 3 + len(build_locales), "Reading your mods' menu files")
             ui_build = self._build_ui_archives(build_locales)
             if ui_build.get("success"):
                 lines.append(f"Menu icons & text: checked for {', '.join(build_locales)}.")
@@ -5949,7 +6008,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
                          + (f". {kept} file(s) built earlier in ui-icons/ are still included." if kept else " and the game's own are used."))
             lines.append("")
 
-        res = self._compute_claims(checked_keys)
+        self._progress_phase("claims", len(checked_keys))
+        res = self._compute_claims(checked_keys, progress=lambda done, total: self._progress_tick("claims", done, total))
         claims, conflicts, mods_processed, missing = res.claims, res.conflicts, res.mods_processed, res.missing
         ui_icons_files, bgm_bars_skipped, resolved = res.ui_icons_files, res.bgm_bars_skipped, res.resolved
         ui_archives_skipped, course_icons_files = res.ui_archives_skipped, res.course_icons_files
@@ -5981,15 +6041,20 @@ class Api(VoiceEditMixin, ModNotesMixin):
         # files at all), so the "Open staging folder" button has a target.
         try:
             staging_root.mkdir(parents=True, exist_ok=True)
+            self._progress_phase("copy", len(claims), "Clearing the previous copy")      # (deleting a big old copy takes a while too)
             if out_romfs.exists():
                 shutil.rmtree(out_romfs)
             # (created lazily by the copies below - a merge of only code patches,
             # or of mods that are entirely packed archives, leaves no empty romfs/)
 
-            for claim in claims.values():
+            self._progress_phase("copy", len(claims))
+            for n, claim in enumerate(claims.values(), 1):
                 dest = out_romfs / claim["rel"]
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(claim["src"], dest)
+                if n % 10 == 0 or n == len(claims):
+                    self._progress_tick("copy", n, len(claims))
+            self._progress_phase("finish")
 
             # exefs code patches -> atmosphere/exefs_patches/<prefix><slug>/<BUILD ID>.ips.
             # Only this app's own previous patch sets (EXEFS_STAGING_PREFIX) are
@@ -6401,7 +6466,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
             return {"success": False, "error": f"Couldn't read your mods' UI files ({type(e).__name__}: {e})"}
         ids = [aid for aid in ["common", "menu"] + [f"message:{l}" for l in locales] if aid in plan]
         results = []
-        for archive_id in ids:
+        for n, archive_id in enumerate(ids):
+            base, _, locale_ = archive_id.partition(":")
+            self._progress_tick("icons", 1 + n, 1 + len(ids), f"{base}.sarc{f' ({locale_})' if locale_ else ''} - {n + 1} of {len(ids)}")
             analysis = plan[archive_id]
             if not any(i != analysis["base"] for i in ui_setup._winners(analysis, choices).values()):
                 # nothing to change in this file: the game's own is used as it is
@@ -6423,6 +6490,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             except Exception as e:   # noqa: BLE001
                 diag.log("ui-build", f"building {archive_id} failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
                 results.append({"archive": archive_id, "error": f"{type(e).__name__}: {e}"})
+        self._progress_tick("icons", 1 + len(ids), 1 + len(ids))
         good = bool(results) and all(
             "error" not in r and r["verify"]["ok"] == r["verify"]["total"] for r in results)
         if good:

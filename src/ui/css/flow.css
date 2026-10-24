@@ -75,6 +75,25 @@
   .pg-warn .wm { font-size: 12px; margin-top: 4px; }
   .pg-warn .wm a { cursor: pointer; text-decoration: underline; color: inherit; margin-right: 10px; }
   .pg-warn .wm a:hover { color: var(--accent); }
+  /* how far a commit is: one bar per phase (flow.js, updateCommitProgress) */
+  .cp { border: 1px solid var(--panel-border); background: var(--panel); border-radius: 12px; padding: 14px 16px; margin: 0 0 16px 0; }
+  .cp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+  .cp-title { font-size: 14px; font-weight: 700; }
+  .cp-elapsed { font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .cp-phases { display: flex; gap: 8px; }
+  .cp-phase { flex: 1; min-width: 0; }
+  .cp-bar { position: relative; height: 6px; border-radius: 3px; background: var(--divider); overflow: hidden; }
+  .cp-fill { height: 100%; width: 0; border-radius: 3px; background: var(--accent); transition: width 0.25s ease; }
+  .cp-phase.done .cp-fill { background: var(--ok); }
+  /* a phase that can't say how far it is yet: a block slides along its bar. It is not the fill itself, so when the real count arrives the fill
+     starts from empty instead of shrinking back from the block's width */
+  .cp-phase.cp-unknown .cp-bar::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; border-radius: 3px; background: var(--accent); animation: cp-slide 1.2s ease-in-out infinite; }
+  @keyframes cp-slide { from { left: -40%; } to { left: 100%; } }
+  @media (prefers-reduced-motion: reduce) { .cp-phase.cp-unknown .cp-bar::after { animation: none; left: 0; width: 100%; opacity: 0.4; } }
+  .cp-name { margin-top: 5px; font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cp-phase.now .cp-name { color: var(--text); font-weight: 600; }
+  .cp-detail { margin-top: 12px; font-size: 13px; }
+  .cp-note { margin-top: 6px; font-size: 12px; color: var(--text-dim); line-height: 1.4; }
   .pg-cta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 4px 0 16px 0; }
   .pg-cta .primary { padding: 11px 22px; font-size: 14.5px; }
   .pg-log { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 8px; padding: 10px 12px; max-height: 340px; overflow-y: auto; user-select: text; -webkit-user-select: text; }

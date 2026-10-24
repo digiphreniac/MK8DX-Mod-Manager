@@ -64,7 +64,11 @@ and a slanted left side (bottom-left sticks out further than top-left), like the
    button, same as a genuine first run) whenever `setup.done` is false.
 2. **Choose mods** - the Character / Course / Vehicles / More / Full List tabs,
    with per-tab tick counts.
-3. **Commit** (was "Merge & Stage"). The page asks `preview_commit()` (a dry
+3. **Commit** (was "Merge & Stage"). While it runs the page shows how far it is: one bar per phase (Getting ready, Menu icons & text when a mod
+   changes them, Checking files, Copying files, Finishing), the finished ones full and the current one filling ("1,240 of 5,800 files"; it
+   slides when it can't say how many yet), and the time so far. `merge()` keeps a small record (`_progress_*`) that the page reads through
+   `get_commit_progress()` every 250 ms - pywebview runs each call on its own thread, so asking never waits for the commit. A new phase
+   or count goes in `merge()` (`_progress_phase()` / `_progress_tick()`), never in the page. The page asks `preview_commit()` (a dry
    run: claims, clashes, warnings) as soon as it opens, shows every clash as a
    settle-it-here card, and blocks the Commit button until none are left. When
    there's menu icons/text to combine, that's just a lightweight warning here
