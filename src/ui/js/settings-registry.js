@@ -6,6 +6,7 @@
 // Reset to default reads the defaults from there, through get_default_settings()).
 //
 // A setting: { key, group, kind, label, description, showInSetup, ... }
+//   description  plain text; a newline in it (a backslash and an n, inside the quotes) starts a new line.
 //   kind      "toggle" (a checkbox), "select" (needs options()), "text" (optional validate()/normalize()/datalist()), or "folder".
 //   label     text, or a function returning the text (a label that depends on another setting).
 //   read()    the current value (default: state.settings[key], else the default); write(value) saves it (default: save_settings).
@@ -47,7 +48,7 @@ const SETTINGS = [
     validate: (value) => value !== "" && !/^([0-9A-F]{16}|[0-9A-F]{32})$/.test(value) ? "A build ID is 32 hex characters (0-9, A-F), or just its first 16." : null },
 
   { key: "ui_setup_locale", group: "ui-text", kind: "select", label: "Language", showInSetup: true,
-    description: "Mods that rename characters or courses change text stored per language, and the game only reads the language your Switch is set to (System Settings → System → Language). Not sure which English? Choose English (unspecified) and the menus are built for both.",
+    description: "Mods that rename characters or courses change text stored per language, and the game only reads the language your Switch is set to (System Settings → System → Language).\nNot sure which English? Choose English (unspecified) and the menus are built for both.",
     read: () => {
       const locale = state.settings.ui_setup_locale || "USen";
       return state.settings.ui_setup_extra_english && ENGLISH_LOCALES.includes(locale) ? ENGLISH_EITHER : locale;

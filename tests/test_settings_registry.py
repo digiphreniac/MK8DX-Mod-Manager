@@ -69,6 +69,13 @@ class EverySettingIsDefinedOnce(unittest.TestCase):
         self.assertEqual(mm.Api(None).get_default_settings(), mm.DEFAULT_SETTINGS)
 
 
+class DescriptionsCanBreakLines(unittest.TestCase):
+    def test_a_newline_in_a_description_shows_as_a_line_break(self):
+        css = read("css", "setting-controls.css")
+        self.assertRegex(css, r"\.setting-hint \{[^}]*white-space: pre-line")
+        self.assertIn("starts a new line", read("js", "settings-registry.js"))      # (the registry's own notes say so too)
+
+
 class SetupUsesTheCardsName(unittest.TestCase):
     def test_a_step_has_the_name_of_its_card_and_the_language_one_is_called_game_language(self):
         js = read("js", "settings-registry.js")
