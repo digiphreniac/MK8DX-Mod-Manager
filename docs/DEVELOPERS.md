@@ -108,6 +108,13 @@ short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). Th
 - Build with a mainstream Python and test the zip on a machine without Python: extract it to a short path,
   run the setup wizard, download a `.7z` mod, commit.
 
+### The app's icon
+
+The exe carries `tools/app-icon.ico` (the spec's `icon=`): Windows shows it on the file, the taskbar, alt-tab and the window's title bar, because
+pywebview takes the window's icon from the exe. From source the window shows Python's icon instead. To change it, run
+`python tools/make_icon.py path/to/picture.png`: it crops the picture to what is drawn, centres it on a square, and rewrites `tools/app-icon.png`
+(512 px) and `tools/app-icon.ico` (16 to 256 px).
+
 ### Publishing a release (GitHub Actions)
 
 `.github/workflows/release.yml` builds the package on GitHub and publishes it as a Release - the zip is never
