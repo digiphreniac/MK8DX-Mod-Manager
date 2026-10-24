@@ -43,7 +43,7 @@ async function renderUiIconWorklist() {
 // Settings' "UI icons & text" card: a normal commit builds these automatically (see merge() in
 // mod_manager.py), so this is language (a set-once, rarely-touched preference - not worth a card
 // of its own on the Commit page every time), the rare pick-which-mod-wins conflict, and everything
-// for looking at the result without committing, undoing it, or doing it by hand. A preview of what
+// for looking at the result without committing, or undoing it. A preview of what
 // each ticked mod actually changes deliberately isn't rebuilt here - that's what the character/
 // course card's own Menu look already shows, in context, which is a better place for it than a
 // second copy here.
@@ -133,29 +133,6 @@ async function renderUiSetupSettingsCard() {
       }
     }
   }
-
-  const adv = document.createElement("details");
-  adv.appendChild(uisEl("summary", null, "Advanced: prefer to do this by hand in another program?"));
-  const advBody = uisEl("div", "uis-note");
-  advBody.style.fontSize = "12.5px";
-  advBody.appendChild(uisEl("p", null, "You don't need to - committing does everything. If you'd still rather use a tool such as Switch Toolbox (github.com/KillzXGaming/Switch-Toolbox), know that: the icons are inside nested archives (common.sarc → cm_L_CharaIcon_00.szs → timg/__Combined.bntx, and menu.sarc → mn_L_CharaIcon_00.szs → the same); a whole-file swap would wipe out other mods' icons, so textures have to be copied one at a time; and community guides report that editing message.sarc's text inside Switch Toolbox itself can corrupt it (a separate MSBT editor is recommended). We couldn't test those steps ourselves."));
-  advBody.appendChild(uisEl("p", null, "Whichever way you make them, save the finished files at the paths shown above, then click Check my work - it compares them against each mod's changes and shows exactly what's in and what's missing."));
-  const guides = uisEl("p");
-  guides.appendChild(document.createTextNode("Community guides: "));
-  for (const [label, url] of [["Adding custom character icons", "https://gamebanana.com/tuts/15599"], ["Editing message.sarc", "https://gamebanana.com/tuts/15589"]]) {
-    const a2 = uisEl("a", "help-ext-link", label);
-    a2.dataset.url = url;
-    a2.style.marginRight = "12px";
-    a2.style.cursor = "pointer";
-    a2.addEventListener("click", () => pywebview.api.open_help_link(url));
-    guides.appendChild(a2);
-  }
-  advBody.appendChild(guides);
-  const check = uisEl("button", "ghost small", "Check my work");
-  check.addEventListener("click", async () => { check.disabled = true; check.textContent = "Checking..."; uiSetup.data = null; await renderUiSetupSettingsCard(); });
-  advBody.appendChild(check);
-  adv.appendChild(advBody);
-  body.appendChild(adv);
 }
 
 // Shared by the first-run setup overlay and the Settings "Change..." flow:

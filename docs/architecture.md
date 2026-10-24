@@ -53,11 +53,12 @@ The backend modules, every file the app keeps in the master folder, how the fron
   name>`, so e.g. every Waluigi mod sits together under `extracted/
   characters/Waluigi/` instead of as separate flat `Waluigi - ...` folders -
   this happens automatically (see "Folder naming" below).
-- `ui-icons/` - the combined character-select icon set and menu text: either
-  files you built by hand (stays separate from the checklist) or the ones
+- `ui-icons/` - the combined character-select icon set and menu text that
   **menu icons & text** builds for you, automatically, as part of every commit
   (`ui-icons/romfs/UI/cmn/common.sarc`, `menu.sarc`, `UI/<locale>/message.sarc`
-  - see [Menu icons & text](menu-icons-and-text.md#menu-icons--text-combined-character-icons-and-coursecharacter-names)). Always merged in.
+  - see [Menu icons & text](menu-icons-and-text.md#menu-icons--text-combined-character-icons-and-coursecharacter-names)); a commit
+  replaces those three files (keeping the old one in `ui-icons-backups/`). Any other file the user puts there themselves, such as
+  a loose texture from the UI Icon Worklist, stays separate from the checklist. Always merged in.
 - `ui-icons-backups/` - a timestamped copy of any file in `ui-icons/` that a
   build replaced or removed (never deleted automatically)
 - `excluded-files.json` - files each mod must NOT contribute to a commit (how

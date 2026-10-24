@@ -101,5 +101,15 @@ class TheConflictsModal(unittest.TestCase):
         self.assertIn('document.getElementById("btn-open-conflicts").addEventListener("click", openConflictsModal)', js)
 
 
+class TheUiTextCard(unittest.TestCase):
+    def test_there_is_no_do_it_by_hand_section_any_more(self):
+        # (every commit rebuilds those files and replaces a hand-made copy, so the section advised something the next commit undid)
+        js = read("js", "settings-panels.js")
+        for gone in ("Check my work", "prefer to do this by hand", "Switch-Toolbox", "gamebanana.com/tuts/15599"):
+            self.assertNotIn(gone, js, gone)
+        for kept in ("Rebuild now", "Open the folder", "Undo (remove the built files)"):
+            self.assertIn(kept, js, kept)
+
+
 if __name__ == "__main__":
     unittest.main()

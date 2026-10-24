@@ -40,8 +40,10 @@ card (`renderUiSetupSettingsCard()` in `src/ui/js/settings-panels.js`) instead:
   better place to review it than a second, decontextualized copy here.
 - A status line per archive, **Open the folder**, **Undo** (removes the built files; the game falls
   back to its own), a manual **Rebuild now** (`build_ui_setup()` - `_build_ui_archives()` plus
-  staging the result immediately, since there's no commit right after to do that for it), and
-  "Advanced: do this by hand" for anyone who'd rather use an external tool.
+  staging the result immediately, since there's no commit right after to do that for it). There is no "do it by hand in another program"
+  route any more: the three built archives are replaced (the old file is kept in `ui-icons-backups/`) by every commit, so a hand-made
+  copy saved at the same path would not survive the next one. Loose UI art a mod ships that can't be merged is what the UI Icon
+  Worklist is for.
 
 **Guessed names** (`_guessed_names()`, `"guessed-names"` Commit-page warning) still opens its own
 small modal to confirm or edit each one (`openGuessedNamesModal()`) - that one stayed a Commit-page
