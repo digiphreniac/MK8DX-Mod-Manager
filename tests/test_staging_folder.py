@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
@@ -130,6 +131,36 @@ class AChosenFolder(unittest.TestCase):
         result = api.set_staging_dir(str(blocker / "inside"))
         self.assertFalse(result["success"])
         self.assertIn("Couldn't create or open that folder", result["error"])
+
+
+class OpeningIt(unittest.TestCase):
+    def test_the_staging_folder_is_made_first_when_it_is_not_there_yet(self):
+        api, parent, master = make(self)
+        opened = []
+        self.assertFalse((master / "sd-card-staging").exists())
+        with mock.patch.object(mm, "show_in_file_manager", lambda path: opened.append(Path(path))):
+            self.assertTrue(api.open_staging_folder()["success"])
+        self.assertEqual(opened, [master / "sd-card-staging"])
+        self.assertTrue((master / "sd-card-staging").is_dir())
+
+    def test_a_folder_that_cannot_be_made_says_so(self):
+        api, parent, master = make(self)
+        blocker = parent / "a-file"
+        blocker.write_text("x", encoding="utf-8")
+        api.save_settings({"staging_folder": str(blocker / "inside")})
+        result = api.open_staging_folder()
+        self.assertFalse(result["success"])
+        self.assertIn("Couldn't create that folder", result["error"])
+
+    def test_both_folder_cards_have_the_button(self):
+        js = (ROOT / "src" / "ui" / "js" / "settings-registry.js").read_text(encoding="utf-8")
+        card = js[js.index("function folderCard(dir, onOpen)"):]
+        card = card[:card.index("\n}\n")]
+        self.assertIn("wiz-folder-open", card)
+        self.assertIn("Open this folder in the file manager", card)
+        self.assertIn("open: (dir) => pywebview.api.reveal_path(dir.path)", js)        # (the data folder)
+        self.assertIn("open: () => pywebview.api.open_staging_folder()", js)           # (the staging folder)
+        self.assertEqual(js.count("folderCard(dir, "), 3)        # (its definition, and the two cards that give it a way to open)
 
 
 class TheSettingsCard(unittest.TestCase):

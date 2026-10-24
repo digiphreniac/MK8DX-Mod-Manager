@@ -21,7 +21,8 @@ Tooltips, scrollbars and waiting states; the four-step flow (Setup, Choose mods,
 - **Staging folder** (Settings, `kind: "path"` in `settings-registry.js`): where a commit builds the files to copy to the Switch - inside the
   data folder (Recommended) unless the user chose another (Custom folder) or an older install already has one beside it (Existing folder;
   "Use the recommended folder" switches to the one inside). It is not a Setup step (`showInSetup: false`).
-  Changing it moves nothing and makes the page ask for a new commit.
+  Changing it moves nothing and makes the page ask for a new commit. The data folder's and the staging folder's cards each have a folder
+  icon at the top right that opens the folder in the file manager (the setting's `open`; the staging folder is made first if it isn't there yet).
 - **Settings** is a wide window (up to 1040px) with two columns of cards when there is room for two (each at least 420px), one when there
   isn't. The cards (`.settings-columns` in `html/settings-modal.html`) keep their order and the browser balances the columns by height
   (CSS multi-column, `break-inside: avoid`), so the split moves by itself as cards fill in or grow. The columns sit in a box of automatic

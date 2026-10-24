@@ -7,6 +7,7 @@
 //
 // A setting: { key, group, kind, label, description, showInSetup, ... }
 //   description  plain text; a newline in it (a backslash and an n, inside the quotes) starts a new line.
+//   open      (a folder or path setting) opens its folder in the file manager: the folder icon on its card.
 //   kind      "toggle" (a checkbox), "select" (needs options()), "text" (optional validate()/normalize()/datalist()), "folder" (the data
 //             folder) or "path" (any other folder: status(), choose(path) and reset() say how).
 //   label     text, or a function returning the text (a label that depends on another setting).
@@ -31,6 +32,7 @@ const ENGLISH_EITHER = "en-either";
 
 const SETTINGS = [
   { key: "data_folder", group: "data-folder", kind: "folder", label: "Data folder", showInSetup: true,
+    open: (dir) => pywebview.api.reveal_path(dir.path),
     description: "Choose where the app keeps your downloaded mods and settings. Mods can be large, so pick a place with plenty of free space." },
 
   { key: "staging_folder", group: "staging-folder", kind: "path", label: "Staging folder", showInSetup: false,
@@ -38,6 +40,7 @@ const SETTINGS = [
     status: () => pywebview.api.get_staging_status(),
     choose: (path) => pywebview.api.set_staging_dir(path),
     reset: () => pywebview.api.use_recommended_staging_dir(),
+    open: () => pywebview.api.open_staging_folder(),
     after: async () => { await refreshFlow(); if (flow.step === "commit") renderCommitPage(); } },
 
   { key: "game_version", group: "game-version", kind: "select", label: "Which version is your game?", showInSetup: true, refreshGroup: true,
@@ -220,11 +223,21 @@ async function buildSettingControl(def, ctx) {
 }
 
 // Where a folder is: its path, marked Recommended when it is the recommended one (status says is_recommended, or is_default for the data
-// folder), and by its own `label` when it has one ("Existing folder").
-function folderCard(dir) {
+// folder), and by its own `label` when it has one ("Existing folder"). With `onOpen`, a folder button at the top right opens it in the
+// file manager.
+function folderCard(dir, onOpen) {
   const recommended = dir.is_recommended !== undefined ? dir.is_recommended : dir.is_default;
   const where = cgEl("div", "wiz-folder" + (recommended ? " is-default" : ""));
-  where.appendChild(cgEl("span", "wiz-pill" + (recommended ? " rec" : ""), dir.label || (recommended ? "Recommended" : "Custom folder")));
+  const head = cgEl("div", "wiz-folder-head");
+  head.appendChild(cgEl("span", "wiz-pill" + (recommended ? " rec" : ""), dir.label || (recommended ? "Recommended" : "Custom folder")));
+  if (onOpen) {
+    const open = button("", "ghost small wiz-folder-open", onOpen);
+    open.title = "Open this folder in the file manager";
+    open.setAttribute("aria-label", "Open this folder in the file manager");
+    open.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+    head.appendChild(open);
+  }
+  where.appendChild(head);
   where.appendChild(cgEl("code", "wiz-folder-path", dir.path || dir.default_path || "(not set)"));
   return where;
 }
@@ -233,10 +246,14 @@ function folderCard(dir) {
 // which folder it is - the setting's status(), choose() and reset() do.
 async function fillPathControl(def, box) {
   const dir = await def.status();
-  box.replaceChildren(folderCard(dir));
-  if (def.description) box.appendChild(cgEl("div", "setting-hint", def.description));
   const errorBox = cgEl("div", "wiz-error");
   errorBox.hidden = true;
+  const open = async () => {
+    const r = await def.open(dir);
+    if (!r.success) { errorBox.textContent = r.error; errorBox.hidden = false; }
+  };
+  box.replaceChildren(folderCard(dir, open));
+  if (def.description) box.appendChild(cgEl("div", "setting-hint", def.description));
   box.appendChild(errorBox);
   const done = async (result) => {
     if (!result.success) { errorBox.textContent = result.error; errorBox.hidden = false; return; }
@@ -259,12 +276,12 @@ async function fillFolderControl(def, box, ctx) {
   const dir = await pywebview.api.get_master_dir_status();
   const firstRun = !(state.settings && state.settings.setup_done);
   box.replaceChildren();
-  box.appendChild(folderCard(dir));
-  if (def.description) box.appendChild(cgEl("div", "setting-hint", def.description));
   const errorBox = cgEl("div", "wiz-error");
   errorBox.hidden = true;
-  box.appendChild(errorBox);
   const failed = (message) => { errorBox.textContent = message; errorBox.hidden = false; };
+  box.appendChild(folderCard(dir, async () => { const r = await def.open(dir); if (!r.success) failed(r.error); }));
+  if (def.description) box.appendChild(cgEl("div", "setting-hint", def.description));
+  box.appendChild(errorBox);
 
   // the folder under the app changed: the page's ticks and lists belong to the old one
   const afterChanged = async () => {

@@ -87,6 +87,8 @@
   /* The Data folder step: the path, with a clear "Recommended" mark while it is the app's own default */
   .wiz-folder { border: 1px solid var(--panel-border); border-radius: 10px; background: var(--bg-soft); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .wiz-folder.is-default { border-color: var(--ok); background: var(--ok-soft); }
+  .wiz-folder-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .wiz-folder-open { padding: 3px 6px; line-height: 0; margin: -3px -4px -3px 0; }
   .wiz-pill { align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--divider); color: var(--text-dim); }
   .wiz-pill.rec { background: var(--ok); color: #fff; }
   .wiz-folder-path { font-size: 12.5px; word-break: break-all; color: var(--text); }

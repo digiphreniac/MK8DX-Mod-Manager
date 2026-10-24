@@ -6334,10 +6334,15 @@ class Api(VoiceEditMixin, ModNotesMixin):
         return True
 
     def open_staging_folder(self):
-        """Opens the staging folder Api.merge() writes into (see _staging_dir();
-        the master directory) in the file manager, so the user never has to
-        hunt for it."""
-        return self.reveal_path(str(self._staging_dir()))
+        """Opens the staging folder Api.merge() writes into (see _staging_dir()) in the file manager, so the user never has to
+        hunt for it. Made first if it isn't there yet (before the first commit, or after the user chose a new one): Settings offers
+        to open it at any time."""
+        folder = self._staging_dir()
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            return {"success": False, "error": f"Couldn't create that folder: {e}"}
+        return self.reveal_path(str(folder))
 
     # --- Menu icons & text (see ui_setup.py) ---------------------------------
     # Mods that change a character's icon or a course's name each ship their own
