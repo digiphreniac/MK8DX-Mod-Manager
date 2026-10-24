@@ -10,6 +10,7 @@
     "html/character-modal.html",
     "html/help-modal.html",
     "html/settings-modal.html",
+    "html/conflicts-modal.html",
     "html/add-mod-modal.html",
     "html/gb-browse-modal.html",
     "html/gb-detail-modal.html",

@@ -304,6 +304,10 @@ document.addEventListener("keydown", (e) => {
     closeHelpModal();
     return;
   }
+  if (!document.getElementById("conflicts-modal-backdrop").hidden) {
+    closeConflictsModal();   // (opened from Settings: closing it leaves Settings open underneath)
+    return;
+  }
   const shared = document.getElementById("modal-backdrop");
   if (!shared.hidden && shared.classList.contains("above-settings")) {
     closeModal();  // Clear All / Change directory, drawn above Settings

@@ -13,6 +13,11 @@ Tooltips, scrollbars and waiting states; the four-step flow (Setup, Choose mods,
 - **Scrollbars** are slim and use the app's colours (light and dark). The window's content is capped at 1800px wide
   (`--app-max` in the stylesheet): on a wider window the extra room goes to the sides, and the header, tabs, pages and
   footer stay lined up.
+- **Settings** is a wide window (up to 1040px) with two columns of cards when there is room for two (each at least 420px), one when there
+  isn't. The cards (`.settings-columns` in `html/settings-modal.html`) keep their order and the browser balances the columns by height
+  (CSS multi-column, `break-inside: avoid`), so the split moves by itself as cards fill in or grow. The columns sit in a box of automatic
+  height inside the scrolling body: multi-column inside a scrolling box of fixed height would spill sideways. "Conflicts & left-out files" is a summary line and a **Review...**
+  button; the list itself is in `html/conflicts-modal.html`, a modal opened from Settings (`openConflictsModal()`; Escape closes it first).
 - **Drop-down lists and fold-away sections** have one look each, in `css/layout.css`: a `select` is drawn like a button or a text box (panel
   colour, thin border, its arrow made from two CSS triangles so it follows the theme), and a `details` has no box: its `summary` is dim text with a
   small chevron that turns when it opens, instead of the browser's own triangle, and what is inside is indented under it with a line down

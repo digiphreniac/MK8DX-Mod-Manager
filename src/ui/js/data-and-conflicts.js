@@ -310,9 +310,36 @@ function buildFilesPanel(modKey, onChange) {
   return panel;
 }
 
+// The line in Settings' "Conflicts & left-out files" card: how much there is to look at, so the list itself can stay in its own modal.
+function updateConflictsSummary(result) {
+  const el = document.getElementById("conflicts-summary");
+  const leftOut = (result.settled || []).reduce((n, s) => n + s.paths.length, 0)
+    + Object.values(result.left_out || {}).reduce((n, entries) => n + entries.filter(e => e.reason !== "conflict").length, 0);
+  const parts = [];
+  if (result.groups.length) parts.push(`${result.groups.length} need${result.groups.length === 1 ? "s" : ""} settling`);
+  if (leftOut) parts.push(`${leftOut} file${leftOut === 1 ? "" : "s"} left out`);
+  if (result.resolved.length) parts.push(`${result.resolved.length} saved choice${result.resolved.length === 1 ? "" : "s"}`);
+  el.textContent = parts.length ? parts.join(" \u00b7 ") : "No conflicts right now, and no files left out.";
+  el.classList.toggle("needs-attention", result.groups.length > 0);
+}
+
+function openConflictsModal() {
+  document.getElementById("conflicts-modal-backdrop").hidden = false;
+  renderConflicts();
+}
+function closeConflictsModal() {
+  document.getElementById("conflicts-modal-backdrop").hidden = true;
+}
+document.getElementById("btn-open-conflicts").addEventListener("click", openConflictsModal);
+document.getElementById("btn-conflicts-modal-close").addEventListener("click", closeConflictsModal);
+document.getElementById("conflicts-modal-backdrop").addEventListener("click", (e) => {
+  if (e.target.id === "conflicts-modal-backdrop") closeConflictsModal();
+});
+
 async function renderConflicts() {
   const container = document.getElementById("conflicts-body");
   const result = await pywebview.api.get_all_conflicts();
+  updateConflictsSummary(result);
   container.replaceChildren();
   const shortName = (k) => k.split("/").slice(1).join("/");
   const again = async () => { await renderConflicts(); await loadMods(); };
@@ -341,7 +368,7 @@ async function renderConflicts() {
       back.addEventListener("click", async () => { await pywebview.api.include_files(s.mod, s.paths); await again(); });
       acts.appendChild(back);
       const open = cgEl("button", "ghost small", "Open mod");
-      open.addEventListener("click", () => { closeSettingsModal && closeSettingsModal(); jumpToModKey(s.mod); });
+      open.addEventListener("click", () => { closeConflictsModal(); closeSettingsModal && closeSettingsModal(); jumpToModKey(s.mod); });
       acts.appendChild(open);
       card.appendChild(acts);
       const files = document.createElement("details");
