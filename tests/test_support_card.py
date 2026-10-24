@@ -98,7 +98,7 @@ class SupportCard(unittest.TestCase):
         html = (JS.parent / "index.html").read_text(encoding="utf-8")
         link = html[html.index('<a id="support-link"'):html.index("</a>", html.index('<a id="support-link"'))]
         self.assertIn(">Donate", link)
-        self.assertIn("Opens Buy Me a Coffee in your browser", link)
+        self.assertRegex(link, r'title="[^"]*Buy Me a Coffee[^"]*"')   # (the tooltip names where it goes)
         self.assertNotIn("Support creator", html)
 
 

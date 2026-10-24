@@ -180,7 +180,7 @@ class Details(unittest.TestCase):
         real = mm.LOG_PATH
         mm.LOG_PATH = None
         self.addCleanup(setattr, mm, "LOG_PATH", real)
-        self.assertIn("running from source", self.api.get_diagnostics(False))
+        self.assertIn("isn't writing a log file", self.api.get_diagnostics(False))
 
     def test_a_failure_collecting_the_details_is_a_line_not_an_error(self):
         def boom(short=False):
@@ -331,8 +331,8 @@ class PageFiles(unittest.TestCase):
         self.assertLess(html.index("js/diagnostics.js"), html.index("js/bootstrap.js"))
 
     def test_the_help_button_the_script_looks_for_exists(self):
-        self.assertIn('id="btn-copy-diagnostics"', (UI / "html" / "help-modal.html").read_text(encoding="utf-8"))
-        self.assertIn("btn-copy-diagnostics", (UI / "js" / "help-and-icon-generator.js").read_text(encoding="utf-8"))
+        self.assertIn('id="btn-show-log"', (UI / "html" / "help-modal.html").read_text(encoding="utf-8"))
+        self.assertIn("btn-show-log", (UI / "js" / "help-and-icon-generator.js").read_text(encoding="utf-8"))
 
     def test_the_page_logger_never_logs_its_own_calls(self):
         js = (UI / "js" / "diagnostics.js").read_text(encoding="utf-8")

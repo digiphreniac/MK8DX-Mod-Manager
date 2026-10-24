@@ -104,7 +104,9 @@ short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). Th
   in the zip, so extracting an update over an old install keeps the user's data.
 - A packaged build has no console, so `app_paths.redirect_output_to_log()` sends stdout/stderr to
   `mod-manager.log` next to the `.exe` (every run adds to it; see `docs/diagnostics.md`), and an uncaught startup error shows a
-  message box pointing at it. What goes in the log and what Help > Copy details contains: `docs/diagnostics.md`.
+  message box pointing at it. Run from source (`python src/mod_manager.py`) the same file is written in the repository folder (git-ignored)
+  and the console still gets everything: `redirect_output_to_log(tee=True)`. That happens only when the file is run as the program,
+  never on a plain import, so the tests and scripts that import `mod_manager` are untouched. What goes in the log, and Help > Show log file: `docs/diagnostics.md`.
 - Build with a mainstream Python and test the zip on a machine without Python: extract it to a short path,
   run the setup wizard, download a `.7z` mod, commit.
 

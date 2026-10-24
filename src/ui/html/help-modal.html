@@ -6,54 +6,26 @@
     </div>
     <div id="help-modal-body">
       <div class="modal-card">
-        <div class="modal-card-header"><span class="modal-card-title">What the labels on a mod mean</span></div>
-        <div class="settings-body">
-          <div class="help-status-term">UI art only</div>
-          <div class="help-status-def">The mod is just menu pictures, or a packed <code>common.sarc</code>/<code>menu.sarc</code>, with no <code>romfs</code> folder, so it can't be added directly. See "UI Icon Worklist" in Settings.</div>
-          <div class="help-status-term">Needs romfs folder</div>
-          <div class="help-status-def">The mod's folders (Driver, Kart, Audio...) aren't inside a <code>romfs</code> folder. Open its folder, create a <code>romfs</code> folder, and move them in.</div>
-          <div class="help-status-term">Needs manual fix</div>
-          <div class="help-status-def">The mod unpacked, but the app couldn't tell what's in it. Open its folder and take a look.</div>
-          <div class="help-status-term">Packed archive only</div>
-          <div class="help-status-def">Everything in the mod is a packed <code>.sarc</code> file. A commit never copies those in (they'd overwrite every other icon and name), so on its own selecting it does nothing.</div>
-          <div class="help-status-term">Code patch</div>
-          <div class="help-status-def">Changes the game's program instead of adding files (most "Mechanics" mods are this). It only works on the game version it was made for and does nothing on any other, so set your version in Setup. "Select All" skips these, so select each one yourself.</div>
-          <div class="help-status-term">Slot / music mismatch</div>
-          <div class="help-status-def">A course mod's files match a different course than the one you downloaded it for, so it may belong under another course.</div>
-        </div>
-      </div>
-
-      <div class="modal-card">
-        <div class="modal-card-header"><span class="modal-card-title">Voice: mute a line or use your own sound</span></div>
-        <div class="settings-body">
-          <div class="help-status-term">Editing a voice</div>
-          <div class="help-status-def">Every character's card has a <strong>Voice</strong> row with <strong>Edit voice lines</strong>. For any line you can <strong>Mute</strong> it, or <strong>Use my own</strong> sound: choose an audio file (mp3, wav, ogg or m4a), pick the part you want, and the app converts it for the game (up to 8 seconds). <strong>Mute all</strong> silences every line at once, and <strong>Undo all changes</strong> puts everything back.</div>
-          <div class="help-status-term">Where your changes go</div>
-          <div class="help-status-def">They're saved as a mod called <strong>Custom voice</strong> under that character. Select, deselect or remove it like any other mod, and Commit includes it.</div>
-        </div>
-      </div>
-
-      <div class="modal-card">
-        <div class="modal-card-header"><span class="modal-card-title">Known issues and clashes</span></div>
+        <div class="modal-card-header"><span class="modal-card-title">Known issues</span></div>
         <div class="settings-body">
           <div class="help-status-term">A modded course feels like it's playing in slow motion</div>
-          <div class="help-status-def">This is a known problem called the "Slow Motion Bug". The game's physics are tied to the frame rate, so a track with more geometry or effects than the Switch can handle slows the whole race down. It's most common in tracks ported from other games, and it comes from the mod itself, so this app can't fix it. See <a class="help-ext-link" data-url="https://mkwiiki.org/wiki/Slow_Motion_Bug">the Custom Mario Kart wiki's Slow Motion Bug page</a>.</div>
-          <div class="help-status-term">A modded character's icon or a course's name still looks like the original</div>
-          <div class="help-status-def">Commit again after changing your mods, and check that the language in Settings matches your Switch's language, because the menu text is built for that one language.</div>
-          <div class="help-status-term">A deselected mod's picture or name still shows in the game</div>
-          <div class="help-status-def">Copying the staging folder onto an SD card that already has an older copy only adds and replaces files, so files from a mod you've since deselected stay behind. Delete <code>atmosphere/contents/0100152000022000/romfs</code> on the SD card (or your emulator's mod folder) first, then copy the fresh staging folder over.</div>
-          <div class="help-status-term">Two mods clash</div>
-          <div class="help-status-def">A clash means two selected mods write different content to the same file. Settle it on the Commit page with one click: keep one mod's version, use the game's own file, or deselect a mod. Only the clashing files are affected, and your choice is remembered. Every mod's card has a <strong>Files</strong> button to leave out any single file yourself, and Settings lists every leave-out with an "Include again" button. Two code patches that overlap can't be split, so one of them has to be deselected.</div>
+          <div class="help-status-def">Very heavy tracks can run in slow motion on the Switch. This comes from the track itself, not the app, so tell the track's author, or ask on the Discord.</div>
+          <div class="help-status-term">A character's icon or a course's name still looks like the original</div>
+          <div class="help-status-def">Commit again after changing your mods. Also check that the language in Settings is the one your Switch uses, because the menu text is only built for that language.</div>
+          <div class="help-status-term">A mod I deselected still shows up in the game</div>
+          <div class="help-status-def">Copying onto an SD card only adds and replaces files, so a deselected mod's files stay behind. Delete <code>atmosphere/contents/0100152000022000/romfs</code> on the SD card (or in your emulator's mod folder) first, then copy the staging folder again.</div>
         </div>
       </div>
 
       <div class="modal-card">
-        <div class="modal-card-header"><span class="modal-card-title">If something goes wrong</span></div>
+        <div class="modal-card-header"><span class="modal-card-title">More support</span></div>
         <div class="settings-body">
-          <div class="help-status-def">Copy the details and paste them where you report the problem. They hold the app and Windows versions, your game version and language, the state of your game files, and the end of the app's log. Your Windows user name is left out. The log is the file <code>mod-manager.log</code> next to the app. Every time you open the app is added to it, so the run where something went wrong is still in there.</div>
-          <div class="help-diag-row"><button class="ghost" id="btn-copy-diagnostics">Copy details</button></div>
-          <div class="help-status-def">Stuck, or want to talk to other users and the people who make mods? Ask in the Discord: it's for help, ideas, and working on projects together.</div>
-          <div class="help-diag-row"><button class="ghost" id="btn-open-discord">Open the Discord</button></div>
+          <div class="help-status-def">If you're having trouble, please join the Discord and ask for support there. You'll likely be asked for your log file, which you can find by clicking the button below.</div>
+          <div class="help-diag-row">
+            <button id="btn-open-discord"><span class="help-btn-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#5865F2" d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg></span>Join the Discord</button>
+            <button id="btn-show-log">Show log file</button>
+          </div>
+          <div class="help-status-def" id="help-log-note" hidden></div>
         </div>
       </div>
     </div>

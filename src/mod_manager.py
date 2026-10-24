@@ -34,7 +34,12 @@ import app_paths
 import diag
 # A packaged (windowed) build has no console: send output to a log file before the libraries
 # below are imported, since some of them (pywebview) set up their logging when first imported.
-LOG_PATH = app_paths.redirect_output_to_log() if app_paths.FROZEN else None
+# Run from source as the program, the same file is kept and the console still gets everything (a tee); a plain import
+# (the tests, a script) changes nothing. The app runs as __main__ and game_files imports it again by name: that copy shares the log.
+if app_paths.FROZEN or __name__ == "__main__":
+    LOG_PATH = app_paths.redirect_output_to_log(tee=not app_paths.FROZEN)
+else:
+    LOG_PATH = app_paths.current_log_path()
 diag.LOG_PATH = LOG_PATH
 if app_paths.FROZEN:   # (also before the import below: pythonnet is refused by Windows while the zip's "downloaded" mark is on it)
     print(f"Cleared the downloaded-file mark from {app_paths.unblock_downloaded_files()} bundled files")
@@ -1921,7 +1926,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         text = "\n".join(self._diag_lines_safe(short))
         if not short:
             logged = diag.tail(LOG_PATH) if LOG_PATH else ""
-            text += "\n\n--- end of mod-manager.log ---\n" + (logged or "(no log file: the app is running from source)")
+            text += "\n\n--- end of mod-manager.log ---\n" + (logged or "(this run isn't writing a log file)")
         return text
 
     def get_master_dir_status(self):
@@ -3899,6 +3904,20 @@ class Api(VoiceEditMixin, ModNotesMixin):
         if dest_path is not None and dest_path.is_file():
             dest_path.unlink()
         return {"success": True}
+
+    def show_log_file(self):
+        """Help's "Show log file": opens the file manager with mod-manager.log selected - the file a user is asked for when they ask for support.
+        There is no log file when the app runs from source (the messages go to the console it was started from)."""
+        if not LOG_PATH:
+            return {"success": False, "error": "This run isn't writing a log file."}
+        path = Path(LOG_PATH)
+        if not path.is_file():
+            return {"success": False, "error": f"The log file isn't there (it should be in {diag.scrub(str(path.parent))})."}
+        try:
+            show_in_file_manager(path, select=True)
+            return {"success": True}
+        except (OSError, subprocess.SubprocessError) as e:
+            return {"success": False, "error": f"Couldn't open the file manager. Details: {e}"}
 
     def reveal_path(self, path_str):
         """Opens the file manager at an arbitrary already-known folder path
@@ -7575,7 +7594,7 @@ if __name__ == "__main__":
     try:
         main()
     except Exception:
-        if LOG_PATH is None:
-            raise
+        if not app_paths.FROZEN or LOG_PATH is None:
+            raise   # (from source the traceback goes to the console, and the log, as it is)
         report_startup_failure(LOG_PATH)
         sys.exit(1)

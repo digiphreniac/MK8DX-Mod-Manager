@@ -87,7 +87,7 @@ merging when asked. The in-app **Help** button explains each screen in more deta
 
 - **The app says it has to close, or nothing opens** - the details are in `mod-manager.log` next to
   the `.exe` (every run is added to it, so it still holds the run that went wrong). Include that file when you report the problem.
-  If the app opens, **Help > Copy details** puts the same information on your clipboard.
+  If the app opens, **Help > Show log file** opens the folder with that file selected.
 - **"Failed to load Python DLL ... filename or extension is too long"** - move the folder to a
   shorter path such as `C:\MK8DX-Mod-Manager`.
 - **"Failed to resolve Python.Runtime.Loader.Initialize" in `mod-manager.log` (version 0.1.0 only)** - Windows blocked the

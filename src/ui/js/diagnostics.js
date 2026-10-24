@@ -50,7 +50,7 @@ const diag = (function () {
   // A sentence for the user about an error that was thrown (a backend error's name is the Python exception's).
   function describe(e) {
     const name = e && e.name && e.name !== "Error" ? e.name + ": " : "";
-    return "Something went wrong (" + name + clip(e && e.message ? e.message : e, 200) + "). The app's log has the details: Help > Copy details.";
+    return "Something went wrong (" + name + clip(e && e.message ? e.message : e, 200) + "). The details are in the log: Help > Show log file.";
   }
 
   // The answer of `fn`, or {success: false, error} when it threw - for the many places that already show result.error.

@@ -1,7 +1,7 @@
-# Diagnostics: the log and "Copy details"
+# Diagnostics: the log and "Show log file"
 
 When a user reports a problem, the only things we can ask them for are the log file and some text they can paste. This page is what
-those contain and how to keep them useful. (A packaged build has no console and no dev tools.)
+those contain and how to keep them useful. (A packaged build has no console and no dev tools; from source the console still gets everything too.)
 
 ## The log
 
@@ -37,9 +37,12 @@ message is written once and again at its 10th, 100th and 1000th time (with the c
 New code that catches an error and carries on should say so: `diag.log("warn", ...)` in Python, `diag.warn(kind, message)` in the page.
 A `catch` that only sets a fallback leaves nothing to diagnose from.
 
-## The details a user can copy
+## The details in the log
 
-- **Help > Copy details** calls `Api.get_diagnostics()`: `_diag_lines()` (versions, the data folder and whether it exists and is writable,
+- **Help > More support > Show log file** (`Api.show_log_file()`) opens the file manager with `mod-manager.log` selected: it is the file
+  support asks for, and the Discord button beside it is where to ask. The log begins every run with the details below, so nothing else has to
+  be copied. (From source there is no log file and the button says so.) `Api.get_diagnostics()` - the same details plus the end of the log and the
+  page's last messages - is still there, and gives a failed commit its header, but nothing in Help calls it any more. The details are `_diag_lines()` (versions, the data folder and whether it exists and is writable,
   free space, game version / build id / language, the state of the game files copy - what the manifest says *and* whether
   `common.sarc`, `menu.sarc` and the language's `message.sarc` are really on disk - the 7-Zip found, Pillow with WebP, pywebview, the text
   encoding), the end of `mod-manager.log`, and the page's last messages.
@@ -49,7 +52,7 @@ A `catch` that only sets a fallback leaves nothing to diagnose from.
 
 ## When someone reports a problem
 
-Ask for **Help > Copy details** (or `mod-manager.log` when the app won't open), and for the commit log
+Ask for **the log file** (Help > Show log file, or `mod-manager.log` next to the app when it won't open), and for the commit log
 (Copy log on the Commit page) when it is about the output. Look first at: the game files lines (a copy that is "complete" in the manifest
 but MISSING on disk), `warn: ... couldn't be read` lines (a settings file that was reset), `page-error` lines, and the data folder line
 (OneDrive, not writable, no space).

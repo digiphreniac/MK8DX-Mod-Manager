@@ -8,15 +8,11 @@ document.getElementById("help-link").addEventListener("click", openHelpModal);
 document.getElementById("support-link").addEventListener("click", openSupportPage);
 document.getElementById("btn-help-modal-close").addEventListener("click", closeHelpModal);
 document.getElementById("btn-open-discord").addEventListener("click", () => openExternal(DISCORD_URL));
-document.getElementById("btn-copy-diagnostics").addEventListener("click", async (e) => {
-  const btn = e.currentTarget;
-  try {
-    const text = await pywebview.api.get_diagnostics(false);
-    const page = diag.recentText();
-    await navigator.clipboard.writeText(text + (page ? "\n\n--- what the page saw (this run) ---\n" + page : ""));
-    btn.textContent = "Copied!";
-  } catch (err) { btn.textContent = "Copy failed"; }
-  setTimeout(() => { btn.textContent = "Copy details"; }, 1500);
+document.getElementById("btn-show-log").addEventListener("click", async () => {
+  const note = document.getElementById("help-log-note");
+  const result = await diag.attempt(() => pywebview.api.show_log_file());
+  note.hidden = !!result.success;
+  if (!result.success) note.textContent = result.error;
 });
 document.getElementById("help-modal-backdrop").addEventListener("click", (e) => {
   if (e.target.id === "help-modal-backdrop") closeHelpModal();

@@ -187,6 +187,10 @@
   .help-status-term { font-weight: 600; font-size: 12.5px; }
   .help-status-def { font-size: 12.5px; color: var(--text-dim); margin: 2px 0 10px 0; line-height: 1.4; }
   .help-status-def:last-child { margin-bottom: 0; }
+  .help-diag-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+  .help-diag-row button { display: inline-flex; align-items: center; }
+  .help-btn-icon { display: inline-flex; margin-right: 8px; }
+  .help-btn-icon svg { width: 18px; height: 18px; }
 
   /* the All done page: Back, then the "enjoying your mods?" card (like / star / donate), then the troubleshooting tips */
   .pg-done-actions { margin-bottom: 14px; }
