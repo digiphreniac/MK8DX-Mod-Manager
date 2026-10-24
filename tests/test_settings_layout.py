@@ -23,7 +23,7 @@ class TheLayout(unittest.TestCase):
         self.assertEqual(html.count('class="settings-columns"'), 1)
         self.assertNotIn("settings-col\"", html)       # (no hand-made columns any more)
         self.assertEqual(titles(html), ["Master Directory", "UI icons &amp; text", "UI Icon Worklist", "Game version", "GameBanana Browsing",
-                                        "Character Select", "Advanced", "Conflicts &amp; left-out files", "Maintenance"])
+                                        "Character Select", "Advanced", "Conflicts and omitted files", "Maintenance"])
         self.assertEqual(html.count("<div"), html.count("</div>"))
 
     def test_the_window_is_wide_and_the_columns_balance_themselves(self):

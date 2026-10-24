@@ -325,7 +325,7 @@ function buildFilesPanel(modKey, onChange) {
   return panel;
 }
 
-// The line in Settings' "Conflicts & left-out files" card, and the bar at the top of the modal: how much there is to look at, so the list
+// The line in Settings' "Conflicts and omitted files" card, and the bar at the top of the modal: how much there is to look at, so the list
 // itself can stay in its own modal and the count stays in view while it scrolls.
 function updateConflictsSummary(result) {
   const leftOut = (result.settled || []).reduce((n, s) => n + s.paths.length, 0)

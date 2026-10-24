@@ -40,7 +40,7 @@
           <datalist id="known-build-ids"></datalist>
           <div id="setting-game-build-id-error" class="settings-hint" style="color: var(--danger);" hidden></div>
           <div class="settings-hint">
-            Code patches (exefs .ips files, e.g. most Mechanics mods) only work on the exact game version they were built for, and do nothing - with no error - on any other. Enter your game's build ID (the name of its <code>.ips</code> patch files / cheat files, found on cheat databases for your version) to have patches for a different version flagged as "wrong game version". If you only know your game is newer than the listed versions, choose "Not listed (probably newer)" above and patches made for older versions are flagged as "might not match". Choose "I'm not sure" to skip the check.
+            Only needed for code patches (.ips) - it lets the app warn you about patches built for a different game version.
           </div>
         </div>
       </div>
@@ -83,15 +83,17 @@
             Advanced mode
           </label>
           <div class="settings-hint">
-            Shows extra technical detail (for example the full list of files in a conflict is open by default). Nothing essential is hidden without it - conflicts and left-out files are always available in the section below.
+            Shows extra technical detail (for example the full list of files in a conflict is open by default). Nothing essential is hidden without it - conflicts and omitted files are always available in the section below.
           </div>
         </div>
       </div>
       <div class="modal-card" id="conflicts-card">
-        <div class="modal-card-header"><span class="modal-card-title">Conflicts &amp; left-out files</span></div>
+        <div class="modal-card-header"><span class="modal-card-title">Conflicts and omitted files</span></div>
         <div class="settings-body">
-          <div class="settings-hint" id="conflicts-summary">Checking&hellip;</div>
-          <button id="btn-open-conflicts" class="small">Review&hellip;</button>
+          <div class="conflicts-card-row">
+            <button id="btn-open-conflicts" class="small">Review</button>
+            <div class="settings-hint" id="conflicts-summary">Checking&hellip;</div>
+          </div>
         </div>
       </div>
       <div class="modal-card">

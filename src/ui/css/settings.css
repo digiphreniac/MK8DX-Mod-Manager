@@ -39,8 +39,10 @@
   .settings-columns { column-count: 2; column-width: 420px; column-gap: 22px; }
   .settings-columns > .modal-card { break-inside: avoid; }
 
-  /* Conflicts & left-out files: its own modal, opened from the card in Settings (it can grow long when there are many mods) */
-  #conflicts-card .settings-hint { margin-top: 0; margin-bottom: 10px; }
+  /* Conflicts and omitted files: its own modal, opened from the card in Settings (it can grow long when there are many mods).
+     The Review button sits to the left of the one-line summary. */
+  .conflicts-card-row { display: flex; align-items: center; gap: 12px; }
+  .conflicts-card-row .settings-hint { margin: 0; flex: 1; min-width: 0; }
   #conflicts-summary.needs-attention { color: var(--warn); font-weight: 600; }
   #conflicts-modal-backdrop {
     position: fixed;

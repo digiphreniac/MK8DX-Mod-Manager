@@ -16,8 +16,8 @@ Tooltips, scrollbars and waiting states; the four-step flow (Setup, Choose mods,
 - **Settings** is a wide window (up to 1040px) with two columns of cards when there is room for two (each at least 420px), one when there
   isn't. The cards (`.settings-columns` in `html/settings-modal.html`) keep their order and the browser balances the columns by height
   (CSS multi-column, `break-inside: avoid`), so the split moves by itself as cards fill in or grow. The columns sit in a box of automatic
-  height inside the scrolling body: multi-column inside a scrolling box of fixed height would spill sideways. "Conflicts & left-out files" is a summary line and a **Review...**
-  button; the list itself is in `html/conflicts-modal.html`, a modal opened from Settings (`openConflictsModal()`; Escape closes it first).
+  height inside the scrolling body: multi-column inside a scrolling box of fixed height would spill sideways. "Conflicts and omitted files" is a **Review** button with a
+  one-line summary beside it; the list itself is in `html/conflicts-modal.html`, a modal opened from Settings (`openConflictsModal()`; Escape closes it first).
   The modal is kept short: a bar under its header always shows the count ("3 need settling - 104 files left out", or "All settled ..."),
   the cards that need a decision come first, and everything already done is one line each inside a "Settled / left out" section that is
   folded away while anything above still needs settling (the user's own open/close is remembered while the window stays open). File lists
