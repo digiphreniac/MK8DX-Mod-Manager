@@ -89,7 +89,7 @@ function tileKeyFor(name) {
 
 function markActiveTile() {
   const key = dockedKey !== null ? tileKeyFor(dockedKey) : (viewMode === "characters" && openCharacter !== null ? tileKeyFor(openCharacter) : null);
-  for (const tile of document.querySelectorAll("#char-grid .char-tile")) tile.classList.toggle("active", key !== null && tile.dataset.char === key);
+  characterGrid.markActive(key);
   updateNameBar();
   markActiveVehicle();
   markActiveItem();
@@ -113,13 +113,20 @@ function fitCharacterGrid() {
   // (the board hugs its grid, so the room there is is the layout's height, less the board's own padding and border)
   const H = document.getElementById("char-layout").clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
     - parseFloat(cs.borderTopWidth) - parseFloat(cs.borderBottomWidth);
-  const rows = Math.max(1, Math.ceil(grid.querySelectorAll(".char-tile").length / 8)) + (grid.querySelector(".char-grid-other-heading") ? 1 : 0);
-  const K = 0.12;
-  const t = Math.floor(Math.min(W / (8 + 7 * K), H / (rows + (rows - 1) * K)));
-  if (t >= 24) grid.style.setProperty("--tile", t + "px");
+  const fit = ui.fitTiles({
+    W, H, n: grid.querySelectorAll(".char-tile").length, K: 0.12, cols: 8, minT: 24,
+    extraRows: grid.querySelector(".char-grid-other-heading") ? 1 : 0,
+  });
+  if (fit.fits) grid.style.setProperty("--tile", fit.tile + "px");
 }
-new ResizeObserver(fitCharacterGrid).observe(document.getElementById("char-grid-col"));
-new ResizeObserver(fitCharacterGrid).observe(document.getElementById("char-layout"));
+
+// What the tiles of Character Select share (ui.tileGrid): the yellow frame, the viewed tile, the name plate, and sizing to the room.
+const characterGrid = ui.tileGrid({
+  roots: [document.getElementById("char-grid")], tileSelector: ".char-tile",
+  frameHost: document.getElementById("char-grid-col"), plate: document.getElementById("char-name-plate"),
+  resolve: resolveCharacterPlate,
+  fit: fitCharacterGrid, observe: [document.getElementById("char-grid-col"), document.getElementById("char-layout")],
+});
 
 // Character Select always has a character in the card (no empty state): the one last viewed, else Mario.
 let lastDockedKey = null;
@@ -133,38 +140,24 @@ function ensureDockedSelection() {
 // (or you) changed it, else the game's own. (For a group tile under the mouse: each variant's, "Boy: Yoda - Girl: Pinkie Pie".)
 // While the mouse is over a tile the plate shows THAT character (as the game's select screen does as the
 // cursor moves); otherwise it shows the selected one.
-let hoverTileEl = null;
-function updateNameBar() {
-  const plate = document.getElementById("char-name-plate");
+function resolveCharacterPlate(hover) {
   let display = null, keys = null;
-  if (hoverTileEl && hoverTileEl.isConnected) {
-    display = hoverTileEl.dataset.char;
-    keys = hoverTileEl._lookNames || [display];
+  if (hover) {
+    display = hover.dataset.char;
+    keys = hover._lookNames || [display];
   } else if (dockedKey !== null) {
     display = dockedKey;
     keys = [dockedKey];
   }
-  plate.replaceChildren();
-  if (display === null) { plate.classList.remove("show"); return; }
-  const vs = hoverTileEl && hoverTileEl.isConnected ? hoverTileEl._variants : null;
+  if (display === null) return null;
+  const vs = hover ? hover._variants : null;
   const names = vs
     ? vs.map(v => { const n = (characterLooks[v.name] || {}).name; return n ? `${v.label}: ${n}` : null; }).filter(Boolean)
     : keys.map(k => (characterLooks[k] || {}).name).filter(Boolean);
   const shown = names.length ? names.join(vs ? " \u00b7 " : " / ") : display;
-  plate.append(shown);
-  if (shown !== display) {   // a modded name: the game's own follows, smaller and dimmer
-    const base = document.createElement("span");
-    base.className = "np-base";
-    base.textContent = `(${display})`;
-    plate.appendChild(base);
-  }
-  plate.classList.add("show");
+  return { main: shown, dim: shown !== display ? display : null };      // (a modded name: the game's own follows, smaller and dimmer)
 }
-document.getElementById("char-grid").addEventListener("mouseover", (e) => {
-  const tile = e.target.closest(".char-tile");
-  if (tile && tile !== hoverTileEl) { hoverTileEl = tile; updateNameBar(); }
-});
-document.getElementById("char-grid").addEventListener("mouseleave", () => { hoverTileEl = null; updateNameBar(); });
+function updateNameBar() { characterGrid.refresh(); }
 
 // The card goes away (the window became too small for it, or Character Select was left at a small size).
 function closeDetail() {

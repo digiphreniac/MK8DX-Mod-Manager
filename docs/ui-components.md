@@ -1,6 +1,6 @@
 # UI components
 
-**Status: Phases 0 to 5 and the tile shell are built** (the foundation, `Button`, `Modal`, `Section`, `confirm` / `alert`; `Callout`,
+**Status: Phases 0 to 5, the tile shell and the tile grids are built** (the foundation, `Button`, `Modal`, `Section`, `confirm` / `alert`; `Callout`,
 `hint`, `Chip`, `Disclosure`; `Menu`, `Tabs` / `Segmented`, `AsyncBox` / `loading`, `List` / `Row`; Settings, Conflicts, Help, Guessed
 names, Clear All Mods, the Commit notes, the card chips, the main tabs and the "..." menus use them). The rest is still plan; "What is built" below says where the code differs from the sketches and what Phase 2 left for later.
 Each phase turns its part of this page from plan into "how it works".
@@ -78,7 +78,7 @@ A component is a function that takes one options object and returns a **handle**
 Every component accepts a declarative spec. Where a screen needs something custom (a draggable grid, a canvas), a section body
 or modal body can be **any element or a function returning one**, so components never block custom content.
 
-## What is built (Phases 0 to 5 and the tile shell)
+## What is built (Phases 0 to 5, the tile shell and the tile grids)
 
 Code: `js/ui/core.js` (`ui.el`, `ui.append`, `ui.html`, and the older `cgEl`), `js/ui/icons.js` (`ui.icons`, `ui.icon`), `js/ui/button.js`
 (`ui.button`, and the older `button(text, cls, fn)`), `js/ui/modal.js`, `js/ui/section.js` (`ui.section`, `ui.columns`,
@@ -149,8 +149,19 @@ and `chip.css`:
   (which units are ticked -> `selected` / `total`, the look of the numbers, the corner colours, the pencil for a note) over **`ui.tile`**, which
   draws a tile from plain options and knows nothing about mods; the six hand-copied blocks that added the red "!" to a tile with a clash are
   `ui.tile.markConflict(tile, title)`. The classes (`char-tile`, `char-badge`, `char-name`, `char-count` ...) and `tiles-and-grids.css` were kept
-  as they were: the screens style and find tiles by them. Not made into components: the cup tile (it is a different picture), and the per-screen
-  "which tile is active / the hover frame" code, which differs in where each screen keeps its selection.
+  as they were: the screens style and find tiles by them.
+- **The cup tile and the grids** (`js/ui/tile.js`, `js/ui/tilegrid.js`):
+  - **`ui.tile({ variant: "cup", ... })`** is the cup on the Courses screen (a button with the cup's picture, the "3/4" bubble and no name line;
+    the page paints the picture with `paintCupTile`).
+  - **`ui.tileGrid({ roots, tileSelector, frameHost, plate, resolve, fit, observe })`** is what the four screens that show tiles (Character Select,
+    Course Select, Vehicles, Items) did four times: the yellow frame that follows the tile under the mouse, the tile that is `.active`, the name
+    plate (it shows what `resolve(hover)` says about the tile under the mouse, else about the viewed one: `{ main, dim }`), and calling `fit()` when
+    the screen changes size. `markActive(key)`, `active()`, `refresh()`, `reset()` and `hideFrame()` are what the screens call; the old
+    `markActiveTile`, `updateItemNameBar` ... remain as thin names over them. `makeHoverFrame` and the four `*HoverEl` variables are gone.
+  - **`ui.fitTiles({ W, H, n, K, cols, extraRows, minT, maxT, preferCols })`** is the "biggest square tile that fits" sum. Character Select calls it
+    with 8 fixed columns and Items with every column count (it takes the one nearest 6); the result was compared with the old formulas on 2000
+    random sizes and is identical. The layouts stay with each screen: Vehicles (three board arrangements) and Courses (cups on two pages beside
+    a strip) keep their own fitting, which is bespoke maths, not a repeated sum.
 - **The rest of Phase 2** (done later):
   - **Small notes are `ui.hint`** with a size (`md` is a little larger) and a tone (`dim`, `warn`, `error`). `cg-note`, `cl-hint`, `ve-note`, `mv-note`,
     `pics-hint`, a setting's description (`setting-hint`) and the Setup folder error (`wiz-error`) are all made by it; what is left of those classes

@@ -13,7 +13,7 @@ from pathlib import Path
 
 UI = Path(__file__).resolve().parent.parent / "src" / "ui"
 JS = UI / "js"
-COMPONENTS = ("core", "icons", "button", "disclosure", "modal", "section", "confirm", "callout", "chip", "menu", "tabs", "asyncbox", "list", "progress", "folder", "tile")
+COMPONENTS = ("core", "icons", "button", "disclosure", "modal", "section", "confirm", "callout", "chip", "menu", "tabs", "asyncbox", "list", "progress", "folder", "tile", "tilegrid")
 
 
 def read(*parts):
@@ -64,7 +64,7 @@ class WhatThePageCalls(unittest.TestCase):
         defined = set()
         for name in COMPONENTS:
             defined.update(re.findall(r"(?<![\w.])ui\.(\w+) = ", read("js", "ui", f"{name}.js")))
-        self.assertTrue({"el", "icon", "button", "modal", "section", "confirm", "alert", "disclosure", "callout", "hint", "chip", "menu", "tabs", "segmented", "loading", "asyncBox", "row", "list", "progress", "folderCard", "tile"} <= defined)
+        self.assertTrue({"el", "icon", "button", "modal", "section", "confirm", "alert", "disclosure", "callout", "hint", "chip", "menu", "tabs", "segmented", "loading", "asyncBox", "row", "list", "progress", "folderCard", "tile", "tileGrid", "fitTiles"} <= defined)
         for path in all_scripts():
             for used in re.findall(r"(?<![\w.])ui\.(\w+)", code(path.read_text(encoding="utf-8"))):
                 self.assertIn(used, defined, f"{path.name} uses ui.{used}")
@@ -368,6 +368,57 @@ class TheTileShell(unittest.TestCase):
                        "el.dataset.countNote", "el.dataset.char = spec.key"):
             self.assertIn(needed, tile, needed)
         self.assertLess(tile.index('"char-badge"'), tile.index('"char-name"'))          # (the order the children have always had)
+
+
+class TheTileGrids(unittest.TestCase):
+    SCREENS = (("character-select-layout.js", "characterGrid", "char-name-plate"), ("item-screen.js", "itemGrid", "item-name-plate"),
+               ("vehicle-screen.js", "vehicleGrid", "vehicle-name-plate"), ("views.js", "courseGrid", "course-name-plate"))
+
+    def test_each_screen_has_one_tile_grid_and_keeps_only_its_layout_and_what_its_plate_says(self):
+        for name, grid, plate in self.SCREENS:
+            text = read("js", name)
+            self.assertRegex(text, rf"const {grid} = ui\.tileGrid\(\{{", name)
+            self.assertIn(f'plate: document.getElementById("{plate}")', text, name)
+            self.assertIn("frameHost:", text, name)
+            self.assertIn("fit:", text, name)
+            self.assertIn(f"{grid}.markActive(", text, name)
+            for gone in ("HoverEl", "makeHoverFrame", 'addEventListener("mouseover"', 'addEventListener("mouseleave"', "new ResizeObserver"):
+                self.assertNotIn(gone, code(text).replace("ui.tileGrid", ""), f"{name} still has {gone}")
+
+    def test_the_plates_say_what_they_said_and_only_return_it(self):
+        for name, fn in (("character-select-layout.js", "resolveCharacterPlate"), ("item-screen.js", "resolveItemPlate"),
+                         ("vehicle-screen.js", "resolveVehiclePlate"), ("views.js", "resolveCoursePlate")):
+            text = read("js", name)
+            body = text[text.index(f"function {fn}("):]
+            body = body[:body.index("\n}\n")]
+            self.assertIn("return", body, fn)
+            self.assertNotIn("plate.", body, fn)               # (drawing the plate is the grid's job)
+            self.assertNotIn("replaceChildren", body, fn)
+
+    def test_the_grid_draws_the_plate_and_the_frame_and_marks_the_active_tile(self):
+        grid = read("js", "ui", "tilegrid.js")
+        for needed in ('"np-base"', "plate.classList.remove(\"show\")", 'frame = ui.el("div", "hover-frame")', "t.classList.toggle(\"active\", key != null && t.dataset[keyAttr] === key)",
+                       "new ResizeObserver(() => spec.fit())", "reset() { hideFrame(); hoverEl = null; }"):
+            self.assertIn(needed, grid, needed)
+
+    def test_characters_and_items_are_sized_by_the_shared_fit(self):
+        self.assertIn("ui.fitTiles({", read("js", "character-select-layout.js"))
+        item = read("js", "item-screen.js")
+        self.assertIn("ui.fitTiles({", item)
+        self.assertNotIn("for (let c = 1", item)
+        grid = read("js", "ui", "tilegrid.js")
+        self.assertIn("ui.fitTiles = function", grid)
+        self.assertIn("preferCols", grid)
+
+    def test_a_cup_is_a_ui_tile(self):
+        views = read("js", "views.js")
+        cups = views[views.index("async function renderCupGrid()"):views.index("async function renderCourseStrip(")]
+        self.assertIn('variant: "cup"', cups)
+        self.assertNotIn('className = "cup-tile"', views)
+        tile = read("js", "ui", "tile.js")
+        self.assertIn("function cupTile(spec)", tile)
+        for needed in ('"aria-label"', "el.dataset.cup = spec.key", "el.dataset.page = spec.page", "tile-count-bubble"):
+            self.assertIn(needed, tile, needed)
 
 
 class TheModalStack(unittest.TestCase):

@@ -31,6 +31,7 @@
     "js/ui/progress.js",
     "js/ui/folder.js",
     "js/ui/tile.js",
+    "js/ui/tilegrid.js",
     "js/app-modals.js",         // (Settings, Conflicts, Help and Guessed names, built from the components and left hidden)
     "js/api-coalesce.js",
     "js/state-and-helpers.js",

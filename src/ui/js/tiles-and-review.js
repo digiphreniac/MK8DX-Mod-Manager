@@ -380,52 +380,14 @@ function scheduleCharacterLooks(refs) {
 
 // The white corner frame: one element that slides to whichever tile the mouse is over. It is placed
 // without animation the first time (so it doesn't fly in from a corner) and glides after that.
-// `host` is a stable, positioned element the frame lives in (it must not be the grid that gets rebuilt);
-// `roots` are the elements whose tiles it follows; `tileSelector` says what counts as a tile.
-function makeHoverFrame(host, roots, tileSelector) {
-  const frame = document.createElement("div");
-  frame.className = "hover-frame";
-  host.appendChild(frame);
-  let shown = false;
-  function hide() {
-    frame.classList.remove("show");
-    shown = false;
-  }
-  function move(tile) {
-    const hr = host.getBoundingClientRect(), tr = tile.getBoundingClientRect();
-    const pad = 4;   // same margin as the yellow brackets
-    const x = tr.left - hr.left + host.scrollLeft - host.clientLeft - pad;
-    const y = tr.top - hr.top + host.scrollTop - host.clientTop - pad;
-    if (!shown) frame.style.transition = "none";
-    frame.style.transform = `translate(${x}px, ${y}px)`;
-    frame.style.width = (tr.width + 2 * pad) + "px";
-    frame.style.height = (tr.height + 2 * pad) + "px";
-    if (!shown) { void frame.offsetWidth; frame.style.transition = ""; }
-    frame.classList.add("show");
-    shown = true;
-  }
-  for (const root of roots) {
-    root.addEventListener("mouseover", (e) => {
-      const tile = e.target.closest(tileSelector);
-      if (tile && root.contains(tile)) move(tile);
-    });
-    root.addEventListener("mouseleave", hide);
-  }
-  return { hide };
-}
-const characterHover = makeHoverFrame(document.getElementById("char-grid-col"), [document.getElementById("char-grid")], ".char-tile");
-const courseHover = makeHoverFrame(document.getElementById("view-courses"),
-  [document.getElementById("cup-grid"), document.getElementById("course-strip")], ".cup-tile, .char-tile");
-
 async function renderCharacterGrid() {
   const grid = document.getElementById("char-grid");
   grid.innerHTML = "";
-  characterHover.hide();   // the tile under the mouse was just replaced
+  characterGrid.reset();   // the tile under the mouse was just replaced
   const conflictChecks = [];
   const coveredNames = new Set();
   const lookRefs = [];
   const showCount = !!(state.settings && state.settings.show_tile_counts);
-  hoverTileEl = null;
 
   for (const item of CHARACTER_GRID_LAYOUT) {
     let tile, checkedUnits, selected;

@@ -14,9 +14,12 @@
 //     onClick,
 //   })  ->  { el, badge, nameEl }
 //   ui.tile.markConflict(tile, title)      the red "!" for two ticked mods that write the same file
+//   ui.tile({ variant: "cup", key, label, page, selected, bubble, active, onClick })      a cup on the Courses screen: a button with
+//     the cup's picture (the page paints it: paintCupTile), a bubble ("3/4": its modded courses), and no name line - the name plate has it
 // The classes (char-tile, char-badge, char-name, char-count, tile-count-bubble ...) and tiles-and-grids.css are how the screens style and find
 // tiles; they were kept as they were.
 ui.tile = function (spec) {
+  if (spec.variant === "cup") return cupTile(spec);
   const total = spec.total || 0, selected = spec.selected || 0;
   const el = ui.el("div", "char-tile");
   el.dataset.char = spec.key;
@@ -64,6 +67,17 @@ ui.tile = function (spec) {
   if (spec.note) el.append(spec.note);
   return { el, badge, nameEl };
 };
+
+function cupTile(spec) {
+  const el = ui.el("div", { class: "cup-tile", attrs: { role: "button", "aria-label": spec.label || spec.key } });
+  el.dataset.cup = spec.key;
+  el.dataset.page = spec.page;
+  el.classList.add(spec.selected > 0 ? "has-selected" : "no-mods");
+  if (spec.active) el.classList.add("active");
+  if (spec.onClick) el.addEventListener("click", spec.onClick);
+  if (spec.bubble) el.append(ui.el("div", { class: "tile-count-bubble", text: spec.bubble }));
+  return { el, badge: null, nameEl: null };
+}
 
 ui.tile.markConflict = function (tile, title) {
   tile.classList.add("has-conflict");

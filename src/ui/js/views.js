@@ -328,7 +328,7 @@ async function renderCupOrCourseGrid() {
 async function renderCupGrid() {
   const grid = document.getElementById("cup-grid");
   const token = ++cupGridToken;
-  courseHover.hide();   // the tile under the mouse was just replaced
+  courseGrid.hideFrame();   // the tile under the mouse was just replaced
   const conflictChecks = [];
   const tiles = [];
 
@@ -337,33 +337,21 @@ async function renderCupGrid() {
     const checkedUnits = units.filter(k => state.checked[k]);
     const selected = checkedUnits.length;
     const moddedCourses = cup.courses.filter(c => c.units.some(u => state.checked[u])).length;
-    const tile = document.createElement("div");
-    tile.className = "cup-tile";
-    tile.dataset.cup = cup.cup;
-    tile.setAttribute("role", "button");
-    tile.setAttribute("aria-label", cup.cup);
-    tile.dataset.page = cupPageOf(cup.cup);
-    if (selected > 0) tile.classList.add("has-selected");
-    else tile.classList.add("no-mods");
-    if (cup.cup === selectedCup) tile.classList.add("active");
-    tile.addEventListener("click", () => {
-      if (selectedCup === cup.cup) {
-        if (selectedCourse !== null) { selectedCourse = null; markActiveCourse(); }   // back to the cup itself
-        return;
-      }
-      document.querySelectorAll("#cup-grid .cup-tile.active").forEach(t => t.classList.remove("active"));
-      tile.classList.add("active");
-      selectedCourse = null;
-      renderCourseStrip(cup.cup);
-    });
+    const tile = ui.tile({
+      variant: "cup", key: cup.cup, page: cupPageOf(cup.cup), selected, active: cup.cup === selectedCup,
+      bubble: moddedCourses > 0 ? `${moddedCourses}/${cup.courses.length}` : null,
+      onClick: () => {
+        if (selectedCup === cup.cup) {
+          if (selectedCourse !== null) { selectedCourse = null; markActiveCourse(); }   // back to the cup itself
+          return;
+        }
+        document.querySelectorAll("#cup-grid .cup-tile.active").forEach(t => t.classList.remove("active"));
+        tile.classList.add("active");
+        selectedCourse = null;
+        renderCourseStrip(cup.cup);
+      },
+    }).el;
     paintCupTile(tile);
-
-    if (moddedCourses > 0) {
-      const bubble = document.createElement("div");
-      bubble.className = "tile-count-bubble";
-      bubble.textContent = `${moddedCourses}/${cup.courses.length}`;
-      tile.appendChild(bubble);
-    }
 
     if (selected >= 2) {
       conflictChecks.push(
@@ -404,7 +392,7 @@ async function renderCourseStrip(cupName) {
   selectedCup = cup.cup;
   if (selectedCourse !== null && !cup.courses.some(c => c.name === selectedCourse)) selectedCourse = null;
   const token = ++courseStripToken;
-  courseHover.hide();
+  courseGrid.hideFrame();
   updateCourseNameBar();
 
   const strip = document.getElementById("course-strip");
@@ -539,40 +527,29 @@ function selectCourse(name) {
   markActiveCourse();
 }
 function markActiveCourse() {
-  for (const t of document.querySelectorAll("#course-strip .char-tile")) t.classList.toggle("active", t.dataset.char === selectedCourse);
+  courseGrid.markActive(selectedCourse, ".char-tile");
   updateCourseNameBar();
 }
 
 // ---- the name plate ----
 // While the mouse is over a tile the plate shows THAT cup or course (as the game's select screen does as the cursor
 // moves); otherwise the selected course, else the selected cup. A course also shows its cup, small and dim.
-let courseHoverEl = null;
-function updateCourseNameBar() {
-  const plate = document.getElementById("course-name-plate");
+// What the tiles of Course Select (the cups and the courses of one) share (ui.tileGrid); the layout itself is fitCourseScreen.
+const courseGrid = ui.tileGrid({
+  roots: [document.getElementById("cup-grid"), document.getElementById("course-strip")], tileSelector: ".cup-tile, .char-tile",
+  frameHost: document.getElementById("view-courses"), plate: document.getElementById("course-name-plate"),
+  resolve: resolveCoursePlate,
+  fit: fitCourseScreen, observe: [document.getElementById("course-layout")],
+});
+function resolveCoursePlate(hover) {
   let main = null, context = null;
-  const el = courseHoverEl && courseHoverEl.isConnected ? courseHoverEl : null;
-  if (el && el.classList.contains("cup-tile")) main = el.dataset.cup;
-  else if (el) { main = el.dataset.char; context = selectedCup; }
+  if (hover && hover.classList.contains("cup-tile")) main = hover.dataset.cup;
+  else if (hover) { main = hover.dataset.char; context = selectedCup; }
   else if (selectedCourse !== null) { main = selectedCourse; context = selectedCup; }
   else main = selectedCup;
-  plate.replaceChildren();
-  if (!main) { plate.classList.remove("show"); return; }
-  plate.append(main);
-  if (context) {
-    const base = document.createElement("span");
-    base.className = "np-base";
-    base.textContent = `(${context})`;
-    plate.appendChild(base);
-  }
-  plate.classList.add("show");
+  return main ? { main, dim: context } : null;
 }
-for (const root of [document.getElementById("cup-grid"), document.getElementById("course-strip")]) {
-  root.addEventListener("mouseover", (e) => {
-    const tile = e.target.closest(".cup-tile, .char-tile");
-    if (tile && tile !== courseHoverEl) { courseHoverEl = tile; updateCourseNameBar(); }
-  });
-  root.addEventListener("mouseleave", () => { courseHoverEl = null; updateCourseNameBar(); });
-}
+function updateCourseNameBar() { courseGrid.refresh(); }
 
 // ---- fitting the screen ----
 // Everything on Course Select is sized from the room there is, so nothing scrolls: the cups (one square tile size
@@ -610,7 +587,7 @@ function applyCupPage() {
   document.getElementById("cup-prev").classList.toggle("has-mods", onDlc && modded("base"));
   document.getElementById("cup-next").classList.toggle("has-mods", !onDlc && modded("dlc"));
   document.getElementById("cup-page-label").textContent = onDlc ? "Booster Course Pass \u00b7 2 of 2" : "Mario Kart 8 Deluxe \u00b7 1 of 2";
-  courseHover.hide();
+  courseGrid.hideFrame();
 }
 function turnCupPage(page) {
   cupPages.current = page;
@@ -649,7 +626,6 @@ function fitCourseScreen() {
   layout.style.setProperty("--cup", best.cup + "px");
   layout.style.setProperty("--course-w", best.w + "px");
 }
-new ResizeObserver(fitCourseScreen).observe(document.getElementById("course-layout"));
 
 function switchView(mode) {
   viewMode = mode;

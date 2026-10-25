@@ -45,7 +45,7 @@ notes, measurements and rules live in `docs/` (index below).
 - `src/gamebanana_api.py` - GameBanana client. `roster.json` - every character/course/part/item; `name-labels.json` - text ids.
 - `src/image_cache.py`, `library_cache.py`, `gb_desc_cache.py` - caches (see below).
 - `src/ui/` - `index.html` frame, `html/` the remaining modal markup, `css/`, `js/` scripts (see "Frontend rules"). `js/ui/` is the component
-  layer (`ui.el`, `ui.button`, `ui.modal`, `ui.section`, `ui.confirm`, `ui.callout`, `ui.hint`, `ui.chip`, `ui.disclosure`, `ui.menu`, `ui.tabs`, `ui.asyncBox`, `ui.list` ...) and `js/app-modals.js` builds Settings, Conflicts, Help and
+  layer (`ui.el`, `ui.button`, `ui.modal`, `ui.section`, `ui.confirm`, `ui.callout`, `ui.hint`, `ui.chip`, `ui.disclosure`, `ui.menu`, `ui.tabs`, `ui.asyncBox`, `ui.list`, `ui.tile`, `ui.tileGrid` ...) and `js/app-modals.js` builds Settings, Conflicts, Help and
   Guessed names from it (`docs/ui-components.md`).
 
 ## Rules that are easy to break
