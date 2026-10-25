@@ -1,40 +1,7 @@
-  /* Settings - a popup modal now (see #help-modal above for the pattern
-     this copies), opened from the gear icon in the header rather than a
-     tab, but reuses the same .modal-card/.settings-* markup and IDs as
-     before so none of the JS that populates/wires it up had to change. */
-  #settings-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(20, 22, 28, 0.4);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 48px 20px 20px 20px;
-    z-index: 20;
-    animation: fadeIn 0.14s ease-out;
-  }
-  #settings-modal {
-    background: var(--panel);
-    border-radius: 14px;
-    width: min(1040px, calc(100vw - 40px));   /* (wide: two columns of cards fit; on a narrow window they stack) */
-    max-height: calc(100vh - 68px);
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-    animation: popIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
-  }
-  #settings-modal-header {
-    padding: 18px 20px;
-    border-bottom: 1px solid var(--panel-border);
-    display: flex;
-    align-items: center;
-  }
-  #settings-modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
-  #settings-modal-body { padding: 18px 20px 20px 20px; overflow-y: auto; }
-  #settings-modal-body .modal-card:last-child { margin-bottom: 0; }
+  /* Settings is a ui.modal (js/app-modals.js, css/components/modal.css), size "wide". Its cards are ui.section()s in one container: */
   /* Two columns of cards when there is room for two (each at least 420px), one when there isn't, and the browser balances them: the cards
      keep their order and the split falls where the two columns come out about as tall as each other, however tall each card is right now
-     (some fill in after the window opens, and fold-away sections open and close). #settings-modal-body is what scrolls, and the
+     (some fill in after the window opens, and fold-away sections open and close). The window's body (.ui-modal-body) is what scrolls, and the
      columns sit in a box of automatic height inside it - columns inside a scrolling box of fixed height would spill sideways instead. */
   .settings-columns { column-count: 2; column-width: 420px; column-gap: 22px; }
   .settings-columns > .modal-card { break-inside: avoid; }
@@ -44,34 +11,5 @@
   .conflicts-card-row { display: flex; align-items: center; gap: 12px; }
   .conflicts-card-row .settings-hint { margin: 0; flex: 1; min-width: 0; }
   #conflicts-summary.needs-attention { color: var(--warn); font-weight: 600; }
-  #conflicts-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(20, 22, 28, 0.4);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 48px 20px 20px 20px;
-    z-index: 25;
-    animation: fadeIn 0.14s ease-out;
-  }
-  #conflicts-modal {
-    background: var(--panel);
-    border-radius: 14px;
-    width: min(760px, calc(100vw - 40px));
-    max-height: calc(100vh - 68px);
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-    animation: popIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
-  }
-  #conflicts-modal-header { padding: 18px 20px; border-bottom: 1px solid var(--panel-border); display: flex; align-items: center; }
-  #conflicts-modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
-  /* the count, always in view under the header while the list scrolls */
-  #conflicts-modal-bar { padding: 9px 20px; border-bottom: 1px solid var(--panel-border); font-size: 13px; font-weight: 600; color: var(--text-dim); }
-  #conflicts-modal-bar[hidden] { display: none; }
-  #conflicts-modal-bar.needs-attention { color: var(--warn); }
-  #conflicts-modal-bar.all-settled { color: var(--ok); }
-  #conflicts-modal-body { padding: 18px 20px 20px 20px; overflow-y: auto; }
   #conflicts-modal-body .settings-hint { margin: 0; }
 

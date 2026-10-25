@@ -1,21 +1,17 @@
 function openHelpModal() {
-  document.getElementById("help-modal-backdrop").hidden = false;
+  helpModal.open();
 }
 function closeHelpModal() {
-  document.getElementById("help-modal-backdrop").hidden = true;
+  helpModal.close();
 }
 document.getElementById("help-link").addEventListener("click", openHelpModal);
 document.getElementById("support-link").addEventListener("click", openSupportPage);
-document.getElementById("btn-help-modal-close").addEventListener("click", closeHelpModal);
 document.getElementById("btn-open-discord").addEventListener("click", () => openExternal(DISCORD_URL));
 document.getElementById("btn-show-log").addEventListener("click", async () => {
   const note = document.getElementById("help-log-note");
   const result = await diag.attempt(() => pywebview.api.show_log_file());
   note.hidden = !!result.success;
   if (!result.success) note.textContent = result.error;
-});
-document.getElementById("help-modal-backdrop").addEventListener("click", (e) => {
-  if (e.target.id === "help-modal-backdrop") closeHelpModal();
 });
 document.getElementById("help-modal-body").addEventListener("click", (e) => {
   const link = e.target.closest(".help-ext-link");
@@ -294,27 +290,12 @@ document.getElementById("icon-gen-modal-backdrop").addEventListener("click", (e)
   if (e.target.id === "icon-gen-modal-backdrop") closeIconGenModal();
 });
 
+// Escape for the windows the page still draws itself. The ones made with ui.modal (Settings, Conflicts, Help, the confirm dialogs ...) are
+// handled before this runs, topmost first (js/ui/modal.js).
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (!document.getElementById("icon-gen-modal-backdrop").hidden) {
     closeIconGenModal();
-    return;
-  }
-  if (!document.getElementById("help-modal-backdrop").hidden) {
-    closeHelpModal();
-    return;
-  }
-  if (!document.getElementById("conflicts-modal-backdrop").hidden) {
-    closeConflictsModal();   // (opened from Settings: closing it leaves Settings open underneath)
-    return;
-  }
-  const shared = document.getElementById("modal-backdrop");
-  if (!shared.hidden && shared.classList.contains("above-settings")) {
-    closeModal();  // Clear All / Change directory, drawn above Settings
-    return;
-  }
-  if (!document.getElementById("settings-modal-backdrop").hidden) {
-    closeSettingsModal();
     return;
   }
   if (!document.getElementById("add-mod-modal-backdrop").hidden) {

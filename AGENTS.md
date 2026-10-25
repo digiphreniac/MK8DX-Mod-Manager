@@ -23,7 +23,7 @@ notes, measurements and rules live in `docs/` (index below).
   paths (`mods/`, `game-files/`, `ui-icons/`, ...). `game-files/original/` is written once and never touched again, except by "Update from a new dump", which swaps in a complete new copy only after it has been copied successfully (`game_files.copy_both()`).
 - When you change behaviour that a page in `docs/` describes, update that page in the same change. Put new design notes in
   the matching `docs/` page (or a new one), not in `README.md` or `docs/DEVELOPERS.md`, which stay short.
-- The in-app **Help** panel (`src/ui/html/help-modal.html`) is the user guide and must stay current with the UI.
+- The in-app **Help** panel (the `helpModal` spec in `src/ui/js/app-modals.js`) is the user guide and must stay current with the UI.
 
 ## Code map
 
@@ -44,7 +44,9 @@ notes, measurements and rules live in `docs/` (index below).
 - `src/mod_notes.py` - the user's notes on mods (`mod-notes.json`); page side `src/ui/js/mod-notes.js`.
 - `src/gamebanana_api.py` - GameBanana client. `roster.json` - every character/course/part/item; `name-labels.json` - text ids.
 - `src/image_cache.py`, `library_cache.py`, `gb_desc_cache.py` - caches (see below).
-- `src/ui/` - `index.html` frame, `html/` modals, `css/`, `js/` scripts (see "Frontend rules").
+- `src/ui/` - `index.html` frame, `html/` the remaining modal markup, `css/`, `js/` scripts (see "Frontend rules"). `js/ui/` is the component
+  layer (`ui.el`, `ui.button`, `ui.modal`, `ui.section`, `ui.confirm` ...) and `js/app-modals.js` builds Settings, Conflicts, Help and
+  Guessed names from it (`docs/ui-components.md`).
 
 ## Rules that are easy to break
 
@@ -83,6 +85,9 @@ notes, measurements and rules live in `docs/` (index below).
 - Scripts in `src/ui/js/` are ordinary (non-module) scripts sharing **one global scope**, loaded in the order of `SCRIPTS` in
   `js/bootstrap.js`. Top-level code may only use what an *earlier* file declared; add a new file after what it depends on.
 - CSS order in `index.html` is the cascade: add a stylesheet after whatever it must override.
+- Build windows, cards, buttons and confirmations with the components in `js/ui/` (`docs/ui-components.md`), not by hand: no native `confirm()` /
+  `alert()` (use `await ui.confirm(...)` / `ui.alert(...)`), no `*-backdrop` open/close/Escape wiring of your own (`ui.modal` owns the stack, z-order,
+  Escape and focus), no `above-settings`-style z-index tricks.
 - `js/api-coalesce.js` shares identical in-flight calls for the methods in its `SHARED` list. Only **read-only** backend calls
   may be listed there. Conflict badges go through `conflictCount()` (one batched `check_conflict_counts` per draw).
 - Screens are drawn lazily (`renderAll()` / `redrawViews()` in `views.js`); a tick that changes one screen should redraw only
@@ -100,6 +105,7 @@ notes, measurements and rules live in `docs/` (index below).
 | Guided flow, Commit staleness, look and feel | `docs/ui-and-flow.md` |
 | Browse GameBanana window | `docs/gamebanana-browse.md` |
 | Course Select, course card, course-select icons | `docs/course-select.md` |
+| UI components: modals, cards, buttons, confirmations | `docs/ui-components.md` |
 | Combined character icons / names built on commit | `docs/menu-icons-and-text.md` |
 | Menu look card, Name and Icons steps | `docs/menu-look.md` |
 | Vehicle parts and items | `docs/vehicle-parts-and-items.md` |

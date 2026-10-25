@@ -61,13 +61,6 @@ async function loadSettings() {
 // Leaving files out of a mod is how a conflict is "settled" - the rest of that
 // mod keeps working. Shared by mod popups, Settings and the Commit page.
 
-function cgEl(tag, cls, text) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text;
-  return e;
-}
-
 // The files of a conflict, one per line: the file's name first and plain, the folder it is in dim after it (the name is what you recognise,
 // and every file of a mod shares most of its folder). In a box of limited height, so a mod with hundreds of files can't push the rest off screen.
 function cgFileList(paths) {
@@ -333,17 +326,12 @@ let conflictsSettledOpen = null;
 
 function openConflictsModal() {
   conflictsSettledOpen = null;
-  document.getElementById("conflicts-modal-backdrop").hidden = false;
+  conflictsModal.open();
   renderConflicts();
 }
 function closeConflictsModal() {
-  document.getElementById("conflicts-modal-backdrop").hidden = true;
+  conflictsModal.close();
 }
-document.getElementById("btn-open-conflicts").addEventListener("click", openConflictsModal);
-document.getElementById("btn-conflicts-modal-close").addEventListener("click", closeConflictsModal);
-document.getElementById("conflicts-modal-backdrop").addEventListener("click", (e) => {
-  if (e.target.id === "conflicts-modal-backdrop") closeConflictsModal();
-});
 
 async function renderConflicts() {
   const container = document.getElementById("conflicts-body");

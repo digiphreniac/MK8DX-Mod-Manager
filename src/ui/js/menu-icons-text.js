@@ -19,16 +19,12 @@ function uisEl(tag, cls, text) {
 async function openGuessedNamesModal() {
   uiSetup.guessed = await pywebview.api.get_guessed_names();
   if (!uiSetup.guessed.length) return;   // the warning that opened this was already stale
-  document.getElementById("guessed-names-modal-backdrop").hidden = false;
+  guessedNamesModal.open();
   drawGuessedNamesModal();
 }
 function closeGuessedNamesModal() {
-  document.getElementById("guessed-names-modal-backdrop").hidden = true;
+  guessedNamesModal.close();
 }
-document.getElementById("btn-guessed-names-modal-close").addEventListener("click", closeGuessedNamesModal);
-document.getElementById("guessed-names-modal-backdrop").addEventListener("click", (e) => {
-  if (e.target.id === "guessed-names-modal-backdrop") closeGuessedNamesModal();
-});
 
 function drawGuessedNamesModal() {
   const body = document.getElementById("guessed-names-modal-body");
@@ -144,7 +140,7 @@ function renderUiArchiveConflicts(a) {
 async function chooseGameFiles(after) {
   const r = await pywebview.api.pick_base_files_source();
   if (r.cancelled) return null;
-  if (!r.success) { alert(r.error); return null; }
+  if (!r.success) { await ui.alert({ title: "That didn't work", message: r.error }); return null; }
   resetPictureCaches();   // (a new copy of the game's files: its pictures may differ)
   invalidateMenuLook();
   if (after) after(r.status);
@@ -156,7 +152,7 @@ async function chooseGameFiles(after) {
 // buried several levels deep in AppData).
 async function useGameFilesPath(path) {
   const r = await pywebview.api.set_base_files_source(path);
-  if (!r.success) { alert(r.error); return null; }
+  if (!r.success) { await ui.alert({ title: "That didn't work", message: r.error }); return null; }
   resetPictureCaches();
   invalidateMenuLook();
   return r.status;
@@ -214,7 +210,7 @@ function wizFolderLink(text, path) {
   a.addEventListener("click", async (e) => {
     e.preventDefault();
     const r = await pywebview.api.reveal_path(path);
-    if (!r.success) alert(r.error);
+    if (!r.success) await ui.alert({ title: "That didn't work", message: r.error });
   });
   return a;
 }

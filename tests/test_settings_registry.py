@@ -82,7 +82,7 @@ class SetupUsesTheCardsName(unittest.TestCase):
         groups = js[js.index("const SETTING_GROUPS = {"):js.index("\n};\n", js.index("const SETTING_GROUPS = {"))]
         self.assertNotIn("setupTitle:", groups)       # (no second name for a group in Setup)
         self.assertIn('"ui-text": { title: "Game language"', groups)
-        self.assertIn('modal-card-title">Game language<', read("html", "settings-modal.html"))
+        self.assertIn('title: "Game language"', read("js", "app-modals.js"))
         flow = read("js", "flow.js")
         self.assertIn("Open Settings > Game language, pick the language", flow)      # (the tip names the card as it is now)
         self.assertNotIn("Settings > UI icons & text", flow)
@@ -118,15 +118,16 @@ class NoPlaceKnowsAParticularSetting(unittest.TestCase):
                 if not found or len(found.group(1)) < 12:
                     continue
                 text = found.group(1).replace('\\"', '"')
-                for place in (read("html", "settings-modal.html"), read("js", "setup-wizard.js"), read("js", "settings-panels.js")):
+                for place in (read("js", "app-modals.js"), read("js", "setup-wizard.js"), read("js", "settings-panels.js")):
                     self.assertNotIn(text, place, f"{e['key']}: {field} appears outside the registry")
 
     def test_the_settings_window_has_no_controls_of_its_own_for_them(self):
-        html = read("html", "settings-modal.html")
+        html = read("js", "app-modals.js")
         self.assertNotRegex(html, r'<input type="(checkbox|text)"')
         self.assertNotIn("<select", html)
+        self.assertNotIn('type: "checkbox"', html)
         for group in ("data-folder", "game-version", "app-experience"):
-            self.assertIn(f'data-settings-group="{group}"', html)
+            self.assertIn(f'ui.settingsGroup("{group}")', html)
 
     def test_the_registry_is_loaded_and_both_places_use_the_one_drawing_function(self):
         self.assertIn('"js/settings-registry.js"', read("js", "bootstrap.js"))
@@ -137,14 +138,15 @@ class NoPlaceKnowsAParticularSetting(unittest.TestCase):
 
 class ResetToDefault(unittest.TestCase):
     def test_the_button_is_on_the_card_and_reads_the_backends_defaults(self):
-        html = read("html", "settings-modal.html")
-        header = html[html.index("App experience"):]
-        header = header[:header.index("</div>")]
-        self.assertIn('data-reset-group="app-experience"', header)
-        self.assertIn("Reset to default", header)
+        modals = read("js", "app-modals.js")
+        card = modals[modals.index("const appExperienceCard = ui.section({"):modals.index("const settingsModal")]
+        self.assertIn('label: "Reset to default"', card)                        # (a header action of the card: a label and a callback)
+        self.assertIn('groupDiffersFromDefaults("app-experience")', card)       # (enabled only while an option differs)
+        self.assertIn('resetGroupToDefaults("app-experience")', card)
         js = read("js", "settings-registry.js")
         self.assertIn("get_default_settings()", js)
         self.assertNotIn("APP_EXPERIENCE_DEFAULTS", js)       # (no copy of the defaults in the page)
+        self.assertNotIn("data-reset-group", js + modals)       # (no per-button hook any more)
 
     def test_the_four_options_are_in_the_order_the_card_shows_them(self):
         order = [e["key"] for e in registry() if e["group"] == "app-experience"]

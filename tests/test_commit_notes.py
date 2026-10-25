@@ -84,8 +84,12 @@ class WhatThePageShows(unittest.TestCase):
         card = flow[flow.index("function pgWarnEl(w)"):flow.index("function drawCommitPage()")]
         self.assertIn("PG_WARN_ICON[w.severity]", card)
         icons = flow[flow.index("const PG_WARN_ICON = {"):flow.index("const PG_WARN_WORD")]
-        self.assertEqual(icons.count("<svg"), 3)                        # (pictures, not text characters: they look the same on any computer)
-        self.assertNotIn("u2610", icons)
+        self.assertNotIn("<svg", icons)                                 # (the pictures live in the icon registry, once)
+        self.assertNotIn("u2610", icons)                                # (pictures, not text characters: they look the same on any computer)
+        registry = (ROOT / "src" / "ui" / "js" / "ui" / "icons.js").read_text(encoding="utf-8")
+        for name in ("warning", "todo", "info"):
+            self.assertIn(f'"{name}"', icons)
+            self.assertIn(f"  {name}: '<", registry)
         self.assertIn("pg-sr", card)                                    # (read out as well, for someone who can't see the colour)
         self.assertIn('"Review names"', card)
         self.assertIn('"Open Settings"', card)

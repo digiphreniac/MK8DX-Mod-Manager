@@ -1,0 +1,58 @@
+  /* ui.modal (js/ui/modal.js), the cards in it (ui.section) and the app's own confirm / alert dialogs (js/ui/confirm.js).
+     A window is a dimmed backdrop with the window at the top of it: anchored to the top, not centred, so a window whose content grows
+     and shrinks does not move the things the user is pointing at. Its z-index is set by the script from what is already on the page. */
+  .ui-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 22, 28, 0.4);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 20px 20px 20px;
+    z-index: 20;
+    animation: fadeIn 0.14s ease-out;
+  }
+  .ui-modal {
+    --ui-modal-w: 760px;
+    background: var(--panel);
+    border-radius: 14px;
+    width: min(var(--ui-modal-w), calc(100vw - 40px));
+    max-height: calc(100vh - 68px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    animation: popIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
+    outline: none;
+  }
+  .ui-modal--narrow { --ui-modal-w: 640px; }
+  .ui-modal--wide { --ui-modal-w: 1040px; }     /* (two columns of cards fit; on a narrow window they stack) */
+  .ui-modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+  }
+  .ui-modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
+  /* a line under the header that stays in view while the body scrolls (the count in the Conflicts window) */
+  .ui-modal-bar { padding: 9px 20px; border-bottom: 1px solid var(--panel-border); font-size: 13px; font-weight: 600; color: var(--text-dim); }
+  .ui-modal-bar.needs-attention { color: var(--warn); }
+  .ui-modal-bar.all-settled { color: var(--ok); }
+  .ui-modal-body { padding: 18px 20px 20px 20px; overflow-y: auto; }
+  .ui-modal-body .modal-card:last-child { margin-bottom: 0; }
+  .ui-modal-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--panel-border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  /* ui.section: the first note in a card sits right under its title */
+  .settings-body > .settings-hint:first-child { margin-top: 0; }
+
+  /* ui.confirm / ui.alert */
+  .ui-confirm-message { font-size: 13px; line-height: 1.5; margin: 0 0 12px 0; white-space: pre-line; }
+  .ui-modal-body .ui-confirm-message:last-child { margin-bottom: 0; }
+  .ui-result { font-size: 12px; margin-top: 10px; }
+  .ui-result.ok { color: var(--ok); }
+  .ui-result.err { color: var(--danger); }

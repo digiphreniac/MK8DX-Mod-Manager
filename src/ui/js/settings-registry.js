@@ -79,7 +79,7 @@ const SETTINGS = [
     after: async () => {
       uiSetup.data = null;
       scheduleFlowRefresh();
-      if (!document.getElementById("settings-modal-backdrop").hidden) await renderUiSetupSettingsCard();   // (the card also says what the mods change in it)
+      if (settingsModal.isOpen) await renderUiSetupSettingsCard();   // (the card also says what the mods change in it)
     } },
 
   { key: "show_tile_counts", group: "app-experience", kind: "toggle", label: "Show mod counts on character tiles", description: "", showInSetup: false,
@@ -234,7 +234,7 @@ function folderCard(dir, onOpen) {
     const open = button("", "ghost small wiz-folder-open", onOpen);
     open.title = "Open this folder in the file manager";
     open.setAttribute("aria-label", "Open this folder in the file manager");
-    open.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+    open.append(ui.icon("folder", { size: 16 }));
     head.appendChild(open);
   }
   where.appendChild(head);
@@ -314,19 +314,16 @@ async function fillFolderControl(def, box, ctx) {
   box.appendChild(row);
 }
 
-// ---- "Reset to default" on a group's header (a card with data-reset-group): only available while something differs ----
+// ---- "Reset to default" on a group's card (its header action in app-modals.js): only available while something differs ----
 function groupDiffersFromDefaults(group) {
   return SETTINGS.some(d => d.group === group && d.kind === "toggle" && !!d.read() !== !!settingDefaults[d.key]);
 }
 function updateResetButtons() {
-  for (const btn of document.querySelectorAll("[data-reset-group]")) btn.disabled = !groupDiffersFromDefaults(btn.dataset.resetGroup);
+  appExperienceCard.refresh();
 }
-for (const btn of document.querySelectorAll("[data-reset-group]")) {
-  btn.addEventListener("click", async () => {
-    const group = btn.dataset.resetGroup;
-    for (const def of SETTINGS) {
-      if (def.group === group && def.kind === "toggle" && !!def.read() !== !!settingDefaults[def.key]) await changeSetting(def, !!settingDefaults[def.key]);
-    }
-    await refreshSettingHosts(group);
-  });
+async function resetGroupToDefaults(group) {
+  for (const def of SETTINGS) {
+    if (def.group === group && def.kind === "toggle" && !!def.read() !== !!settingDefaults[def.key]) await changeSetting(def, !!settingDefaults[def.key]);
+  }
+  await refreshSettingHosts(group);
 }

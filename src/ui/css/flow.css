@@ -171,37 +171,6 @@
   .uis-steps-list li { margin-bottom: 6px; }
   .flow-body details { margin: 8px 0 0 0; font-size: 13px; }
   .flow-body select { max-width: 100%; }
-  #help-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(20, 22, 28, 0.4);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 48px 20px 20px 20px;
-    z-index: 20;
-    animation: fadeIn 0.14s ease-out;
-  }
-  #help-modal {
-    background: var(--panel);
-    border-radius: 14px;
-    width: 760px;
-    max-width: calc(100vw - 40px);
-    max-height: calc(100vh - 68px);
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-    animation: popIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
-  }
-  #help-modal-header {
-    padding: 18px 20px;
-    border-bottom: 1px solid var(--panel-border);
-    display: flex;
-    align-items: center;
-  }
-  #help-modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
-  #help-modal-body { padding: 18px 20px 20px 20px; overflow-y: auto; }
-  #help-modal-body .modal-card:last-child { margin-bottom: 0; }
   .help-link-list { list-style: none; margin: 0; padding: 0; }
   .help-link-list li { margin-bottom: 6px; }
   .help-link-list a { color: var(--accent); cursor: pointer; text-decoration: underline; }

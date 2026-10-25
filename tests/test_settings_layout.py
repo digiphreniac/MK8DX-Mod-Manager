@@ -13,69 +13,96 @@ def read(*parts):
     return UI.joinpath(*parts).read_text(encoding="utf-8")
 
 
-def titles(html):
-    return re.findall(r'modal-card-title">([^<]*)<', html)
+def modals():
+    """js/app-modals.js: the windows as specs."""
+    return read("js", "app-modals.js")
+
+
+def settings_spec():
+    js = modals()
+    return js[js.index("const settingsModal = ui.modal({"):js.index("const conflictsModal")]
+
+
+def conflicts_spec():
+    js = modals()
+    return js[js.index("const conflictsModal = ui.modal({"):js.index("const helpModal")]
+
+
+def titles(spec):
+    """The cards' titles in the order the window lists them (the App experience card is made above the window, and listed by name)."""
+    found = re.findall(r'title: "([^"]*)"|(appExperienceCard),', spec[spec.index("ui.columns(["):])
+    return [title or "App experience" for title, named in found]
 
 
 class TheLayout(unittest.TestCase):
     def test_the_cards_are_in_their_natural_order_in_one_balanced_container(self):
-        html = read("html", "settings-modal.html")
-        self.assertEqual(html.count('class="settings-columns"'), 1)
-        self.assertNotIn("settings-col\"", html)       # (no hand-made columns any more)
-        self.assertEqual(titles(html), ["Data folder", "Staging folder", "Game language", "UI Icon Worklist", "Game version", "App experience",
+        spec = settings_spec()
+        self.assertEqual(spec.count("ui.columns("), 1)
+        self.assertIn('"settings-columns"', read("js", "ui", "section.js"))
+        self.assertNotIn("settings-col\"", spec)       # (no hand-made columns any more)
+        self.assertEqual(titles(spec), ["Data folder", "Staging folder", "Game language", "UI Icon Worklist", "Game version", "App experience",
                                         "Conflicts and omitted files", "Maintenance"])
-        self.assertEqual(html.count("<div"), html.count("</div>"))
 
     def test_the_window_is_wide_and_the_columns_balance_themselves(self):
+        self.assertIn('size: "wide"', settings_spec())
+        modal_css = read("css", "components", "modal.css")
+        self.assertRegex(modal_css, r"\.ui-modal--wide \{ --ui-modal-w: 1040px")
+        self.assertRegex(modal_css, r"\.ui-modal \{[^}]*width: min\(var\(--ui-modal-w\), calc\(100vw - 40px\)\)")
         css = read("css", "settings.css")
-        self.assertRegex(css, r"#settings-modal \{[^}]*width: min\(1040px, calc\(100vw - 40px\)\)")
         columns = re.search(r"\.settings-columns \{([^}]*)\}", css).group(1)
         self.assertIn("column-count: 2", columns)
         self.assertRegex(columns, r"column-width: \d+px")
         self.assertIn("break-inside: avoid", css)
-        self.assertNotIn("display: grid", re.search(r"#settings-modal-body \{([^}]*)\}", css).group(1))
+        self.assertNotIn("display: grid", re.search(r"\.ui-modal-body \{([^}]*)\}", modal_css).group(1))
 
     def test_the_body_scrolls_and_does_not_have_the_columns_itself(self):
         # (columns on the scrolling box would spill sideways: they go in a box of automatic height inside it)
-        css = read("css", "settings.css")
-        body = re.search(r"#settings-modal-body \{([^}]*)\}", css).group(1)
+        css = read("css", "components", "modal.css")
+        body = re.search(r"\.ui-modal-body \{([^}]*)\}", css).group(1)
         self.assertIn("overflow-y: auto", body)
         self.assertNotIn("column", body)
 
     def test_every_id_the_scripts_use_is_still_there(self):
-        html = read("html", "settings-modal.html")
+        spec = settings_spec()
         for needed in ("ui-setup-settings-body", "ui-icon-worklist-body", "btn-clear-all-mods", "btn-open-conflicts", "conflicts-summary"):
-            self.assertIn(f'id="{needed}"', html, needed)
-
+            self.assertIn(f'id: "{needed}"', spec, needed)
+        modal = read("js", "ui", "modal.js")
+        for part in ("${id}-backdrop", "${id}-header", "${id}-body", "btn-${id}-close"):       # (settings-modal-body, btn-settings-modal-close ...)
+            self.assertIn(part, modal, part)
 
 class TheConflictsModal(unittest.TestCase):
     def test_the_list_moved_out_of_settings_into_its_own_modal(self):
-        settings = read("html", "settings-modal.html")
-        self.assertNotIn('id="conflicts-body"', settings)
-        modal = read("html", "conflicts-modal.html")
-        self.assertIn('id="conflicts-body"', modal)
-        self.assertIn('id="btn-conflicts-modal-close"', modal)
+        self.assertNotIn('id: "conflicts-body"', settings_spec())
+        modal = conflicts_spec()
+        self.assertIn('id: "conflicts-body"', modal)
+        self.assertIn('id: "conflicts-modal"', modal)                         # (so its Close button is btn-conflicts-modal-close)
         self.assertIn("When two selected mods change the same file", modal)       # (the explanation went with the list)
-        self.assertEqual(modal.count("<div"), modal.count("</div>"))
 
     def test_the_modal_is_loaded_and_sits_above_settings(self):
-        self.assertIn('"html/conflicts-modal.html"', read("js", "bootstrap.js"))
-        css = read("css", "settings.css")
-        settings_z = int(re.search(r"#settings-modal-backdrop \{[^}]*z-index: (\d+)", css).group(1))
-        conflicts_z = int(re.search(r"#conflicts-modal-backdrop \{[^}]*z-index: (\d+)", css).group(1))
-        self.assertGreater(conflicts_z, settings_z)
+        bootstrap = read("js", "bootstrap.js")
+        self.assertIn('"js/app-modals.js"', bootstrap)
+        self.assertNotIn("conflicts-modal.html", bootstrap)
+        self.assertLess(bootstrap.index('"js/ui/modal.js"'), bootstrap.index('"js/app-modals.js"'))
+        # (a window opened while another is showing goes above it: the stack gives each one a higher z-index than the one under it)
+        self.assertIn("stack[stack.length - 1].z + STEP", read("js", "ui", "modal.js"))
 
     def test_escape_closes_it_before_anything_under_it(self):
-        keys = read("js", "help-and-icon-generator.js")
-        handler = keys[keys.index('document.addEventListener("keydown"'):]
-        self.assertLess(handler.index("closeConflictsModal()"), handler.index("closeSettingsModal()"))
+        modal = read("js", "ui", "modal.js")
+        handler = modal[modal.index('window.addEventListener("keydown"'):]
+        self.assertIn("const top = stack[stack.length - 1];", handler)       # (only the top window of the stack)
+        self.assertIn("top.api.close()", handler)
+        legacy = read("js", "help-and-icon-generator.js")
+        legacy = legacy[legacy.index('document.addEventListener("keydown"'):]
+        for gone in ("closeConflictsModal()", "closeSettingsModal()", "closeHelpModal()", "above-settings"):
+            self.assertNotIn(gone, legacy, gone)       # (the page's own Escape handler no longer knows these windows)
 
     def test_the_modal_stays_short(self):
-        modal = read("html", "conflicts-modal.html")
-        self.assertLess(modal.index('id="conflicts-modal-bar"'), modal.index('id="conflicts-modal-body"'))      # (the count is outside the scrolling part)
-        howto = modal[modal.index('class="conflicts-howto"'):]
-        self.assertIn("<summary>How this works</summary>", howto)
-        self.assertGreater(modal.index('class="conflicts-howto"'), modal.index('id="conflicts-body"'))      # (the answer comes before the manual)
+        modal = conflicts_spec()
+        self.assertIn("bar: true", modal)
+        self.assertLess(modal.index("bar: true"), modal.index('id: "conflicts-body"'))      # (the count is outside the scrolling part: the bar is above the body)
+        self.assertLess(read("js", "ui", "modal.js").index("bar, body, footer"), read("js", "ui", "modal.js").index("document.body.append(backdrop)"))
+        self.assertIn('text: "How this works"', modal[modal.index('"conflicts-howto"'):])
+        self.assertGreater(modal.index('"conflicts-howto"'), modal.index('id: "conflicts-body"'))      # (the answer comes before the manual)
         js = read("js", "data-and-conflicts.js")
         draw = js[js.index("async function renderConflicts()"):]
         self.assertIn('"cg-settled"', draw)
@@ -98,7 +125,7 @@ class TheConflictsModal(unittest.TestCase):
         draw = js[js.index("async function renderConflicts()"):]
         self.assertIn("updateConflictsSummary(result);", draw[:300])
         self.assertIn("closeConflictsModal();", js)       # (Open mod from the list leaves both windows)
-        self.assertIn('document.getElementById("btn-open-conflicts").addEventListener("click", openConflictsModal)', js)
+        self.assertIn('id: "btn-open-conflicts", label: "Review", size: "small", onClick: () => openConflictsModal()', modals())
 
 
 class TheUiTextCard(unittest.TestCase):

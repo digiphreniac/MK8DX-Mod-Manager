@@ -595,7 +595,6 @@ async function renderCharacterGrid() {
 }
 
 function closeModal() {
-  document.getElementById("modal-backdrop").classList.remove("above-settings");
   document.getElementById("modal-backdrop").hidden = true;
   openCharacter = null;
   markActiveTile();

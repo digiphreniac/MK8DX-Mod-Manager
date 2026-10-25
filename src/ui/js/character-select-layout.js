@@ -177,7 +177,6 @@ function closeDetail() {
 // Called at the start of building a card: decides pop-up vs. docked and returns where to build it.
 function beginDetail(docked, key) {
   const backdrop = document.getElementById("modal-backdrop");
-  backdrop.classList.remove("above-settings");
   if (docked && viewMode === "items") return beginItemDetail(key);
   if (docked) {
     backdrop.hidden = true;   // a pop-up left open for a character gives way to the docked card

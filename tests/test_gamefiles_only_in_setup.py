@@ -17,7 +17,7 @@ def read(*parts):
 
 class SettingsHasNoGameFilesCard(unittest.TestCase):
     def test_the_card_and_its_filling_are_gone(self):
-        html = read("src", "ui", "html", "settings-modal.html")
+        html = read("src", "ui", "js", "app-modals.js")
         for gone in ("gamefiles-card", "gamefiles-body", "Your game's files", "Your game&#39;s files"):
             self.assertNotIn(gone, html)
         self.assertNotIn("gamefiles-body", read("src", "ui", "js", "views.js"))

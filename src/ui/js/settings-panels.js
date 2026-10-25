@@ -165,85 +165,30 @@ async function runMasterDirSetup() {
 }
 document.getElementById("btn-setup-choose-folder").addEventListener("click", runMasterDirSetup);
 
-function openClearAllConfirmModal() {
-  document.getElementById("modal-backdrop").classList.add("above-settings");
-  openCharacter = null;
-  document.getElementById("modal-title").textContent = "Clear All Mods?";
-  const body = document.getElementById("modal-body");
-  body.innerHTML = "";
-
-  const warning = document.createElement("p");
-  warning.className = "clear-all-warning";
-  warning.textContent = "This forgets every GameBanana mod link and file status tracked for every character. This can't be undone.";
-  body.appendChild(warning);
-
-  const label = document.createElement("label");
-  label.className = "settings-checkbox-label";
-  const deleteFilesCb = document.createElement("input");
-  deleteFilesCb.type = "checkbox";
-  deleteFilesCb.checked = true;
-  label.appendChild(deleteFilesCb);
-  label.appendChild(document.createTextNode("Also delete mod download files"));
-  body.appendChild(label);
-
-  const hint = document.createElement("div");
-  hint.className = "settings-hint";
-  hint.textContent = "Deletes the extracted mod folders (and their downloaded archives) that this app downloaded from GameBanana. Mods you added manually, outside the app, are never touched.";
-  body.appendChild(hint);
-
-  const resultBox = document.createElement("div");
-  resultBox.className = "clear-all-result";
-  resultBox.hidden = true;
-  body.appendChild(resultBox);
-
-  const actions = document.createElement("div");
-  actions.className = "links-actions";
-  const cancelBtn = document.createElement("button");
-  cancelBtn.className = "ghost small";
-  cancelBtn.textContent = "Cancel";
-  cancelBtn.addEventListener("click", closeModal);
-  const confirmBtn = document.createElement("button");
-  confirmBtn.className = "danger small";
-  confirmBtn.textContent = "Clear All Mods";
-  confirmBtn.addEventListener("click", async () => {
-    confirmBtn.disabled = true;
-    cancelBtn.disabled = true;
-    confirmBtn.textContent = "Clearing...";
-    const result = await pywebview.api.clear_all_mods(deleteFilesCb.checked);
-    if (!result.success) {
-      resultBox.className = "clear-all-result err";
-      resultBox.textContent = result.error || "Something went wrong.";
-      resultBox.hidden = false;
-      confirmBtn.disabled = false;
-      cancelBtn.disabled = false;
-      confirmBtn.textContent = "Clear All Mods";
-      return;
-    }
-    await loadMods();
-
-    let msg = result.deleted > 0
-      ? `Done — forgot every tracked mod and deleted ${result.deleted} file${result.deleted === 1 ? "" : "s"}/folder${result.deleted === 1 ? "" : "s"}.`
-      : "Done — there was nothing tracked to clear.";
-    if (result.errors && result.errors.length > 0) {
-      msg += ` ${result.errors.length} item(s) couldn't be deleted: ${result.errors.join("; ")}`;
-      resultBox.className = "clear-all-result err";
-    } else {
-      resultBox.className = "clear-all-result ok";
-    }
-    resultBox.textContent = msg;
-    resultBox.hidden = false;
-    confirmBtn.hidden = true;
-    cancelBtn.disabled = false;
-    cancelBtn.textContent = "Close";
-  });
-  actions.appendChild(cancelBtn);
-  actions.appendChild(confirmBtn);
-  body.appendChild(actions);
-
-  document.getElementById("modal-backdrop").hidden = false;
+// The "Clear All Mods" question (the Maintenance card's button in app-modals.js asks it): a tick box for the downloaded files, and the
+// clearing itself runs inside the dialog, which then says what it did.
+function clearAllModsConfirm() {
+  return {
+    title: "Clear All Mods?",
+    message: "This forgets every GameBanana mod link and file status tracked for every character. This can't be undone.",
+    extra: {
+      label: "Also delete mod download files", checked: true,
+      hint: "Deletes the extracted mod folders (and their downloaded archives) that this app downloaded from GameBanana. Mods you added manually, outside the app, are never touched.",
+    },
+    confirmLabel: "Clear All Mods", busyLabel: "Clearing...", danger: true,
+    onConfirm: async (deleteFiles) => {
+      const result = await pywebview.api.clear_all_mods(deleteFiles);
+      if (!result.success) return { error: result.error || "Something went wrong." };
+      await loadMods();
+      let msg = result.deleted > 0
+        ? `Done \u2014 forgot every tracked mod and deleted ${result.deleted} file${result.deleted === 1 ? "" : "s"}/folder${result.deleted === 1 ? "" : "s"}.`
+        : "Done \u2014 there was nothing tracked to clear.";
+      const failed = result.errors && result.errors.length > 0;
+      if (failed) msg += ` ${result.errors.length} item(s) couldn't be deleted: ${result.errors.join("; ")}`;
+      return { message: msg, tone: failed ? "err" : "ok" };
+    },
+  };
 }
-
-document.getElementById("btn-clear-all-mods").addEventListener("click", openClearAllConfirmModal);
 
 // Jumps from a mod key printed in the Output log straight to that mod's
 // modal - Course Select for a course key (selecting its cup first, same as

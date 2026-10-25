@@ -165,9 +165,9 @@ class OpeningIt(unittest.TestCase):
 
 class TheSettingsCard(unittest.TestCase):
     def test_the_card_is_a_setting_drawn_from_the_registry(self):
-        html = (ROOT / "src" / "ui" / "html" / "settings-modal.html").read_text(encoding="utf-8")
-        self.assertIn('data-settings-group="staging-folder"', html)
-        self.assertIn('modal-card-title">Staging folder<', html)
+        html = (ROOT / "src" / "ui" / "js" / "app-modals.js").read_text(encoding="utf-8")
+        self.assertIn('ui.settingsGroup("staging-folder")', html)
+        self.assertIn('title: "Staging folder"', html)
         js = (ROOT / "src" / "ui" / "js" / "settings-registry.js").read_text(encoding="utf-8")
         self.assertIn('kind: "path"', js)
         self.assertIn("pywebview.api.set_staging_dir(path)", js)

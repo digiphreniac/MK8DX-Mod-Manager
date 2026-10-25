@@ -706,17 +706,13 @@ document.getElementById("tab-more").addEventListener("click", () => { switchView
 document.getElementById("tab-list").addEventListener("click", () => switchView("list"));
 
 function openSettingsModal() {
-  document.getElementById("settings-modal-backdrop").hidden = false;
+  settingsModal.open();
   renderUiIconWorklist();
   renderUiSetupSettingsCard();
   renderConflicts();
 }
 function closeSettingsModal() {
-  document.getElementById("settings-modal-backdrop").hidden = true;
+  settingsModal.close();
 }
 document.getElementById("btn-settings").addEventListener("click", openSettingsModal);
-document.getElementById("btn-settings-modal-close").addEventListener("click", closeSettingsModal);
-document.getElementById("settings-modal-backdrop").addEventListener("click", (e) => {
-  if (e.target.id === "settings-modal-backdrop") closeSettingsModal();
-});
 

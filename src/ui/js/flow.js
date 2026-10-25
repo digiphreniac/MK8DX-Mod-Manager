@@ -177,12 +177,6 @@ function statusCard(kind, big, title, sub) {
   return c;
 }
 
-function button(text, cls, onclick) {
-  const b = cgEl("button", cls, text);
-  b.addEventListener("click", onclick);
-  return b;
-}
-
 function formatWhen(iso) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -299,18 +293,14 @@ async function renderCommitPage() {
 // A note on the Commit page, by what it asks of the user. The shape says so as well as the colour (a warning triangle, an arrow for "your move",
 // an "i"; drawn as pictures, so they look the same whatever fonts the computer has), the left stripe repeats it, and one action is a button at the right. A list of mods or characters is behind "Show the N mods", in a
 // box of limited height - the card is about what is wrong, and which mods is the second question.
-const PG_WARN_ICON = {
-  warn: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
-  todo: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="m12 16 4-4-4-4"/></svg>',
-  info: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
-};
+const PG_WARN_ICON = { warn: "warning", todo: "todo", info: "info" };       // (names in ui.icons)
 const PG_WARN_WORD = { warn: "Check: ", todo: "To do: ", info: "Note: " };
 
 function pgWarnEl(w) {
   const row = cgEl("div", "pg-warn " + w.severity);
   const icon = cgEl("span", "pg-icon");
   icon.setAttribute("aria-hidden", "true");
-  icon.innerHTML = PG_WARN_ICON[w.severity] || "";
+  icon.append(ui.icon(PG_WARN_ICON[w.severity] || "info"));
   row.appendChild(icon);
   const t = cgEl("div", "pg-warn-text");
   const title = cgEl("div", "wt");
@@ -386,7 +376,10 @@ function drawCommitPage() {
     if (pv.groups.length > 1 && pv.groups.every(g => g.can_exclude && g.suggested)) {
       const all = button("Settle all with the suggested choice", "ghost small", async () => {
         const names = pv.groups.map(g => `${cgJoin(g.labels)} -> keep ${g.labels[g.mods.indexOf(g.suggested)]}`).join("\n");
-        if (!confirm("Settle every clash by keeping the suggested mod's version?\n\n" + names)) return;
+        const sure = await ui.confirm({
+          title: "Settle all the clashes?", message: "Keep the suggested mod's version of every clash?\n\n" + names, confirmLabel: "Settle all",
+        });
+        if (!sure) return;
         for (const g of pv.groups) await pywebview.api.resolve_conflict_group(g.mods, g.paths, g.suggested);
         await renderCommitPage();
         refreshFlow();
@@ -574,7 +567,7 @@ async function renderSwitchPage() {
   t1.appendChild(document.createTextNode("Open the staging folder - it holds everything to copy."));
   t1.appendChild(button("Open staging folder", "ghost small", async () => {
     const r = await pywebview.api.open_staging_folder();
-    if (!r.success) alert(r.error);
+    if (!r.success) await ui.alert({ title: "That didn't work", message: r.error });
   }));
   li1.appendChild(t1);
   ol.appendChild(li1);

@@ -1,8 +1,4 @@
   /* Modal */
-  /* The shared popup is opened on top of Settings by "Clear All Mods" and
-     "Change master directory" - it has to sit above the Settings popup (z 20),
-     but stay below the popups those flows never open. */
-  #modal-backdrop.above-settings { z-index: 25; }
   #modal-backdrop {
     position: fixed;
     inset: 0;

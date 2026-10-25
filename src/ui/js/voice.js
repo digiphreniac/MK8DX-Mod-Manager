@@ -400,8 +400,12 @@ async function openVoiceEditor(character, onClose) {
       } else if (l.state === "custom") {
         const label = (l.custom && l.custom.name ? l.custom.name : "Your sound") + (l.custom && l.custom.seconds ? ` \u00b7 ${l.custom.seconds} s` : "");
         a.appendChild(cgEl("span", "ve-chip toggle-on custom", label));
-        a.appendChild(delButton("Delete this sound", () => {
-          if (!confirm(`Delete your sound for \u201c${l.label}\u201d? This removes the saved audio file and can't be undone.`)) return;
+        a.appendChild(delButton("Delete this sound", async () => {
+          const sure = await ui.confirm({
+            title: "Delete your sound?", confirmLabel: "Delete", danger: true,
+            message: `Delete your sound for \u201c${l.label}\u201d? This removes the saved audio file and can't be undone.`,
+          });
+          if (!sure) return;
           setLine(l, "normal", row);
         }));
       } else {

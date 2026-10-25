@@ -71,7 +71,7 @@ class SupportCard(unittest.TestCase):
         card = flow[flow.index("function supportCard()"):flow.index("async function renderSwitchPage()")]
         self.assertLess(card.index("Buy me a coffee"), card.index("Join the Discord"))
         root = JS.parent.parent.parent
-        self.assertIn('id="btn-open-discord"', (JS.parent / "html" / "help-modal.html").read_text(encoding="utf-8"))
+        self.assertIn('id: "btn-open-discord"', (JS / "app-modals.js").read_text(encoding="utf-8"))
         self.assertIn("openExternal(DISCORD_URL)", (JS / "help-and-icon-generator.js").read_text(encoding="utf-8"))
         self.assertIn(constant("DISCORD_URL"), (root / "README.md").read_text(encoding="utf-8"))
 

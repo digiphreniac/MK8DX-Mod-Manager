@@ -90,7 +90,7 @@ The backend modules, every file the app keeps in the master folder, how the fron
 For the day-to-day usage guide, see the app's own **Help** panel (top
 right) - it covers the five-step flow, Menu Look, voice editing, conflicts,
 the file-status glossary and known issues, and stays current with the UI
-since it lives in the UI itself (`src/ui/html/help-modal.html`) rather than a separate doc.
+since it lives in the UI itself (the `helpModal` spec in `src/ui/js/app-modals.js`) rather than a separate doc.
 
 ## Fixing badly packaged downloads
 
@@ -126,9 +126,10 @@ over its built-in local HTTP server (which is why relative links and `fetch()` w
 under `src/ui/`.
 
 - `index.html` - the page frame only: the header, tabs, the main views, the footer, and one `<link>` per stylesheet.
-- `html/*.html` - one file per modal / overlay (`help-modal`, `settings-modal`, `add-mod-modal`, `gb-browse-modal`,
-  `gb-detail-modal`, `icon-gen-modal`, `guessed-names-modal`, `character-modal`, `setup-overlay`). `js/bootstrap.js` fetches
-  them and adds them after the frame, in the order it lists them (the order is their stacking order).
+- `html/*.html` - one file per modal / overlay not yet moved to the component layer (`add-mod-modal`, `gb-browse-modal`,
+  `gb-detail-modal`, `icon-gen-modal`, `character-modal`, `setup-overlay`). `js/bootstrap.js` fetches them and adds them after the
+  frame, in the order it lists them. Settings, Conflicts, Help and Guessed names are not markup files any more: `js/app-modals.js`
+  builds them from the components in `js/ui/` (`ui.modal`, `ui.section`, ...), which load first. See `docs/ui-components.md`.
 - `css/*.css` - the styles, split along the old file's section comments. **Order matters**: later rules override earlier ones,
   so the `<link>` order in `index.html` is the cascade. Add a stylesheet after whatever it needs to override.
 - `js/*.js` - the app. These are ordinary (non-module) scripts that share **one global scope**, run one after another in the

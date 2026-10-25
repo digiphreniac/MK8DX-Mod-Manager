@@ -18,23 +18,25 @@ UI = Path(__file__).resolve().parent.parent / "src" / "ui"
 
 
 def help_html():
-    return (UI / "html" / "help-modal.html").read_text(encoding="utf-8")
+    """The Help window's spec (js/app-modals.js): its two sections as the source writes them."""
+    js = (UI / "js" / "app-modals.js").read_text(encoding="utf-8")
+    return js[js.index("const helpModal = ui.modal({"):js.index("const guessedNamesModal")]
 
 
 class TheSupportSection(unittest.TestCase):
     def section(self):
         html = help_html()
-        return html[html.index("More support"):]
+        return html[html.index('title: "More support"'):]
 
     def test_it_says_to_ask_on_discord_and_that_the_log_file_will_be_asked_for(self):
-        text = re.sub(r"<[^>]+>", "", self.section())
+        text = self.section()
         self.assertIn("please join the Discord and ask for support there", text)
         self.assertIn("asked for your log file", text)
         self.assertIn("button below", text)
 
     def test_it_has_a_discord_button_with_the_discord_symbol_and_a_show_log_button(self):
         section = self.section()
-        discord = section[section.index('id="btn-open-discord"'):section.index('id="btn-show-log"')]
+        discord = section[section.index('id: "btn-open-discord"'):section.index('id: "btn-show-log"')]
         self.assertIn("<svg", discord)
         self.assertIn('fill="#5865F2"', discord)              # (the symbol in Discord's own colour, not recoloured to the page's)
         self.assertIn("Join the Discord", discord)
@@ -44,8 +46,9 @@ class TheSupportSection(unittest.TestCase):
         # (button.ghost is transparent with no border - fine in a toolbar; outside .flow-body nothing gives it a border back, so it read as plain text)
         section = self.section()
         for button_id in ("btn-open-discord", "btn-show-log"):
-            tag = section[section.rindex("<button", 0, section.index(f'id="{button_id}"')):section.index(">", section.index(f'id="{button_id}"'))]
-            self.assertNotIn("ghost", tag, button_id)
+            at = section.index(f'id: "{button_id}"')
+            spec = section[section.rindex("ui.button({", 0, at):section.index("}).el", at)]
+            self.assertNotIn("ghost", spec, button_id)
 
     def test_the_old_buttons_and_text_are_gone(self):
         html = help_html()
@@ -58,7 +61,7 @@ class TheSupportSection(unittest.TestCase):
     def test_known_issues_keeps_its_three_entries(self):
         html = help_html()
         issues = html[html.index("Known issues"):html.index("More support")]
-        self.assertEqual(issues.count('class="help-status-term"'), 3)
+        self.assertEqual(issues.count('class: "help-status-term"'), 3)
         self.assertIn("slow motion on the Switch", issues)
         self.assertIn("comes from the track itself, not the app", issues)
         self.assertNotIn("mkwiiki", issues)                    # (that wiki is about Mario Kart Wii: its advice doesn't apply here)
@@ -69,16 +72,18 @@ class TheSupportSection(unittest.TestCase):
     def test_the_three_known_issues_are_short_and_say_what_to_do(self):
         html = help_html()
         issues = html[html.index("Known issues"):html.index("More support")]
-        entries = re.findall(r'<div class="help-status-term">(.*?)</div>\s*<div class="help-status-def">(.*?)</div>', issues, re.S)
-        self.assertEqual([title for title, _ in entries], [
+        titles = re.findall(r'class: "help-status-term", text: "((?:[^"\\]|\\.)*)"', issues)
+        self.assertEqual(titles, [
             "A modded course feels like it's playing in slow motion",
             "A character's icon or a course's name still looks like the original",
             "A mod I deselected still shows up in the game"])
-        for title, text in entries:
-            self.assertLess(len(re.sub(r"<[^>]+>", "", text)), 260, title)       # (a few lines, not a paragraph)
-        self.assertIn("Commit again after changing your mods", entries[1][1])
-        self.assertIn("atmosphere/contents/0100152000022000/romfs", entries[2][1])
-        self.assertIn("then copy the staging folder again", entries[2][1])
+        answers = re.split(r'ui\.el\("div", (?:\{ class: "help-status-term"|"help-status-term")', issues)[1:]
+        self.assertEqual(len(answers), 3)
+        for title, text in zip(titles, answers):
+            self.assertLess(len(text), 480, title)             # (a few lines, not a paragraph)
+        self.assertIn("Commit again after changing your mods", answers[1])
+        self.assertIn("atmosphere/contents/0100152000022000/romfs", answers[2])
+        self.assertIn("then copy the staging folder again", answers[2])
 
     def test_the_page_never_points_to_a_button_that_is_gone(self):
         for path in (UI / "js").glob("*.js"):
