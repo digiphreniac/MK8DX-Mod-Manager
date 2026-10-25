@@ -261,7 +261,7 @@ class ThePage(unittest.TestCase):
     def test_the_caveat_is_said_where_a_person_decides(self):
         script, modals = self.read("js", "mod-list.js"), self.read("js", "app-modals.js")
         self.assertIn("Custom icons, voices and your notes are not included", script)
-        self.assertEqual(modals.count("Custom icons, voices and your notes are not included"), 2)      # (the Settings card and Help)
+        self.assertEqual(modals.count("Custom icons, voices and your notes are not included"), 1)      # (the Settings card)
 
     def test_the_page_never_uses_a_native_dialog(self):
         self.assertNotRegex(self.read("js", "mod-list.js"), r"(?<![\w.])(confirm|alert)\(")

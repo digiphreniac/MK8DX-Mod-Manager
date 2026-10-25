@@ -111,17 +111,11 @@ const helpModal = ui.modal({
       ],
     }),
     ui.section({
-      title: "Share your mod list",
-      body: [
-        ui.el("div", { class: "help-status-def", text: "In Settings, Export saves the mods you have selected, with their GameBanana links, to one small file. Someone else can Import it to download the same mods and have them selected. Custom icons, voices and your notes are not included, and mods you added by hand can't be shared. Importing only adds mods; nothing you already selected is changed." }),
-      ],
-    }),
-    ui.section({
       title: "About",
       body: [
         ui.el("div", { class: "help-status-def", text: "Free software (GNU GPL v3 or later). Made with the help of Claude Code (AI-assisted code, under the author's review); no AI-made artwork. Icons are Tabler Icons (MIT); the other things this app is built from are credited too." }),
         ui.el("div", "help-diag-row",
-          ui.button({ id: "btn-open-credits", label: "Credits and licenses", onClick: () => openExternal(GITHUB_URL + "#credits") }).el),
+          ui.button({ id: "btn-open-credits", label: "Credits and licenses", onClick: () => openExternal(GITHUB_URL + "#about-license-and-credits") }).el),
       ],
     }),
   ],

@@ -38,7 +38,7 @@ class TheAppsOwnLicense(unittest.TestCase):
             self.assertIn("No AI was used for generating artwork or assets", text, name)
             self.assertIn("THIRD-PARTY-NOTICES.txt", text, name)
         readme = read("README.md")
-        self.assertIn("## About, license and credits", readme)            # (the page links to #credits)
+        self.assertIn("## About, license and credits", readme)            # (the Credits button links to its anchor, #about-license-and-credits)
         for credited in ("Tabler Icons", "BNTX Editor", "7-Zip", "pywebview", "Pillow", "Information Dump", "Wave 1", "Wave 2"):
             self.assertIn(credited, readme, credited)
 
@@ -86,7 +86,7 @@ class TheIconsAreOneOpenLicensedSet(unittest.TestCase):
         self.assertIn("AI-assisted code", about)
         self.assertIn("GNU GPL v3 or later", about)
         self.assertIn('id: "btn-open-credits"', about)
-        self.assertIn('GITHUB_URL + "#credits"', about)
+        self.assertIn('GITHUB_URL + "#about-license-and-credits"', about)
 
 
 if __name__ == "__main__":
