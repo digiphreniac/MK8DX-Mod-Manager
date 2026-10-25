@@ -53,6 +53,20 @@ differently on purpose:
   that automatically, as part of every commit (hand-injecting with Switch
   Toolbox still works but is only the fallback; see the in-app Help page and
   "UI Icon Worklist" in Settings).
+- **A folder named like an archive** (`UI/cmn/common.sarc/Icon_X.bntx`, ...): some mods ship an
+  archive's contents *unpacked*, as a folder with the archive's name. It is skipped exactly like
+  the archive (`_packed_ui_archive_root()` returns the `.sarc` part of the path; one entry per
+  folder in `ui_archives_skipped`, marked "a folder, not an archive"), and the Commit page shows a
+  warning naming the mod. Copying it would leave a *directory* where the game expects the archive
+  *file*, and the combined archive the app builds under that name would land inside it
+  (`common.sarc/common.sarc`) - the game then aborts before the title screen. The loose pictures
+  are not used (the app does not read them); the rest of the mod is copied.
+- **Two claims that can't share a place** (one mod's file is another's folder, any mod or the
+  app's own combined files): `merge()` refuses before touching the staging folder
+  (`_layout_clashes()`), naming both files. After every copy `_verify_staged()` checks the staged
+  `romfs` against the claims (missing, wrong size, a folder named like an archive, a file nothing
+  claimed); on a mismatch the commit fails loudly and `last_commit` is cleared, so the page never
+  shows a staging folder that doesn't match what was selected as done.
 - **Loose, individually-named UI textures** - most commonly a course's own
   `UI/cmn/menu/ym_CoursePict_<internal id>.bntx` select-screen thumbnail and
   `UI/cmn/ending/ym_AwardBG_<internal id>.bntx` results-screen background,

@@ -562,10 +562,25 @@ _COURSE_BGM_RE = re.compile(r"BGM_(.+?)_(?:F|N)\.bfstm$", re.IGNORECASE)
 _MERGE_SKIP_RELPATHS = {"audio/static/bgm.bars"}
 
 
+def _packed_ui_archive_root(rel: Path):
+    """The part of a romfs-relative path that is (or is named like) a packed .sarc under romfs/UI/, or None. For
+    UI/cmn/common.sarc that is the file itself. For UI/cmn/common.sarc/Bg.bntx it is UI/cmn/common.sarc: some mods ship
+    the archive's contents UNPACKED, as a folder with the archive's name. Copying such a folder into the staging folder
+    makes a directory where the game expects the archive file (the game then aborts before the title screen), and it
+    collides with the combined archive the app builds under that very name."""
+    parts = rel.parts
+    if len(parts) < 2 or parts[0].lower() != "ui":
+        return None
+    for n, part in enumerate(parts[1:], 2):
+        if part.lower().endswith(".sarc"):
+            return Path(*parts[:n])
+    return None
+
+
 def _is_packed_ui_archive(rel: Path) -> bool:
-    """True for a packed .sarc directly under romfs/UI/ - see the long comment
+    """True for a packed .sarc under romfs/UI/, or for anything inside a folder named like one - see the long comment
     in Api._compute_claims() for why the merge never copies these in."""
-    return bool(rel.parts) and rel.parts[0].lower() == "ui" and rel.suffix.lower() == ".sarc"
+    return _packed_ui_archive_root(rel) is not None
 
 
 def path_kind(path: str) -> str:
@@ -5260,7 +5275,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
         mods_processed = []
         missing = []
         bgm_bars_skipped = 0
-        ui_archives_skipped = []  # (unit key, romfs-relative path) per skipped .sarc
+        ui_archives_skipped = []  # (unit key, romfs-relative path) per skipped .sarc (or folder named like one)
+        archives_seen = set()     # (unit key, archive root) already listed above
         excluded = self._excluded_norms()  # {mod key: {normalized path}} the user left out
         file_counts = {}       # mod key -> files it would contribute (before leave-outs)
         excluded_counts = {}   # mod key -> how many of those are left out
@@ -5284,7 +5300,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
             for filepath in mod_romfs.rglob("*"):
                 if filepath.is_file():
                     rel = filepath.relative_to(mod_romfs)
-                    if _is_packed_ui_archive(rel):
+                    archive_root = _packed_ui_archive_root(rel)
+                    if archive_root is not None:
                         # A packed .sarc under UI/ (common.sarc/menu.sarc for
                         # character-select icons, message.sarc for a locale's
                         # ENTIRE text table - course names included) bundles
@@ -5305,7 +5322,16 @@ class Api(VoiceEditMixin, ModNotesMixin):
                         # nothing else can plausibly claim that exact
                         # filename, so it's merged in normally below, same as
                         # any other romfs file.
-                        ui_archives_skipped.append((key, rel.as_posix()))
+                        #
+                        # Some mods ship the archive's contents UNPACKED instead: a FOLDER named
+                        # UI/cmn/common.sarc/ holding loose pictures. It is skipped the same way
+                        # (copying it would leave a directory where the game expects the archive
+                        # file, and the app's own combined archive would land inside it), and
+                        # counted once per folder, not once per picture in it.
+                        if (key, archive_root) not in archives_seen:
+                            archives_seen.add((key, archive_root))
+                            ui_archives_skipped.append(
+                                (key, archive_root.as_posix() + ("" if archive_root == rel else "/ (a folder, not an archive)")))
                         continue
                     norm = rel.as_posix().lower()
                     if norm in _MERGE_SKIP_RELPATHS:
@@ -5769,6 +5795,14 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 "detail": "They're combined into one set of files when you commit - nothing to do. The language it's built for is in Settings.",
                 "mods": mods, "action": "settings",
             })
+            unpacked = sorted({k for k, rel in res.ui_archives_skipped if rel.endswith("(a folder, not an archive)")})
+            if unpacked:
+                warnings.append({
+                    "kind": "unpacked-archive-folders", "severity": "warn",
+                    "title": f"{len(unpacked)} mod{'s' if len(unpacked) != 1 else ''} ship{'' if len(unpacked) != 1 else 's'} menu pictures as loose folders",
+                    "detail": "Those pictures are left out - copied as they are, they'd stop the game starting. The rest of the mod is copied.",
+                    "mods": unpacked, "action": "open-mod",
+                })
             only = self.get_packed_only_units(res.mods_processed)
             if only:
                 warnings.append({
@@ -5909,6 +5943,53 @@ class Api(VoiceEditMixin, ModNotesMixin):
         self._log_commit(lines)
         return {"lines": lines, "conflict": False, "staged": False}
 
+    @staticmethod
+    def _layout_clashes(claims):
+        """[(file claim, claim inside it)] for every claimed path that another claim needs as a FOLDER."""
+        found = []
+        for norm, claim in claims.items():
+            parts = norm.split("/")
+            for n in range(1, len(parts)):
+                outer = claims.get("/".join(parts[:n]))
+                if outer is not None:
+                    found.append((outer, claim))
+                    break
+        return found
+
+    @staticmethod
+    def _verify_staged(out_romfs, claims):
+        """What is wrong with the staged romfs folder compared with the claims it was copied from, as short sentences: a
+        claimed file that is missing, the wrong size or a folder, and anything staged that nothing claimed. [] = it matches."""
+        problems = []
+        for norm, claim in claims.items():
+            dest = out_romfs / claim["rel"]
+            try:
+                if not dest.is_file():
+                    problems.append(f"{claim['rel'].as_posix()}: not a file in the staging folder")
+                elif dest.stat().st_size != claim["src"].stat().st_size:
+                    problems.append(f"{claim['rel'].as_posix()}: the copy is a different size")
+            except OSError as e:
+                problems.append(f"{claim['rel'].as_posix()}: {e}")
+        if out_romfs.is_dir():
+            for path in out_romfs.rglob("*"):
+                if path.is_dir() and path.name.lower().endswith(".sarc"):
+                    problems.append(f"{path.relative_to(out_romfs).as_posix()}: a folder where the game expects an archive file")
+                elif path.is_file() and path.relative_to(out_romfs).as_posix().lower() not in claims:
+                    problems.append(f"{path.relative_to(out_romfs).as_posix()}: staged but not from any selected mod")
+        return problems
+
+    def _commit_unverified(self, lines, problems):
+        """The copy finished but the staging folder does not match what was meant to go in it: don't let it be copied to the SD card."""
+        diag.log("commit", "the staged folder did not match the claims:\n" + "\n".join(problems[:50]))
+        self.save_settings({"last_commit": None})
+        lines.append("=== Commit FAILED - the staging folder doesn't match what was selected ===")
+        lines.extend(f"  {p}" for p in problems[:20])
+        if len(problems) > 20:
+            lines.append(f"  ... and {len(problems) - 20} more")
+        lines.append("Don't copy the staging folder to your SD card. Commit again; if this keeps happening, the log above is what to report.")
+        self._log_commit(lines)
+        return {"lines": lines, "conflict": False, "staged": False}
+
     # --- where a commit is, for the page to show while merge() runs (it polls get_commit_progress() every moment) ---
 
     _COMMIT_PHASES = {"prepare": "Getting ready", "icons": "Menu icons & text", "claims": "Checking files", "copy": "Copying files",
@@ -6035,6 +6116,20 @@ class Api(VoiceEditMixin, ModNotesMixin):
             self._log_commit(lines)
             return {"lines": lines, "conflict": True, "groups": groups}
 
+        # A path that is a file for one claim and a folder for another cannot be staged (the second copy would
+        # land inside the first, or fail): refuse before touching the staging folder, naming both.
+        layout = self._layout_clashes(claims)
+        if layout:
+            lines.append("=== Commit REFUSED - two files can't share a place - staging NOT performed ===")
+            for file_claim, inner_claim in layout[:20]:
+                lines.append(f"  {file_claim['rel'].as_posix()} ({mod_label(file_claim['mod'])}) is a file, but "
+                             f"{inner_claim['rel'].as_posix()} ({mod_label(inner_claim['mod'])}) needs it to be a folder.")
+            if len(layout) > 20:
+                lines.append(f"  ... and {len(layout) - 20} more")
+            lines.append("Deselect one of those mods and commit again. The staging folder was left untouched.")
+            self._log_commit(lines)
+            return {"lines": lines, "conflict": False, "staged": False}
+
         # Always exists after a successful merge (even one that staged no
         # files at all), so the "Open staging folder" button has a target.
         try:
@@ -6053,6 +6148,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
                 if n % 10 == 0 or n == len(claims):
                     self._progress_tick("copy", n, len(claims))
             self._progress_phase("finish")
+            problems = self._verify_staged(out_romfs, claims)
+            if problems:
+                return self._commit_unverified(lines, problems)
 
             # exefs code patches -> atmosphere/exefs_patches/<prefix><slug>/<BUILD ID>.ips.
             # Only this app's own previous patch sets (EXEFS_STAGING_PREFIX) are
