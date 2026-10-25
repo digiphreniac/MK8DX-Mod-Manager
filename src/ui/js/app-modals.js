@@ -49,7 +49,7 @@ const settingsModal = ui.modal({
         ui.el("div", "conflicts-card-row",
           ui.button({ id: "btn-export-mod-list", label: "Export…", size: "small", onClick: () => exportModList() }).el,
           ui.button({ id: "btn-import-mod-list", label: "Import…", size: "small", onClick: () => openImportModList() }).el),
-        ui.el("div", { class: "settings-hint", text: "Export saves the mods you have selected, with their GameBanana links, to one small file you can share. Import reads a file like that, downloads those mods and selects them for you. Custom icons, voices and your notes are not included, and mods you added by hand can't be shared." }),
+        ui.el("div", { class: "settings-hint", text: "Export saves your selected mods and their GameBanana links to a file you can share. Import downloads and selects the mods in such a file. Custom icons, voices and your notes are not included." }),
       ],
     }),
     ui.section({

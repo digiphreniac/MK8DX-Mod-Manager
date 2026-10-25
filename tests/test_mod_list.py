@@ -258,6 +258,13 @@ class ThePage(unittest.TestCase):
         for needle in ("btn-export-mod-list", "btn-import-mod-list", "exportModList()", "openImportModList()"):
             self.assertIn(needle, modals)
 
+    def test_setup_offers_the_import_on_its_closing_page_only(self):
+        wizard = self.read("js", "setup-wizard.js")
+        self.assertEqual(wizard.count("btn-setup-import-mod-list"), 1)
+        closing = wizard[wizard.index("You're all set"):]
+        self.assertIn("btn-setup-import-mod-list", closing)
+        self.assertIn("openImportModList()", closing)
+
     def test_the_caveat_is_said_where_a_person_decides(self):
         script, modals = self.read("js", "mod-list.js"), self.read("js", "app-modals.js")
         self.assertIn("Custom icons, voices and your notes are not included", script)

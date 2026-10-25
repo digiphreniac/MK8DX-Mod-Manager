@@ -18,6 +18,7 @@ function setupSteps() {
 // `lead` is plain text, or a list of elements (shown in the same place, above the progress dots) for a page that needs more
 // than a paragraph. `wide` gives the page a roomier card.
 function wizardFrame(index, title, lead, wide) {
+  document.getElementById("setup-import")?.remove();        // (only the closing page has it)
   const card = document.getElementById("setup-card");
   card.querySelector("h1").textContent = title;
   const p = card.querySelector("p");
@@ -36,6 +37,7 @@ function wizardFrame(index, title, lead, wide) {
 }
 
 function closeSetupWizard() {
+  document.getElementById("setup-import")?.remove();
   const card = document.getElementById("setup-card");
   if (setupCardOriginal.h1 !== null) {
     card.querySelector("h1").textContent = setupCardOriginal.h1;
@@ -110,5 +112,15 @@ async function openSetupWizard(index, rerun) {
       goStep("mods");
       refreshFlow();
     });
+    // Most people won't have a list: just a small link at the bottom of the screen, under the card, that opens a short explanation and the Import button (mod-list.js).
+    const explain = ui.el("div", { class: "wiz-import-more", hidden: true },
+      ui.el("p", { text: "A mod list is a small file someone saves from Settings to share the mods they use. Importing one downloads those mods from GameBanana and selects them for you. Skip this if you don't have one." }),
+      ui.button({ id: "btn-setup-import-mod-list", label: "Choose a mod list…", size: "small", onClick: () => openImportModList() }).el);
+    const link = ui.el("button", { class: "wiz-import-link", text: "Import mod list", attrs: { type: "button", "aria-expanded": "false" } });
+    link.addEventListener("click", () => {
+      explain.hidden = !explain.hidden;
+      link.setAttribute("aria-expanded", String(!explain.hidden));
+    });
+    document.getElementById("setup-overlay").appendChild(ui.el("div", { id: "setup-import" }, explain, link));       // (under the card, at the bottom of the screen)
   }
 }

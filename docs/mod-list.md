@@ -6,6 +6,10 @@ reproduced from someone's exact mods. The code is `src/mod_list.py` (the file fo
 (`build_mod_list`, `export_mod_list`, `read_mod_list`, `import_mod_list_item`) and `src/ui/js/mod-list.js` (the card's buttons and the
 Import window).
 
+Import is offered in two places: the Settings card, and the closing "You're all set" page of Setup, where it is only a small link at the bottom of
+the screen, under the card (`setup-wizard.js`) that opens a short explanation and the button (`btn-setup-import-mod-list`) - most people have no list, so
+it takes no room until clicked. It is the same window either way and it stacks above the Setup overlay.
+
 ## What the file holds
 
 `{"format": "mk8dx-mod-list", "version": 1, "app_version", "exported_at", "note", "mods": [...], "not_shared": [...]}`. Each mod is:

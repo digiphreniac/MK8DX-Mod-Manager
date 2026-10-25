@@ -61,7 +61,8 @@ and a slanted left side (bottom-left sticks out further than top-left), like the
    [Base game files](base-game-files.md#base-game-files-a-required-local-copy)). `setup.done`
    (`get_flow_status()`) is true only once both the `setup_done` flag is set AND the base-files
    copy exists (`game_files.status().done`) - a base-files copy that goes missing sends the step
-   bar back to "Setup" even if the wizard was completed before. Reopen from the step bar. The
+   bar back to "Setup" even if the wizard was completed before. The closing "You're all set" page also has a small **Import mod list** link at the bottom
+   of the screen, under the card (it opens a short explanation and the same Import window as Settings; [Sharing your mod list](mod-list.md)), for someone setting up from another person's list. Reopen from the step bar. The
    `pywebviewready` startup handler checks this too, not just whether a master folder is configured -
    a folder being picked (which happens immediately, before the wizard even opens) isn't the same as
    setup being finished, so closing/reloading the app mid-wizard used to silently drop straight into
