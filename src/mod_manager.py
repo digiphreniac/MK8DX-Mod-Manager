@@ -51,6 +51,7 @@ import bntx_encode
 import cup_icons
 import image_cache
 import library_cache
+import mod_list
 import safe_io
 from library_cache import mutates_library
 import item_icons
@@ -3220,6 +3221,165 @@ class Api(VoiceEditMixin, ModNotesMixin):
                           f"naming a character after its mod failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
         self.sync_voice_edits()             # a Custom voice mod follows the mod it was made from (never raises)
         return True
+
+    # --- sharing the list of mods (mod_list.py, docs/mod-list.md) ----------------------------
+    # Export writes the ticked GameBanana mods (ids, file ids, which folders are ticked, the files left out) to one JSON file.
+    # Import is driven by the page one mod at a time (read_mod_list(), then import_mod_list_item() for each), so it can show
+    # progress, be stopped, and report what could not be installed. Import only ever ADDS ticks - it never unticks anything.
+
+    def _mod_list_categories(self):
+        return {"characters", "courses", ITEMS_CATEGORY, *VEHICLE_SECTIONS}
+
+    def _folder_prefix(self, file_entry):
+        """A downloaded file's folder as a key prefix ("characters/Birdo/Wii Remotes"), or None when it isn't under this data folder."""
+        try:
+            return Path(file_entry["downloaded_to"]).relative_to(self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME).as_posix()
+        except (ValueError, TypeError, KeyError):
+            return None
+
+    def build_mod_list(self):
+        """The document Export writes, for the mods ticked now (see mod_list.build_mod_list)."""
+        if self.mod_root is None:
+            return {"success": False, "error": "Choose a data folder first."}
+        ticked = [k for k, v in self._load_state().items() if v]
+        doc = mod_list.build_mod_list(self._load_gb_mods(), ticked, self._load_excluded_files(), self._folder_prefix,
+                                      APP_VERSION, datetime.now().isoformat(timespec="seconds"))
+        return {"success": True, "list": doc}
+
+    @staticmethod
+    def _dialog_path(result):
+        """pywebview answers a file dialog with a path, a list of paths or nothing (cancelled)."""
+        if not result:
+            return None
+        return str(result[0] if isinstance(result, (list, tuple)) else result)
+
+    def export_mod_list(self, path=None):
+        """Writes the mod list to `path`, or to where the user chooses in a Save dialog. {"success", "path", "mods", "not_shared"}, or
+        {"cancelled": True}."""
+        built = self.build_mod_list()
+        if not built["success"]:
+            return built
+        doc = built["list"]
+        if path is None:
+            if self._window is None:
+                return {"success": False, "error": "The window isn't ready yet."}
+            path = self._dialog_path(self._window.create_file_dialog(
+                webview.FileDialog.SAVE, save_filename="mk8dx-mod-list.json", file_types=("Mod list (*.json)",)))
+            if path is None:
+                return {"success": False, "cancelled": True}
+        try:
+            safe_io.write_json_atomic(path, doc, sort_keys=False)
+        except OSError as e:
+            diag.log("mod-list", f"export failed: {type(e).__name__}: {e}")
+            return {"success": False, "error": f"Couldn't write the file: {e}"}
+        diag.log("mod-list", f"exported {len(doc['mods'])} mod(s); {len(doc['not_shared'])} could not be shared")
+        return {"success": True, "path": str(path), "mods": len(doc["mods"]), "not_shared": [n["key"] for n in doc["not_shared"]]}
+
+    def read_mod_list(self, path=None):
+        """Reads a mod list file (asking where it is when `path` is None) and says what is in it, for the page to confirm and then
+        import one mod at a time. {"success", "path", "mods": [entries], "unusable": [...], "already": n, ...} or {"cancelled": True}."""
+        if self.mod_root is None:
+            return {"success": False, "error": "Choose a data folder first."}
+        if path is None:
+            if self._window is None:
+                return {"success": False, "error": "The window isn't ready yet."}
+            path = self._dialog_path(self._window.create_file_dialog(
+                webview.FileDialog.OPEN, file_types=("Mod list (*.json)",)))
+            if path is None:
+                return {"success": False, "cancelled": True}
+        try:
+            if Path(path).stat().st_size > 20 * 1024 * 1024:
+                return {"success": False, "error": "That file is too big to be a mod list."}
+            text = Path(path).read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError) as e:
+            return {"success": False, "error": f"Couldn't read that file: {e}"}
+        parsed, why = mod_list.parse_mod_list(text, self._mod_list_categories())
+        if why:
+            return {"success": False, "error": why}
+        have = self._load_gb_mods()
+        for m in parsed["mods"]:
+            m["have"] = self._mod_list_have(m, have)
+        return {"success": True, "path": str(path), **parsed, "already": sum(1 for m in parsed["mods"] if m["have"])}
+
+    def _mod_list_have(self, entry, gb_mods=None):
+        """True when every file of this list entry is downloaded here already and all its ticked folders exist."""
+        record = next((r for r in (gb_mods if gb_mods is not None else self._load_gb_mods()).get(entry["item"], [])
+                       if r["mod_id"] == entry["mod_id"] and r.get("record_type", "Mod") == entry["record_type"]), None)
+        if record is None:
+            return False
+        files = {f["file_id"]: f for f in record.get("files", [])}
+        return all(files.get(f["file_id"], {}).get("download_status") == "downloaded" for f in entry["files"]) and \
+            all(self._unit_exists(k) for k in self._mod_list_keys(entry, record).values() if k)
+
+    def _mod_list_keys(self, entry, record):
+        """{(file id, inner folders): the unit key it has on this computer, or None} for a list entry's ticked folders, found from where
+        each file was downloaded to - so a mod renamed since the list was made still lands on the right folders."""
+        folders = {}
+        for f in record.get("files", []):
+            if f.get("download_status") == "downloaded":
+                folders[f["file_id"]] = self._folder_prefix(f)
+        out = {}
+        for u in entry["units"]:
+            folder = folders.get(u["file_id"])
+            out[(u["file_id"], u["sub"])] = f"{folder}/{u['sub']}" if folder and u["sub"] else folder
+        return out
+
+    @mutates_library
+    def import_mod_list_item(self, entry):
+        """Downloads one mod of a mod list (when it isn't here already) and ticks its listed folders. `entry` is one of read_mod_list()'s
+        "mods", checked again here. {"success", "name", "downloaded", "ticked", "missing": [reasons]}. Never unticks anything."""
+        entry, why = mod_list.clean_entry(entry, self._mod_list_categories())
+        if entry is None:
+            return {"success": False, "name": "A mod", "error": f"Skipped: {why}."}
+        name, item, category = entry["name"], entry["item"], entry["category"]
+        # Fetch the mod's page (its files) unless every file is already here.
+        have = self._load_gb_mods()
+        record = next((r for r in have.get(item, []) if r["mod_id"] == entry["mod_id"] and r.get("record_type", "Mod") == entry["record_type"]), None)
+        files = {f["file_id"]: f for f in (record or {}).get("files", [])}
+        need = [f["file_id"] for f in entry["files"]
+                if files.get(f["file_id"], {}).get("download_status") != "downloaded"
+                or not Path(files[f["file_id"]].get("downloaded_to") or "?").is_dir()]       # (or its folder was deleted)
+        downloaded = 0
+        problems = []
+        if need:
+            ref = str(entry["mod_id"]) if entry["record_type"] == "Mod" else f"https://gamebanana.com/sounds/{entry['mod_id']}"
+            fetched = self.gb_fetch_mod(item, ref)
+            if not fetched.get("success"):
+                return {"success": False, "name": name, "error": f"Couldn't reach it on GameBanana: {fetched.get('error')}"}
+            name = fetched["mod"].get("name") or name
+            listed = {f["file_id"] for f in fetched["mod"]["files"]}
+            gone = [i for i in need if i not in listed]
+            if gone:
+                problems.append("a file it was shared with is no longer on GameBanana (the author may have updated the mod - find it in Browse GameBanana)")
+            need = [i for i in need if i in listed]
+            if need:
+                done = self.gb_download_files(category, item, entry["mod_id"], need, entry["record_type"])
+                if not done.get("success"):
+                    return {"success": False, "name": name, "error": done.get("error") or "The download failed."}
+                for r in done["results"]:
+                    if r.get("status") == "downloaded":
+                        downloaded += 1
+                    else:
+                        problems.append(f"a file didn't download ({r.get('error') or r.get('status')})")
+        record = next((r for r in self._load_gb_mods().get(item, []) if r["mod_id"] == entry["mod_id"]
+                       and r.get("record_type", "Mod") == entry["record_type"]), None)
+        keys = self._mod_list_keys(entry, record) if record else {}
+        ticks, left_out = {}, {}
+        for u in entry["units"]:
+            key = keys.get((u["file_id"], u["sub"]))
+            if key and self._unit_exists(key):
+                ticks[key] = True
+                left_out[key] = u["left_out"]
+            else:
+                problems.append(f"its folder \"{u['sub'] or 'main'}\" wasn't found after downloading")
+        if ticks:
+            self.save_checked(ticks)                    # (adds ticks only; the epoch check is for a page's own saves)
+            for key, entries in left_out.items():
+                for reason, kept_from in {(e["reason"], e["kept_from"]) for e in entries}:
+                    self.exclude_files(key, [e["path"] for e in entries if (e["reason"], e["kept_from"]) == (reason, kept_from)],
+                                       reason=reason, kept_from=kept_from)
+        return {"success": bool(ticks), "name": name, "downloaded": downloaded, "ticked": len(ticks),
+                "missing": problems, "error": None if ticks else (problems[0] if problems else "Nothing could be ticked.")}
 
     # --- naming a character after its mod ---------------------------------------
     # When a character mod is ticked the app tries to work out what the character should be

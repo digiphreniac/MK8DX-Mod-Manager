@@ -18,7 +18,7 @@ class HelpPopup(unittest.TestCase):
         modals = read("js", "app-modals.js")
         help_html = modals[modals.index("const helpModal = ui.modal({"):modals.index("const guessedNamesModal")]
         titles = re.findall(r'ui\.section\(\{\s*title: "([^"]*)"', help_html)
-        self.assertEqual(titles, ["Known issues", "More support", "About"])
+        self.assertEqual(titles, ["Known issues", "More support", "Share your mod list", "About"])
         for gone in ("What the labels on a mod mean", "UI art only", "Needs romfs folder", "Needs manual fix", "Slot / music mismatch",
                      "Voice: mute a line", "Two mods clash", "If something goes wrong"):
             self.assertNotIn(gone, help_html)

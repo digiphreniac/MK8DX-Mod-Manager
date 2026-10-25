@@ -41,7 +41,7 @@ class TheLayout(unittest.TestCase):
         self.assertIn('"settings-columns"', read("js", "ui", "section.js"))
         self.assertNotIn("settings-col\"", spec)       # (no hand-made columns any more)
         self.assertEqual(titles(spec), ["Data folder", "Staging folder", "Game language", "UI Icon Worklist", "Game version", "App experience",
-                                        "Conflicts and omitted files", "Maintenance"])
+                                        "Conflicts and omitted files", "Share your mod list", "Maintenance"])
 
     def test_the_window_is_wide_and_the_columns_balance_themselves(self):
         self.assertIn('size: "wide"', settings_spec())

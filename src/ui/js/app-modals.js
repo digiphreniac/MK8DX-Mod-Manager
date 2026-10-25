@@ -44,6 +44,15 @@ const settingsModal = ui.modal({
         ui.el("div", { class: "settings-hint", id: "conflicts-summary", text: "Checking…" })),
     }),
     ui.section({
+      title: "Share your mod list",
+      body: [
+        ui.el("div", "conflicts-card-row",
+          ui.button({ id: "btn-export-mod-list", label: "Export…", size: "small", onClick: () => exportModList() }).el,
+          ui.button({ id: "btn-import-mod-list", label: "Import…", size: "small", onClick: () => openImportModList() }).el),
+        ui.el("div", { class: "settings-hint", text: "Export saves the mods you have selected, with their GameBanana links, to one small file you can share. Import reads a file like that, downloads those mods and selects them for you. Custom icons, voices and your notes are not included, and mods you added by hand can't be shared." }),
+      ],
+    }),
+    ui.section({
       title: "Maintenance",
       body: [
         ui.button({ id: "btn-clear-all-mods", label: "Clear All Mods…", variant: "danger", size: "small", confirm: () => clearAllModsConfirm() }).el,
@@ -99,6 +108,12 @@ const helpModal = ui.modal({
           }).el,
           ui.button({ id: "btn-show-log", label: "Show log file" }).el),
         ui.el("div", { class: "help-status-def", id: "help-log-note", hidden: true }),
+      ],
+    }),
+    ui.section({
+      title: "Share your mod list",
+      body: [
+        ui.el("div", { class: "help-status-def", text: "In Settings, Export saves the mods you have selected, with their GameBanana links, to one small file. Someone else can Import it to download the same mods and have them selected. Custom icons, voices and your notes are not included, and mods you added by hand can't be shared. Importing only adds mods; nothing you already selected is changed." }),
       ],
     }),
     ui.section({

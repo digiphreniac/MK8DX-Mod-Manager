@@ -42,6 +42,7 @@ notes, measurements and rules live in `docs/` (index below).
 - `src/diag.py` - the one place that writes to `mod-manager.log` (timestamps, usernames scrubbed, caps on the page's messages); `js/diagnostics.js`
   is the page's side. A failure the app catches and carries on from should leave a `diag.log` line. `docs/diagnostics.md`.
 - `src/mod_notes.py` - the user's notes on mods (`mod-notes.json`); page side `src/ui/js/mod-notes.js`.
+- `src/mod_list.py` - the shareable list of mods (Export / Import, Settings); page side `src/ui/js/mod-list.js`.
 - `src/gamebanana_api.py` - GameBanana client. `roster.json` - every character/course/part/item; `name-labels.json` - text ids.
 - `src/image_cache.py`, `library_cache.py`, `gb_desc_cache.py` - caches (see below).
 - `src/ui/` - `index.html` frame, `html/` the remaining modal markup, `css/`, `js/` scripts (see "Frontend rules"). `js/ui/` is the component
@@ -116,5 +117,6 @@ notes, measurements and rules live in `docs/` (index below).
 | A mod that belongs to a different card | `docs/refiling-mods.md` |
 | Voice editing | `docs/voice-editing.md` |
 | The user's notes on mods | `docs/mod-notes.md` |
+| Export / Import of the mod list | `docs/mod-list.md` |
 | `.ips` code patches | `docs/code-patches.md` |
 | The log, page errors, "Copy details" | `docs/diagnostics.md` |
