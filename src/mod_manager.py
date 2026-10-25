@@ -7635,7 +7635,7 @@ def self_check():
         return f"{len(data)} entries"
 
     def page():
-        for rel in ("index.html", "js/bootstrap.js", "js/diagnostics.js", "css/base.css", "html/help-modal.html"):
+        for rel in ("index.html", "js/bootstrap.js", "js/diagnostics.js", "css/base.css", "js/app-modals.js", "js/ui/modal.js"):
             if not (SCRIPT_DIR / "ui" / rel).is_file():
                 raise FileNotFoundError(f"ui/{rel}")
 

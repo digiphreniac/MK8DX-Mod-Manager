@@ -22,7 +22,13 @@ function loadItemIcons() {
 let itemDockedKey = null;   // the item the docked card shows (the pop-up's own is `openCharacter`)
 let lastItemKey = null;     // the last item viewed: what the card comes back to
 
-const itemHover = makeHoverFrame(document.getElementById("item-grid-col"), [document.getElementById("item-grid")], ".char-tile");
+// What the tiles of the Items screen share (ui.tileGrid); the layout itself is fitItemGrid.
+const itemGrid = ui.tileGrid({
+  roots: [document.getElementById("item-grid")], tileSelector: ".char-tile",
+  frameHost: document.getElementById("item-grid-col"), plate: document.getElementById("item-name-plate"),
+  resolve: resolveItemPlate,
+  fit: fitItemGrid, observe: [document.getElementById("item-layout")],
+});
 
 function paintItemTile(tile) {
   const src = itemIcons[tile.dataset.char];
@@ -40,8 +46,7 @@ function paintItemTile(tile) {
 
 function renderItemsView() {
   const grid = document.getElementById("item-grid");
-  itemHover.hide();   // the tile under the mouse is about to be replaced
-  itemHoverEl = null;
+  itemGrid.reset();   // the tile under the mouse is about to be replaced
   grid.replaceChildren();
   if (!state.items.length) return;
   const icons = loadItemIcons();
@@ -55,14 +60,7 @@ function renderItemsView() {
     if (item.catch_all) tile.classList.add("catch-all");
     if (checkedUnits.length >= 2) {
       conflictCount(checkedUnits).then(n => {
-        if (n > 0) {
-          tile.classList.add("has-conflict");
-          const badge = document.createElement("div");
-          badge.className = "char-conflict-badge";
-          badge.textContent = "!";
-          badge.title = `${n} conflicting file(s) among selected mods`;
-          tile.appendChild(badge);
-        }
+        if (n > 0) ui.tile.markConflict(tile, `${n} conflicting file(s) among selected mods`);
       });
     }
     paintItemTile(tile);
@@ -89,36 +87,25 @@ async function openItemCard(name) {
 function markActiveItem() {
   if (itemDockedKey !== null) selectedItem = itemDockedKey;
   else if (openCharacter !== null && isItemName(openCharacter)) selectedItem = openCharacter;
-  for (const t of document.querySelectorAll("#item-grid .char-tile")) t.classList.toggle("active", t.dataset.char === selectedItem);
+  itemGrid.markActive(selectedItem);
   updateItemNameBar();
 }
 
 // ---- the name plate ----
 // While the mouse is over a tile the plate shows THAT item (as the game's select screens do as the cursor moves); otherwise
 // the viewed one. How its mods stand follows, small and dim.
-let itemHoverEl = null;
-function updateItemNameBar() {
-  const plate = document.getElementById("item-name-plate");
-  const el = itemHoverEl && itemHoverEl.isConnected ? itemHoverEl : document.querySelector("#item-grid .char-tile.active");
-  plate.replaceChildren();
-  if (!el) { plate.classList.remove("show"); return; }
-  plate.append(el.dataset.label || el.dataset.char);
+function resolveItemPlate(hover) {
+  const el = hover || itemGrid.active();
+  if (!el) return null;
   const item = findItem(el.dataset.char);
+  let dim = null;
   if (item) {
     const total = item.units.length, ticked = item.units.filter(k => state.checked[k]).length;
-    const dim = total === 0 ? "no mods yet" : ticked === 0 ? `${total} mod${total === 1 ? "" : "s"}, none in use` : `${ticked} of ${total} mod${total === 1 ? "" : "s"} in use`;
-    const base = document.createElement("span");
-    base.className = "np-base";
-    base.textContent = `(${dim})`;
-    plate.appendChild(base);
+    dim = total === 0 ? "no mods yet" : ticked === 0 ? `${total} mod${total === 1 ? "" : "s"}, none in use` : `${ticked} of ${total} mod${total === 1 ? "" : "s"} in use`;
   }
-  plate.classList.add("show");
+  return { main: el.dataset.label || el.dataset.char, dim };
 }
-document.getElementById("item-grid").addEventListener("mouseover", (e) => {
-  const tile = e.target.closest(".char-tile");
-  if (tile && tile !== itemHoverEl) { itemHoverEl = tile; updateItemNameBar(); }
-});
-document.getElementById("item-grid").addEventListener("mouseleave", () => { itemHoverEl = null; updateItemNameBar(); });
+function updateItemNameBar() { itemGrid.refresh(); }
 
 // ---- the docked card ----
 // Wide window: the card beside the grid, and always an item in it (the one last viewed, else the first with a mod, else the
@@ -140,7 +127,7 @@ function closeItemDetail() {
 
 // Called at the start of building a docked card (see beginDetail): where to build it.
 function beginItemDetail(key) {
-  document.getElementById("modal-backdrop").hidden = true;   // a pop-up left open gives way to the docked card
+  characterModal.close();   // a pop-up left open gives way to the docked card
   openCharacter = null;
   itemDockedKey = key;
   if (isItemName(key)) lastItemKey = key;
@@ -206,17 +193,11 @@ function fitItemGrid() {
   const boardW = dockedLayout() ? layout.clientWidth * 0.55 - 8 : layout.clientWidth;
   const W = boardW - frameX, H = layout.clientHeight - frameY;
   const K = ITEM_FIT.GAP_K;
-  let best = null;
-  for (let c = 1; c <= n; c++) {
-    const rows = Math.ceil(n / c);
-    const t = Math.min(ITEM_FIT.MAX_T, Math.floor(Math.min(W / (c + (c - 1) * K), H / (rows + (rows - 1) * K))));
-    if (!best || t > best.t || (t === best.t && Math.abs(c - ITEM_FIT.PREFER_COLS) < Math.abs(best.c - ITEM_FIT.PREFER_COLS))) best = { c, t };
-  }
-  const t = Math.max(ITEM_FIT.MIN_T, best.t);   // (too small for anything: the smallest tiles, and the board scrolls as a last resort)
-  grid.style.setProperty("--it", t + "px");
-  grid.style.setProperty("--ig", Math.max(4, Math.round(t * K)) + "px");
-  grid.style.setProperty("--ic", best.c);
+  const fit = ui.fitTiles({ W, H, n, K, minT: ITEM_FIT.MIN_T, maxT: ITEM_FIT.MAX_T, preferCols: ITEM_FIT.PREFER_COLS });
+  // (too small for anything: the smallest tiles, and the board scrolls as a last resort)
+  grid.style.setProperty("--it", fit.tile + "px");
+  grid.style.setProperty("--ig", Math.max(4, Math.round(fit.tile * K)) + "px");
+  grid.style.setProperty("--ic", fit.cols);
 }
-new ResizeObserver(fitItemGrid).observe(document.getElementById("item-layout"));
 
 applyItemLayout();

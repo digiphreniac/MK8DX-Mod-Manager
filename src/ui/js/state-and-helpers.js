@@ -320,12 +320,16 @@ function buildRemoveModButton(key, onRemoved) {
   btn.addEventListener("click", async (e) => {
     e.stopPropagation();
     const label = key.split("/").slice(1).join("/");
-    if (!confirm(`Delete the downloaded files for "${label}"? This can't be undone.`)) return;
+    const sure = await ui.confirm({
+      title: "Delete the downloaded files?", confirmLabel: "Delete", danger: true,
+      message: `Delete the downloaded files for "${label}"? This can't be undone.`,
+    });
+    if (!sure) return;
     btn.disabled = true;
     btn.textContent = "Removing...";
     const result = await pywebview.api.remove_mod_unit(key);
     if (!result.success) {
-      alert(result.error);
+      await ui.alert({ title: "That didn't work", message: result.error });
       btn.disabled = false;
       btn.textContent = "Remove";
       return;

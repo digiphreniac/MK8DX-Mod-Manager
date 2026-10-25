@@ -8,17 +8,31 @@
 (function () {
   const PARTIALS = [
     "html/character-modal.html",
-    "html/help-modal.html",
-    "html/settings-modal.html",
-    "html/conflicts-modal.html",
     "html/add-mod-modal.html",
     "html/gb-browse-modal.html",
     "html/gb-detail-modal.html",
     "html/icon-gen-modal.html",
-    "html/guessed-names-modal.html",
     "html/setup-overlay.html",
   ];
   const SCRIPTS = [
+    "js/ui/core.js",            // (the component layer first: any later script may use it, see docs/ui-components.md)
+    "js/ui/icons.js",
+    "js/ui/button.js",
+    "js/ui/disclosure.js",
+    "js/ui/modal.js",
+    "js/ui/section.js",
+    "js/ui/confirm.js",
+    "js/ui/callout.js",
+    "js/ui/chip.js",
+    "js/ui/menu.js",
+    "js/ui/tabs.js",
+    "js/ui/asyncbox.js",
+    "js/ui/list.js",
+    "js/ui/progress.js",
+    "js/ui/folder.js",
+    "js/ui/tile.js",
+    "js/ui/tilegrid.js",
+    "js/app-modals.js",         // (Settings, Conflicts, Help and Guessed names, built from the components and left hidden)
     "js/api-coalesce.js",
     "js/state-and-helpers.js",
     "js/mod-notes.js",

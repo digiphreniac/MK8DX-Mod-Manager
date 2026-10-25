@@ -41,11 +41,11 @@ function unitSlotBadges(key, itemName) {
   const out = [];
   if (!u) return out;
   if (u.mismatch) {
-    const b = cgEl("span", "packed-badge", "replaces " + u.characters.join(" / "));
+    const b = ui.chip({ tone: "warn", caps: true, size: "xs", cursor: "help", class: "packed-badge", text: "replaces " + u.characters.join(" / ") }).el;
     b.title = `This one replaces ${u.characters.join(" / ")}'s slot, not ${itemName}'s. "Select All" skips it - select it yourself if that's what you want.`;
     out.push(b);
   } else if (u.twins > 1) {
-    const b = cgEl("span", "packed-badge", `one of ${u.twins} variants`);
+    const b = ui.chip({ tone: "warn", caps: true, size: "xs", cursor: "help", class: "packed-badge", text: `one of ${u.twins} variants` }).el;
     b.title = `${u.twins} versions of this mod write exactly the same files (colours / options) - they'd clash if selected together. "Select All" selects only the first.`;
     out.push(b);
   }
@@ -111,26 +111,26 @@ const ML_KINDS = [
 ];
 
 function mlThumb(src, caption, slot) {
-  const t = cgEl("div", "ml-tile");
+  const t = ui.el("div", "ml-tile");
   if (src) {
     const img = document.createElement("img");
     img.src = src;
     img.alt = caption;
     t.appendChild(img);
   } else {
-    t.appendChild(cgEl("div", "ml-blank", "game's own"));
+    t.appendChild(ui.el("div", "ml-blank", "game's own"));
   }
-  if (caption) t.appendChild(cgEl("div", "ml-label", caption));
+  if (caption) t.appendChild(ui.el("div", "ml-label", caption));
   if (slot && slot.variants > 1 && slot.changed > 0) {
-    t.appendChild(cgEl("div", "ml-sub", slot.changed === slot.variants ? `all ${slot.variants} colours` : `${slot.changed} of ${slot.variants} colours`));
+    t.appendChild(ui.el("div", "ml-sub", slot.changed === slot.variants ? `all ${slot.variants} colours` : `${slot.changed} of ${slot.variants} colours`));
   }
   if (slot && slot.resized) {
-    const r = cgEl("div", "ml-sub", "resized to fit");
+    const r = ui.el("div", "ml-sub", "resized to fit");
     r.title = "The mod's picture is a different size than the game's own, so the app scales it to fit.";
     t.appendChild(r);
   }
   if (slot && slot.blocked) {
-    const b = cgEl("div", "ml-sub warn", "can't apply");
+    const b = ui.el("div", "ml-sub warn", "can't apply");
     b.title = slot.blocked.reason || "";
     t.appendChild(b);
   }
@@ -139,19 +139,19 @@ function mlThumb(src, caption, slot) {
 
 // One version of a mod's loose icon pictures, as a card with a real button.
 function mlVersionCard(name, mod, set, changed, primary) {
-  const card = cgEl("div", "ml-choice");
-  const thumbs = cgEl("div", "ml-row");
+  const card = ui.el("div", "ml-choice");
+  const thumbs = ui.el("div", "ml-row");
   for (const [kind, caption] of ML_KINDS) {
     const k = set.kinds[kind];
     if (k) thumbs.appendChild(mlThumb(k.preview, caption));
   }
   card.appendChild(thumbs);
-  const foot = cgEl("div", "ml-choice-foot");
+  const foot = ui.el("div", "ml-choice-foot");
   const cols = set.colours || 1;
-  foot.appendChild(cgEl("span", "ml-choice-label", set.label + (set.complete ? "" : " - only " + Object.keys(set.kinds).length + " of 3 icons")
+  foot.appendChild(ui.el("span", "ml-choice-label", set.label + (set.complete ? "" : " - only " + Object.keys(set.kinds).length + " of 3 icons")
     + (cols > 1 ? ` \u00b7 ${cols} colours` + (set.count < cols * 3 ? ` (${set.count} of ${cols * 3} pictures)` : "")
                 : (set.count > 3 ? ` (${set.count} pictures)` : ""))));
-  if (set.for) card.appendChild(cgEl("div", "cg-note", `These pictures are named for ${set.for}, not ${name} - they were not applied automatically.`));
+  if (set.for) card.appendChild(ui.hint(`These pictures are named for ${set.for}, not ${name} - they were not applied automatically.`, { class: "cg-note" }));
   const use = button(set.for ? `Use these for ${name} anyway` : "Use these for " + name, primary && !set.for ? "primary small" : "small", async () => {
     use.disabled = true;
     const r = await pywebview.api.use_loose_icon_set(name, mod.mod, set.id);

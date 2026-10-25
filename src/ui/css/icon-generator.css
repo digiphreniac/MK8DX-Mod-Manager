@@ -80,36 +80,3 @@
     margin-top: 12px;
   }
 
-  /* Guessed-names review modal - same treatment as #help-modal, own ids so it can
-     stack above the page (or another modal) it's opened from. */
-  #guessed-names-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(20, 22, 28, 0.4);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 48px 20px 20px 20px;
-    z-index: 20;
-    animation: fadeIn 0.14s ease-out;
-  }
-  #guessed-names-modal {
-    background: var(--panel);
-    border-radius: 14px;
-    width: 640px;
-    max-width: calc(100vw - 40px);
-    max-height: calc(100vh - 68px);
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-    animation: popIn 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
-  }
-  #guessed-names-modal-header {
-    padding: 18px 20px;
-    border-bottom: 1px solid var(--panel-border);
-    display: flex;
-    align-items: center;
-  }
-  #guessed-names-modal-header h2 { margin: 0; font-size: 17px; flex: 1; }
-  #guessed-names-modal-body { padding: 18px 20px 20px 20px; overflow-y: auto; }
-

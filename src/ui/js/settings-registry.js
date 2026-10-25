@@ -79,7 +79,7 @@ const SETTINGS = [
     after: async () => {
       uiSetup.data = null;
       scheduleFlowRefresh();
-      if (!document.getElementById("settings-modal-backdrop").hidden) await renderUiSetupSettingsCard();   // (the card also says what the mods change in it)
+      if (settingsModal.isOpen) await renderUiSetupSettingsCard();   // (the card also says what the mods change in it)
     } },
 
   { key: "show_tile_counts", group: "app-experience", kind: "toggle", label: "Show mod counts on character tiles", description: "", showInSetup: false,
@@ -161,7 +161,7 @@ async function renderAllSettingsGroups() {
 }
 
 async function buildSettingControl(def, ctx) {
-  const box = cgEl("div", "setting setting-" + def.kind);
+  const box = ui.el("div", "setting setting-" + def.kind);
   box.dataset.setting = def.key;
   const label = typeof def.label === "function" ? def.label() : def.label;
   if (def.kind === "folder") {
@@ -173,7 +173,7 @@ async function buildSettingControl(def, ctx) {
     return box;
   }
   if (def.kind === "toggle") {
-    const row = cgEl("label", "settings-checkbox-label");
+    const row = ui.el("label", "settings-checkbox-label");
     const cb = document.createElement("input");
     cb.type = "checkbox";
     cb.checked = !!def.read();
@@ -181,7 +181,7 @@ async function buildSettingControl(def, ctx) {
     row.append(cb, document.createTextNode(label));
     box.appendChild(row);
   } else if (def.kind === "select") {
-    box.appendChild(cgEl("label", "setting-label", label));
+    box.appendChild(ui.el("label", "setting-label", label));
     const sel = document.createElement("select");
     sel.className = "settings-text-input";
     for (const o of await def.options()) sel.appendChild(new Option(o.label, o.value));
@@ -189,7 +189,7 @@ async function buildSettingControl(def, ctx) {
     sel.addEventListener("change", () => changeSetting(def, sel.value));
     box.appendChild(sel);
   } else if (def.kind === "text") {
-    box.appendChild(cgEl("label", "setting-label", label));
+    box.appendChild(ui.el("label", "setting-label", label));
     const input = document.createElement("input");
     input.type = "text";
     input.className = "settings-text-input";
@@ -205,7 +205,7 @@ async function buildSettingControl(def, ctx) {
       input.setAttribute("list", list.id);
       box.appendChild(list);
     }
-    const problem = cgEl("div", "setting-hint setting-error");
+    const problem = ui.el("div", "setting-hint setting-error");
     problem.hidden = true;
     box.appendChild(problem);
     input.addEventListener("change", async () => {
@@ -218,7 +218,7 @@ async function buildSettingControl(def, ctx) {
       await changeSetting(def, value);
     });
   }
-  if (def.description) box.appendChild(cgEl("div", "setting-hint", def.description));
+  if (def.description) box.appendChild(ui.hint(def.description));
   return box;
 }
 
@@ -227,33 +227,23 @@ async function buildSettingControl(def, ctx) {
 // file manager.
 function folderCard(dir, onOpen) {
   const recommended = dir.is_recommended !== undefined ? dir.is_recommended : dir.is_default;
-  const where = cgEl("div", "wiz-folder" + (recommended ? " is-default" : ""));
-  const head = cgEl("div", "wiz-folder-head");
-  head.appendChild(cgEl("span", "wiz-pill" + (recommended ? " rec" : ""), dir.label || (recommended ? "Recommended" : "Custom folder")));
-  if (onOpen) {
-    const open = button("", "ghost small wiz-folder-open", onOpen);
-    open.title = "Open this folder in the file manager";
-    open.setAttribute("aria-label", "Open this folder in the file manager");
-    open.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
-    head.appendChild(open);
-  }
-  where.appendChild(head);
-  where.appendChild(cgEl("code", "wiz-folder-path", dir.path || dir.default_path || "(not set)"));
-  return where;
+  return ui.folderCard({
+    path: dir.path || dir.default_path || "(not set)", label: dir.label || (recommended ? "Recommended" : "Custom folder"), recommended: !!recommended, onOpen,
+  }).el;
 }
 
 // Any other folder setting (a "path"): where it is, a button to choose another, and one to go back to the default. Nothing here knows
 // which folder it is - the setting's status(), choose() and reset() do.
 async function fillPathControl(def, box) {
   const dir = await def.status();
-  const errorBox = cgEl("div", "wiz-error");
+  const errorBox = ui.hint("", { tone: "error" });
   errorBox.hidden = true;
   const open = async () => {
     const r = await def.open(dir);
     if (!r.success) { errorBox.textContent = r.error; errorBox.hidden = false; }
   };
   box.replaceChildren(folderCard(dir, open));
-  if (def.description) box.appendChild(cgEl("div", "setting-hint", def.description));
+  if (def.description) box.appendChild(ui.hint(def.description));
   box.appendChild(errorBox);
   const done = async (result) => {
     if (!result.success) { errorBox.textContent = result.error; errorBox.hidden = false; return; }
@@ -261,7 +251,7 @@ async function fillPathControl(def, box) {
     if (def.after) await def.after();
     await fillPathControl(def, box);
   };
-  const row = cgEl("div", "uis-actions");
+  const row = ui.el("div", "uis-actions");
   row.appendChild(button("Change folder...", "small", async () => {
     const chosen = await pywebview.api.pick_folder();
     if (chosen) await done(await def.choose(chosen));
@@ -276,11 +266,11 @@ async function fillFolderControl(def, box, ctx) {
   const dir = await pywebview.api.get_master_dir_status();
   const firstRun = !(state.settings && state.settings.setup_done);
   box.replaceChildren();
-  const errorBox = cgEl("div", "wiz-error");
+  const errorBox = ui.hint("", { tone: "error" });
   errorBox.hidden = true;
   const failed = (message) => { errorBox.textContent = message; errorBox.hidden = false; };
   box.appendChild(folderCard(dir, async () => { const r = await def.open(dir); if (!r.success) failed(r.error); }));
-  if (def.description) box.appendChild(cgEl("div", "setting-hint", def.description));
+  if (def.description) box.appendChild(ui.hint(def.description));
   box.appendChild(errorBox);
 
   // the folder under the app changed: the page's ticks and lists belong to the old one
@@ -308,25 +298,22 @@ async function fillFolderControl(def, box, ctx) {
     if (!result.success) { failed(result.error); return; }
     await afterChanged();
   };
-  const row = cgEl("div", "uis-actions");
+  const row = ui.el("div", "uis-actions");
   row.appendChild(button("Change folder...", "small", change));
   if (!dir.is_default && firstRun) row.appendChild(button("Use the recommended folder", "ghost small", useRecommended));
   box.appendChild(row);
 }
 
-// ---- "Reset to default" on a group's header (a card with data-reset-group): only available while something differs ----
+// ---- "Reset to default" on a group's card (its header action in app-modals.js): only available while something differs ----
 function groupDiffersFromDefaults(group) {
   return SETTINGS.some(d => d.group === group && d.kind === "toggle" && !!d.read() !== !!settingDefaults[d.key]);
 }
 function updateResetButtons() {
-  for (const btn of document.querySelectorAll("[data-reset-group]")) btn.disabled = !groupDiffersFromDefaults(btn.dataset.resetGroup);
+  appExperienceCard.refresh();
 }
-for (const btn of document.querySelectorAll("[data-reset-group]")) {
-  btn.addEventListener("click", async () => {
-    const group = btn.dataset.resetGroup;
-    for (const def of SETTINGS) {
-      if (def.group === group && def.kind === "toggle" && !!def.read() !== !!settingDefaults[def.key]) await changeSetting(def, !!settingDefaults[def.key]);
-    }
-    await refreshSettingHosts(group);
-  });
+async function resetGroupToDefaults(group) {
+  for (const def of SETTINGS) {
+    if (def.group === group && def.kind === "toggle" && !!def.read() !== !!settingDefaults[def.key]) await changeSetting(def, !!settingDefaults[def.key]);
+  }
+  await refreshSettingHosts(group);
 }

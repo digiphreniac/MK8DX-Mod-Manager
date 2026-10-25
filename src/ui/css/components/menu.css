@@ -1,0 +1,9 @@
+  /* ui.menu (js/ui/menu.js): the "..." button and the small popup it opens. */
+  .ui-menu-btn { width: 30px; height: 30px; padding: 0; border-radius: 50%; border: none; background: transparent; box-shadow: none; color: var(--text-dim); font-size: 18px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-transform: none; letter-spacing: 0; }
+  .ui-menu-btn:hover, .ui-menu-btn[aria-expanded="true"] { background: var(--thumb-bg); color: var(--text); }
+  .ui-menu { position: fixed; z-index: 10000; min-width: 210px; padding: 4px; text-align: left; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .ui-menu-item { display: block; width: 100%; text-align: left; background: transparent; border: none; box-shadow: none; padding: 7px 10px; border-radius: 6px; font-size: 13px; font-weight: 400; color: var(--text); cursor: pointer; white-space: nowrap; }
+  .ui-menu-item.danger { color: var(--danger); }
+  .ui-menu-item:hover, .ui-menu-item:focus-visible { background: var(--thumb-bg); outline: none; }
+  .ui-menu-item:disabled { opacity: 0.45; cursor: default; }
+  .ui-menu-sep { height: 1px; margin: 4px 0; background: var(--divider); }

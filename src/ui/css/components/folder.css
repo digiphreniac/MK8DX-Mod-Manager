@@ -1,0 +1,6 @@
+  /* ui.folderCard (js/ui/folder.js): a folder's path in a box, green when it is the recommended one. */
+  .ui-folder { border: 1px solid var(--panel-border); border-radius: 10px; background: var(--bg-soft); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .ui-folder--recommended { border-color: var(--ok); background: var(--ok-soft); }
+  .ui-folder-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ui-folder-open { padding: 3px 6px; line-height: 0; margin: -3px -4px -3px 0; }
+  .ui-folder-path { font-size: 12.5px; word-break: break-all; color: var(--text); }

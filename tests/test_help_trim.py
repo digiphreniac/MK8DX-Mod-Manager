@@ -15,8 +15,9 @@ def read(*parts):
 
 class HelpPopup(unittest.TestCase):
     def test_the_labels_section_is_gone_and_the_others_are_still_there(self):
-        help_html = read("html", "help-modal.html")
-        titles = re.findall(r'<span class="modal-card-title">([^<]*)</span>', help_html)
+        modals = read("js", "app-modals.js")
+        help_html = modals[modals.index("const helpModal = ui.modal({"):modals.index("const guessedNamesModal")]
+        titles = re.findall(r'ui\.section\(\{\s*title: "([^"]*)"', help_html)
         self.assertEqual(titles, ["Known issues", "More support"])
         for gone in ("What the labels on a mod mean", "UI art only", "Needs romfs folder", "Needs manual fix", "Slot / music mismatch",
                      "Voice: mute a line", "Two mods clash", "If something goes wrong"):

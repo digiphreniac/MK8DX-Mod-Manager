@@ -174,8 +174,7 @@ function buildPackBadge(key, cardName) {
   const names = (state.packLinks.by_unit || {})[key];
   if (!names || names.length < 2) return null;
   const others = names.filter(n => n !== cardName);
-  const badge = document.createElement("span");
-  badge.className = "linked-badge";
+  const badge = ui.chip({ tone: "accent", dashed: true, bold: true, size: "xs", cursor: "pointer", class: "linked-badge" }).el;
   badge.textContent = others.length === 1 ? `Pack \u00b7 also ${refileLabel(others[0])}` : `Pack \u00b7 ${names.length} things`;
   badge.title = `This mod replaces ${names.map(refileLabel).join(", ")}. It is listed on each of their cards; selecting it turns on all of them. Click to open ${refileLabel(others[0])}.`;
   badge.addEventListener("click", (e) => {
@@ -329,7 +328,7 @@ async function renderCupOrCourseGrid() {
 async function renderCupGrid() {
   const grid = document.getElementById("cup-grid");
   const token = ++cupGridToken;
-  courseHover.hide();   // the tile under the mouse was just replaced
+  courseGrid.hideFrame();   // the tile under the mouse was just replaced
   const conflictChecks = [];
   const tiles = [];
 
@@ -338,45 +337,26 @@ async function renderCupGrid() {
     const checkedUnits = units.filter(k => state.checked[k]);
     const selected = checkedUnits.length;
     const moddedCourses = cup.courses.filter(c => c.units.some(u => state.checked[u])).length;
-    const tile = document.createElement("div");
-    tile.className = "cup-tile";
-    tile.dataset.cup = cup.cup;
-    tile.setAttribute("role", "button");
-    tile.setAttribute("aria-label", cup.cup);
-    tile.dataset.page = cupPageOf(cup.cup);
-    if (selected > 0) tile.classList.add("has-selected");
-    else tile.classList.add("no-mods");
-    if (cup.cup === selectedCup) tile.classList.add("active");
-    tile.addEventListener("click", () => {
-      if (selectedCup === cup.cup) {
-        if (selectedCourse !== null) { selectedCourse = null; markActiveCourse(); }   // back to the cup itself
-        return;
-      }
-      document.querySelectorAll("#cup-grid .cup-tile.active").forEach(t => t.classList.remove("active"));
-      tile.classList.add("active");
-      selectedCourse = null;
-      renderCourseStrip(cup.cup);
-    });
+    const tile = ui.tile({
+      variant: "cup", key: cup.cup, page: cupPageOf(cup.cup), selected, active: cup.cup === selectedCup,
+      bubble: moddedCourses > 0 ? `${moddedCourses}/${cup.courses.length}` : null,
+      onClick: () => {
+        if (selectedCup === cup.cup) {
+          if (selectedCourse !== null) { selectedCourse = null; markActiveCourse(); }   // back to the cup itself
+          return;
+        }
+        document.querySelectorAll("#cup-grid .cup-tile.active").forEach(t => t.classList.remove("active"));
+        tile.classList.add("active");
+        selectedCourse = null;
+        renderCourseStrip(cup.cup);
+      },
+    }).el;
     paintCupTile(tile);
-
-    if (moddedCourses > 0) {
-      const bubble = document.createElement("div");
-      bubble.className = "tile-count-bubble";
-      bubble.textContent = `${moddedCourses}/${cup.courses.length}`;
-      tile.appendChild(bubble);
-    }
 
     if (selected >= 2) {
       conflictChecks.push(
         conflictCount(checkedUnits).then(n => {
-          if (n > 0) {
-            tile.classList.add("has-conflict");
-            const conflictBadge = document.createElement("div");
-            conflictBadge.className = "char-conflict-badge";
-            conflictBadge.textContent = "!";
-            conflictBadge.title = `${n} conflicting file(s) among selected mods in this cup`;
-            tile.appendChild(conflictBadge);
-          }
+          if (n > 0) ui.tile.markConflict(tile, `${n} conflicting file(s) among selected mods in this cup`);
         })
       );
     }
@@ -412,7 +392,7 @@ async function renderCourseStrip(cupName) {
   selectedCup = cup.cup;
   if (selectedCourse !== null && !cup.courses.some(c => c.name === selectedCourse)) selectedCourse = null;
   const token = ++courseStripToken;
-  courseHover.hide();
+  courseGrid.hideFrame();
   updateCourseNameBar();
 
   const strip = document.getElementById("course-strip");
@@ -455,14 +435,7 @@ async function renderCourseStrip(cupName) {
       { overlayCount: true }
     );
     if (course.name === selectedCourse) tile.classList.add("active");
-    if (checkedUnits.some(u => conflictingUnits.has(u))) {
-      tile.classList.add("has-conflict");
-      const conflictBadge = document.createElement("div");
-      conflictBadge.className = "char-conflict-badge";
-      conflictBadge.textContent = "!";
-      conflictBadge.title = "This course's selected mod conflicts with another selected mod in this cup - open a course here to see which files.";
-      tile.appendChild(conflictBadge);
-    }
+    if (checkedUnits.some(u => conflictingUnits.has(u))) ui.tile.markConflict(tile, "This course's selected mod conflicts with another selected mod in this cup - open a course here to see which files.");
     // Shows the mod's own actual course-select picture when it has one, so
     // it's obvious at a glance which courses do/don't provide one - see the
     // Help page's "select-screen icon or results-screen background is
@@ -554,40 +527,29 @@ function selectCourse(name) {
   markActiveCourse();
 }
 function markActiveCourse() {
-  for (const t of document.querySelectorAll("#course-strip .char-tile")) t.classList.toggle("active", t.dataset.char === selectedCourse);
+  courseGrid.markActive(selectedCourse, ".char-tile");
   updateCourseNameBar();
 }
 
 // ---- the name plate ----
 // While the mouse is over a tile the plate shows THAT cup or course (as the game's select screen does as the cursor
 // moves); otherwise the selected course, else the selected cup. A course also shows its cup, small and dim.
-let courseHoverEl = null;
-function updateCourseNameBar() {
-  const plate = document.getElementById("course-name-plate");
+// What the tiles of Course Select (the cups and the courses of one) share (ui.tileGrid); the layout itself is fitCourseScreen.
+const courseGrid = ui.tileGrid({
+  roots: [document.getElementById("cup-grid"), document.getElementById("course-strip")], tileSelector: ".cup-tile, .char-tile",
+  frameHost: document.getElementById("view-courses"), plate: document.getElementById("course-name-plate"),
+  resolve: resolveCoursePlate,
+  fit: fitCourseScreen, observe: [document.getElementById("course-layout")],
+});
+function resolveCoursePlate(hover) {
   let main = null, context = null;
-  const el = courseHoverEl && courseHoverEl.isConnected ? courseHoverEl : null;
-  if (el && el.classList.contains("cup-tile")) main = el.dataset.cup;
-  else if (el) { main = el.dataset.char; context = selectedCup; }
+  if (hover && hover.classList.contains("cup-tile")) main = hover.dataset.cup;
+  else if (hover) { main = hover.dataset.char; context = selectedCup; }
   else if (selectedCourse !== null) { main = selectedCourse; context = selectedCup; }
   else main = selectedCup;
-  plate.replaceChildren();
-  if (!main) { plate.classList.remove("show"); return; }
-  plate.append(main);
-  if (context) {
-    const base = document.createElement("span");
-    base.className = "np-base";
-    base.textContent = `(${context})`;
-    plate.appendChild(base);
-  }
-  plate.classList.add("show");
+  return main ? { main, dim: context } : null;
 }
-for (const root of [document.getElementById("cup-grid"), document.getElementById("course-strip")]) {
-  root.addEventListener("mouseover", (e) => {
-    const tile = e.target.closest(".cup-tile, .char-tile");
-    if (tile && tile !== courseHoverEl) { courseHoverEl = tile; updateCourseNameBar(); }
-  });
-  root.addEventListener("mouseleave", () => { courseHoverEl = null; updateCourseNameBar(); });
-}
+function updateCourseNameBar() { courseGrid.refresh(); }
 
 // ---- fitting the screen ----
 // Everything on Course Select is sized from the room there is, so nothing scrolls: the cups (one square tile size
@@ -625,7 +587,7 @@ function applyCupPage() {
   document.getElementById("cup-prev").classList.toggle("has-mods", onDlc && modded("base"));
   document.getElementById("cup-next").classList.toggle("has-mods", !onDlc && modded("dlc"));
   document.getElementById("cup-page-label").textContent = onDlc ? "Booster Course Pass \u00b7 2 of 2" : "Mario Kart 8 Deluxe \u00b7 1 of 2";
-  courseHover.hide();
+  courseGrid.hideFrame();
 }
 function turnCupPage(page) {
   cupPages.current = page;
@@ -664,7 +626,6 @@ function fitCourseScreen() {
   layout.style.setProperty("--cup", best.cup + "px");
   layout.style.setProperty("--course-w", best.w + "px");
 }
-new ResizeObserver(fitCourseScreen).observe(document.getElementById("course-layout"));
 
 function switchView(mode) {
   viewMode = mode;
@@ -680,12 +641,7 @@ function switchView(mode) {
   document.getElementById("view-items").hidden = mode !== "items";
   document.getElementById("view-more").hidden = mode !== "more";
   document.getElementById("view-list").hidden = mode !== "list";
-  document.getElementById("tab-characters").classList.toggle("active", mode === "characters");
-  document.getElementById("tab-courses").classList.toggle("active", mode === "courses");
-  document.getElementById("tab-vehicles").classList.toggle("active", mode === "vehicles");
-  document.getElementById("tab-items").classList.toggle("active", mode === "items");
-  document.getElementById("tab-more").classList.toggle("active", mode === "more");
-  document.getElementById("tab-list").classList.toggle("active", mode === "list");
+  mainTabs.setActive(mode);
   applyCharacterLayout();
   drawViewIfStale(mode);   // (its redraw was still waiting for its turn)
   if (mode === "courses") fitCourseScreen();   // (it was hidden, so it hasn't been measured since the window last changed)
@@ -698,25 +654,29 @@ function switchView(mode) {
   }
   markActiveTile();
 }
-document.getElementById("tab-characters").addEventListener("click", () => switchView("characters"));
-document.getElementById("tab-courses").addEventListener("click", () => switchView("courses"));
-document.getElementById("tab-vehicles").addEventListener("click", () => { switchView("vehicles"); renderVehiclesView(); });
-document.getElementById("tab-items").addEventListener("click", () => { switchView("items"); renderItemsView(); });
-document.getElementById("tab-more").addEventListener("click", () => { switchView("more"); renderMoreList(); });
-document.getElementById("tab-list").addEventListener("click", () => switchView("list"));
+// The row of tabs under the header (Characters, Courses ...): a tab opens its screen, and some draw it fresh as well.
+const mainTabs = ui.tabs({
+  el: document.getElementById("tabs"),
+  label: "Mods",
+  items: [{ id: "characters", label: "Characters" }, { id: "courses", label: "Courses" }, { id: "vehicles", label: "Vehicles" },
+    { id: "items", label: "Items" }, { id: "more", label: "More" }, { id: "list", label: "Full List" }],
+  active: "characters",
+  onChange: (id) => {
+    switchView(id);
+    if (id === "vehicles") renderVehiclesView();
+    else if (id === "items") renderItemsView();
+    else if (id === "more") renderMoreList();
+  },
+});
 
 function openSettingsModal() {
-  document.getElementById("settings-modal-backdrop").hidden = false;
+  settingsModal.open();
   renderUiIconWorklist();
   renderUiSetupSettingsCard();
   renderConflicts();
 }
 function closeSettingsModal() {
-  document.getElementById("settings-modal-backdrop").hidden = true;
+  settingsModal.close();
 }
 document.getElementById("btn-settings").addEventListener("click", openSettingsModal);
-document.getElementById("btn-settings-modal-close").addEventListener("click", closeSettingsModal);
-document.getElementById("settings-modal-backdrop").addEventListener("click", (e) => {
-  if (e.target.id === "settings-modal-backdrop") closeSettingsModal();
-});
 

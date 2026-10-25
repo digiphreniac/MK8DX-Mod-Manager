@@ -1,0 +1,15 @@
+  /* ui.chip (js/ui/chip.js): a small rounded label. Tones say how it stands (neutral, ok, warn, accent), sizes how big. */
+  .ui-chip { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--thumb-bg); color: var(--text-dim); }
+  .ui-chip--md { font-size: 12px; padding: 3px 10px; }
+  .ui-chip--ok { background: var(--ok-soft); color: var(--ok); --chip-line: var(--ok); }
+  .ui-chip--warn { background: var(--warn-soft); color: var(--warn); --chip-line: var(--warn); }
+  .ui-chip--accent { background: var(--accent-soft); color: var(--accent); --chip-line: var(--accent); }
+  .ui-chip--bold { font-weight: 600; }
+  .ui-chip--solid.ui-chip--ok { background: var(--ok); color: #fff; }
+  .ui-chip--caps { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; }
+  /* a badge on a row of a list: smaller than the rest, and it never wraps (after caps, so it wins the size) */
+  .ui-chip--xs { font-size: 10.5px; padding: 1px 8px; white-space: nowrap; }
+  .ui-chip--outline { border: 1px solid var(--chip-line, var(--panel-border)); }
+  .ui-chip--dashed { border: 1px dashed var(--chip-line, var(--panel-border)); background: transparent; }
+  .ui-chip--help { cursor: help; }
+  .ui-chip--pointer { cursor: pointer; }

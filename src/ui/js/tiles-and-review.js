@@ -1,13 +1,4 @@
 // ---- waiting: placeholders shaped like what is coming, and a spinner for the wait itself ----
-function loadingNote(text) {
-  const n = document.createElement("div");
-  n.className = "load-note";
-  const sp = document.createElement("span");
-  sp.className = "spin";
-  n.appendChild(sp);
-  n.appendChild(document.createTextNode(text));
-  return n;
-}
 function skeleton(w, h, radius) {
   const d = document.createElement("div");
   d.className = "sk";
@@ -29,91 +20,20 @@ function skeletonGrid(n) {
 // vanishing out from under it.
 const gbModBlockCollapsed = new Set();
 
+// A tile for something with mods: which of its units are ticked (state.checked) become the numbers ui.tile shows.
 function buildTile(displayName, units, onClick, gbAttempted, opts) {
   opts = opts || {};
-  const overlayCount = !!opts.overlayCount;
-  const total = units.length;
   const checkedUnits = units.filter(k => state.checked[k]);
-  const selected = checkedUnits.length;
-  const tile = document.createElement("div");
-  tile.className = "char-tile";
-  tile.dataset.char = displayName;
-  if (selected > 0) tile.classList.add("has-selected");
-  if (total === 0) tile.classList.add("no-mods");
-  if (opts.gradientColors) {
-    tile.classList.add("has-gradient");
-    tile.style.backgroundImage = buildCornerGradient(opts.gradientColors);
-  }
-  tile.addEventListener("click", onClick);
-
-  // Means a GameBanana download was actually attempted for this item but
-  // produced zero usable merge units (needs manual fix / missing romfs
-  // folder / etc.) - without this, that state looked identical to "nobody
-  // has touched this yet" on the grid, so it was easy to lose track of
-  // while scanning for what's left.
-  if (gbAttempted && total === 0) {
-    tile.classList.add("needs-attention");
-    const dot = document.createElement("div");
-    dot.className = "char-attention-dot";
-    dot.title = "Downloaded, but couldn't be auto-merged - open it to see why";
-    tile.appendChild(dot);
-  }
-
-  let badge = null;
-  if (!opts.hideBadge) {
-    badge = document.createElement("div");
-    badge.className = "char-badge";
-    badge.textContent = initials(displayName);
-    tile.appendChild(badge);
-  }
-
-  const name = document.createElement("div");
-  name.className = "char-name";
-  name.textContent = displayName;
-  tile.appendChild(name);
-
-  if (total === 0) {
-    if (gbAttempted) {
-      const count = document.createElement("div");
-      count.className = "char-count count-attention";
-      count.textContent = "needs attention";
-      tile.appendChild(count);
-    } else {
-      // No visible text for the plain "nothing downloaded yet" case - the tile is already
-      // faded (.no-mods, below) to say so at a glance; the words live in the tooltip instead.
-      // Set directly (courses/vehicles stop here) AND as countNote (characters' applyCharacterLook
-      // reads that back and folds it in alongside whatever the tile's icon note says).
-      tile.title = tile.dataset.countNote = "No mods yet";
-    }
-  } else if (overlayCount && opts.showCount === false) {
-    // Counts are switched off (Settings > App experience). One state is still worth a quiet cue:
-    // mods are downloaded but none is ticked yet. The numbers stay in the tile's tooltip.
-    tile.dataset.countNote = `${selected} of ${total} mod${total === 1 ? "" : "s"} selected`;
-    if (selected === 0) {
-      const ring = document.createElement("div");
-      ring.className = "tile-pending-dot";
-      ring.title = `${total} mod${total === 1 ? "" : "s"} downloaded - none selected yet`;
-      tile.appendChild(ring);
-    }
-  } else if (overlayCount) {
-    // Notification-style bubble instead of a bottom-of-tile line, so it can
-    // sit on top of a course preview image rather than pushing it down.
-    const bubble = document.createElement("div");
-    bubble.className = "tile-count-bubble";
-    bubble.textContent = `${selected}/${total}`;
-    bubble.title = `${selected}/${total} selected`;
-    tile.appendChild(bubble);
-  } else {
-    const count = document.createElement("div");
-    count.className = "char-count";
-    count.textContent = `${selected}/${total} selected`;
-    tile.appendChild(count);
-  }
-
-  const noteMark = buildTileNote(units);   // (a pencil when one of its ticked mods has a note of the user's - mod-notes.js)
-  if (noteMark) tile.appendChild(noteMark);
-
-  return { tile, checkedUnits, selected, badge, nameEl: name };
+  const t = ui.tile({
+    key: displayName, label: displayName, badge: opts.hideBadge ? null : initials(displayName),
+    selected: checkedUnits.length, total: units.length,
+    count: opts.overlayCount ? (opts.showCount === false ? "quiet" : "bubble") : "line",
+    attention: !!gbAttempted,
+    background: opts.gradientColors ? buildCornerGradient(opts.gradientColors) : null,
+    note: buildTileNote(units),      // (a pencil when one of its ticked mods has a note of the user's - mod-notes.js)
+    onClick,
+  });
+  return { tile: t.el, checkedUnits, selected: checkedUnits.length, badge: t.badge, nameEl: t.nameEl };
 }
 
 // The look of each character tile: the first available of the select-screen, results and map
@@ -178,7 +98,7 @@ function applyCharacterLook(ref, looks) {
         el.src = f.icon;
         el.alt = v.label;
       } else {
-        el = cgEl("div", "variant-ph " + pos, v.label);
+        el = ui.el("div", "variant-ph " + pos, v.label);
       }
       el.addEventListener("click", (e) => { e.stopPropagation(); selectCharacter(v.name); });
       slots.push(el);
@@ -243,7 +163,7 @@ function applyVoiceMarker(ref, voice) {
     ? "Muted: all of this character's voice is silenced (Voice row on its card)"
     : `Voice files: ${voiceWhat(found.some(f => f.race), found.some(f => f.menu))} (from ${from.join(", ")})`
       + (found.some(f => f.select) ? "\nSelect sound: click to hear it" : "");
-  const mark = cgEl("div", "tile-voice-mark" + (muted ? " muted" : ""));
+  const mark = ui.el("div", "tile-voice-mark" + (muted ? " muted" : ""));
   if (voiceNow.speaking && ref.names.includes(voiceNow.speaking)) mark.classList.add("speaking");
   mark.setAttribute("role", "img");
   mark.setAttribute("aria-label", note);
@@ -365,7 +285,7 @@ function onItemFinished(kind, name) {
   reviewQueue.timer = setTimeout(advanceReviewQueue, 700);
 }
 function buildReviewBar() {
-  const el = cgEl("div", "review-bar");
+  const el = ui.el("div", "review-bar");
   reviewQueue.el = el;
   renderReviewBar();
   return el;
@@ -379,7 +299,7 @@ function renderReviewBar() {
     const stillOpen = new Set([...unfinishedNames(characterReview).map(n => itemKey("character", n)), ...unfinishedCourseNames().map(n => itemKey("course", n)),
                                ...unfinishedPartNames().map(n => itemKey("part", n))]);
     const skipped = [...reviewQueue.skipped].filter(k => stillOpen.has(k)).length;
-    el.appendChild(cgEl("span", "review-text", skipped ? `Done - ${skipped} skipped, still unfinished.` : "All done - everything is finished."));
+    el.appendChild(ui.el("span", "review-text", skipped ? `Done - ${skipped} skipped, still unfinished.` : "All done - everything is finished."));
     const t = flow.status ? flowNextTarget("mods", flow.status) : null;
     if (t) el.appendChild(button(t.label + "  \u2192", "primary small", () => { stopReviewQueue(); goStep(t.to, { skipGate: true }); }));
     el.appendChild(button("Close", "ghost small", stopReviewQueue));
@@ -389,7 +309,7 @@ function renderReviewBar() {
   const pos = total - (reviewQueue.remaining || 0) + 1;
   const kinds = new Set(reviewQueue.items.map(i => i.kind));
   const noun = kinds.size > 1 ? "items" : kinds.has("course") ? "courses" : kinds.has("part") ? "vehicle parts" : "characters";
-  el.appendChild(cgEl("span", "review-text", `Reviewing unfinished ${noun} \u00b7 ${Math.min(pos, total)} of ${total}`));
+  el.appendChild(ui.el("span", "review-text", `Reviewing unfinished ${noun} \u00b7 ${Math.min(pos, total)} of ${total}`));
   el.appendChild(button("Skip", "ghost small", () => { if (reviewQueue.current) reviewQueue.skipped.add(itemKey(reviewQueue.current.kind, reviewQueue.current.name)); advanceReviewQueue(); }));
   el.appendChild(button("Stop", "ghost small", stopReviewQueue));
 }
@@ -405,36 +325,31 @@ async function passUnfinishedGate() {
   } finally { gateBusy = false; }
 }
 function showUnfinishedGate(list, resolve) {
-  const back = cgEl("div", "gate-backdrop");
-  const card = cgEl("div", "gate-card");
-  card.setAttribute("role", "dialog");
-  card.setAttribute("aria-modal", "true");
   const n = list.length;
-  card.appendChild(cgEl("h3", null, `${unfinishedPhrase(list)} ${n === 1 ? "isn't" : "aren't"} finished`));
-  const chips = cgEl("div", "gate-chips");
-  for (const it of list.slice(0, 8)) chips.appendChild(cgEl("span", "gate-chip", it.shown !== it.name ? `${it.shown} (${it.name})` : it.name));
-  if (n > 8) chips.appendChild(cgEl("span", "gate-chip more", `and ${n - 8} more`));
-  card.appendChild(chips);
-  card.appendChild(cgEl("p", null, `${n === 1 ? "Its name or icon hasn't" : "Their names or icons haven't"} been confirmed yet. If you continue, they're used as they are now - and a name that was only a guess is built into the game's menus without being confirmed.`));
-  const acts = cgEl("div", "gate-actions");
   let finished = false;
+  // (closing it any other way - Escape, a click outside - is the same as "Review them" minus the review: the answer is no)
+  const modal = ui.modal({
+    variant: "card", footer: true, destroyOnClose: true, title: `${unfinishedPhrase(list)} ${n === 1 ? "isn't" : "aren't"} finished`,
+    onClose: () => done(false),
+  });
+  const card = modal.body;
+  const chips = ui.el("div", "gate-chips");
+  for (const it of list.slice(0, 8)) chips.appendChild(ui.chip({ text: it.shown !== it.name ? `${it.shown} (${it.name})` : it.name, tone: "warn", size: "md" }).el);
+  if (n > 8) chips.appendChild(ui.chip({ text: `and ${n - 8} more`, size: "md" }).el);
+  card.appendChild(chips);
+  card.appendChild(ui.el("p", null, `${n === 1 ? "Its name or icon hasn't" : "Their names or icons haven't"} been confirmed yet. If you continue, they're used as they are now - and a name that was only a guess is built into the game's menus without being confirmed.`));
+  const acts = modal.footer;
   const done = (value, after) => {
     if (finished) return;
     finished = true;
-    back.remove();
-    document.removeEventListener("keydown", onKey, true);
     resolve(value);
+    modal.close();
     if (after) after();
   };
-  const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); done(false); } };
-  document.addEventListener("keydown", onKey, true);
   const review = button("Review them", "primary", () => done(false, () => startReviewQueue(list)));
   acts.appendChild(review);
   acts.appendChild(button("Continue anyway", "ghost", () => done(true)));
-  card.appendChild(acts);
-  back.appendChild(card);
-  back.addEventListener("click", (e) => { if (e.target === back) done(false); });
-  document.body.appendChild(back);
+  modal.open();
   review.focus();
 }
 
@@ -465,52 +380,14 @@ function scheduleCharacterLooks(refs) {
 
 // The white corner frame: one element that slides to whichever tile the mouse is over. It is placed
 // without animation the first time (so it doesn't fly in from a corner) and glides after that.
-// `host` is a stable, positioned element the frame lives in (it must not be the grid that gets rebuilt);
-// `roots` are the elements whose tiles it follows; `tileSelector` says what counts as a tile.
-function makeHoverFrame(host, roots, tileSelector) {
-  const frame = document.createElement("div");
-  frame.className = "hover-frame";
-  host.appendChild(frame);
-  let shown = false;
-  function hide() {
-    frame.classList.remove("show");
-    shown = false;
-  }
-  function move(tile) {
-    const hr = host.getBoundingClientRect(), tr = tile.getBoundingClientRect();
-    const pad = 4;   // same margin as the yellow brackets
-    const x = tr.left - hr.left + host.scrollLeft - host.clientLeft - pad;
-    const y = tr.top - hr.top + host.scrollTop - host.clientTop - pad;
-    if (!shown) frame.style.transition = "none";
-    frame.style.transform = `translate(${x}px, ${y}px)`;
-    frame.style.width = (tr.width + 2 * pad) + "px";
-    frame.style.height = (tr.height + 2 * pad) + "px";
-    if (!shown) { void frame.offsetWidth; frame.style.transition = ""; }
-    frame.classList.add("show");
-    shown = true;
-  }
-  for (const root of roots) {
-    root.addEventListener("mouseover", (e) => {
-      const tile = e.target.closest(tileSelector);
-      if (tile && root.contains(tile)) move(tile);
-    });
-    root.addEventListener("mouseleave", hide);
-  }
-  return { hide };
-}
-const characterHover = makeHoverFrame(document.getElementById("char-grid-col"), [document.getElementById("char-grid")], ".char-tile");
-const courseHover = makeHoverFrame(document.getElementById("view-courses"),
-  [document.getElementById("cup-grid"), document.getElementById("course-strip")], ".cup-tile, .char-tile");
-
 async function renderCharacterGrid() {
   const grid = document.getElementById("char-grid");
   grid.innerHTML = "";
-  characterHover.hide();   // the tile under the mouse was just replaced
+  characterGrid.reset();   // the tile under the mouse was just replaced
   const conflictChecks = [];
   const coveredNames = new Set();
   const lookRefs = [];
   const showCount = !!(state.settings && state.settings.show_tile_counts);
-  hoverTileEl = null;
 
   for (const item of CHARACTER_GRID_LAYOUT) {
     let tile, checkedUnits, selected;
@@ -541,14 +418,7 @@ async function renderCharacterGrid() {
     if (selected >= 2) {
       conflictChecks.push(
         conflictCount(checkedUnits).then(n => {
-          if (n > 0) {
-            tile.classList.add("has-conflict");
-            const badge = document.createElement("div");
-            badge.className = "char-conflict-badge";
-            badge.textContent = "!";
-            badge.title = `${n} conflicting file(s) among selected mods`;
-            tile.appendChild(badge);
-          }
+          if (n > 0) ui.tile.markConflict(tile, `${n} conflicting file(s) among selected mods`);
         })
       );
     }
@@ -574,13 +444,7 @@ async function renderCharacterGrid() {
       if (selected >= 2) {
         conflictChecks.push(
           conflictCount(checkedUnits).then(n => {
-            if (n > 0) {
-              tile.classList.add("has-conflict");
-              const badge = document.createElement("div");
-              badge.className = "char-conflict-badge";
-              badge.textContent = "!";
-              tile.appendChild(badge);
-            }
+            if (n > 0) ui.tile.markConflict(tile);
           })
         );
       }
@@ -595,9 +459,6 @@ async function renderCharacterGrid() {
 }
 
 function closeModal() {
-  document.getElementById("modal-backdrop").classList.remove("above-settings");
-  document.getElementById("modal-backdrop").hidden = true;
-  openCharacter = null;
-  markActiveTile();
+  characterModal.close();       // (what it undoes when it closes: characterModal in app-modals.js)
 }
 

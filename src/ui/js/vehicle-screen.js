@@ -25,8 +25,13 @@ const VEHICLE_BODY_GROUPS = [
 ];
 const VEHICLE_KIND = { wheels: "Wheels", gliders: "Glider" };   // what the plate says a wheel / glider is (bodies: their type)
 
-const vehicleHover = makeHoverFrame(document.getElementById("view-vehicles"),
-  [document.getElementById("vehicle-sections")], ".char-tile");
+// What the tiles of the Vehicles screen share (ui.tileGrid); the layout itself is fitVehicleScreen.
+const vehicleGrid = ui.tileGrid({
+  roots: [document.getElementById("vehicle-sections")], tileSelector: ".char-tile",
+  frameHost: document.getElementById("view-vehicles"), plate: document.getElementById("vehicle-name-plate"),
+  resolve: resolveVehiclePlate,
+  fit: fitVehicleScreen, observe: [document.getElementById("vehicle-layout")],
+});
 
 function paintVehicleTile(tile) {
   // the picture the menus will show: the one you chose or a mod brings, else the game's own
@@ -54,7 +59,7 @@ function vehicleGroups(section) {
 
 function renderVehiclesView() {
   const container = document.getElementById("vehicle-sections");
-  vehicleHover.hide();   // the tile under the mouse is about to be replaced
+  vehicleGrid.reset();   // the tile under the mouse is about to be replaced
   container.replaceChildren();
   const icons = loadVehicleIcons();
   for (const section of state.vehicles) {
@@ -80,14 +85,7 @@ function renderVehiclesView() {
       const conflictPool = checkedUnits;
       if (conflictPool.length >= 2) {
         conflictCount(conflictPool).then(n => {
-          if (n > 0) {
-            tile.classList.add("has-conflict");
-            const badge = document.createElement("div");
-            badge.className = "char-conflict-badge";
-            badge.textContent = "!";
-            badge.title = `${n} conflicting file(s) among selected mods`;
-            tile.appendChild(badge);
-          }
+          if (n > 0) ui.tile.markConflict(tile, `${n} conflicting file(s) among selected mods`);
         });
       }
       paintVehicleTile(tile);
@@ -172,35 +170,20 @@ async function openPartCard(partName) {
 // closes, until another is opened - the yellow corner brackets and the plate follow it.
 function markActiveVehicle() {
   if (openCharacter !== null && findVehicleItem(openCharacter)) selectedVehicle = openCharacter;
-  for (const t of document.querySelectorAll("#vehicle-sections .char-tile")) t.classList.toggle("active", t.dataset.char === selectedVehicle);
+  vehicleGrid.markActive(selectedVehicle);
   updateVehicleNameBar();
 }
 
 // ---- the name plate ----
 // While the mouse is over a tile the plate shows THAT part (as the game's select screens do as the cursor moves);
 // otherwise the viewed one. The kind of part follows, small and dim.
-let vehicleHoverEl = null;
-function updateVehicleNameBar() {
-  const plate = document.getElementById("vehicle-name-plate");
-  const el = vehicleHoverEl && vehicleHoverEl.isConnected ? vehicleHoverEl : document.querySelector("#vehicle-sections .char-tile.active");
-  plate.replaceChildren();
-  if (!el) { plate.classList.remove("show"); return; }
+function resolveVehiclePlate(hover) {
+  const el = hover || vehicleGrid.active();
+  if (!el) return null;
   const shown = partReview[el.dataset.char] && partReview[el.dataset.char].shown;   // a modded name: the game's own follows, small and dim
-  plate.append(shown || el.dataset.char);
-  const dim = shown ? el.dataset.char : el.dataset.kind;
-  if (dim) {
-    const base = document.createElement("span");
-    base.className = "np-base";
-    base.textContent = `(${dim})`;
-    plate.appendChild(base);
-  }
-  plate.classList.add("show");
+  return { main: shown || el.dataset.char, dim: shown ? el.dataset.char : el.dataset.kind };
 }
-document.getElementById("vehicle-sections").addEventListener("mouseover", (e) => {
-  const tile = e.target.closest(".char-tile");
-  if (tile && tile !== vehicleHoverEl) { vehicleHoverEl = tile; updateVehicleNameBar(); }
-});
-document.getElementById("vehicle-sections").addEventListener("mouseleave", () => { vehicleHoverEl = null; updateVehicleNameBar(); });
+function updateVehicleNameBar() { vehicleGrid.refresh(); }
 
 // ---- fitting the screen ----
 // Everything on the Vehicles screen is sized from the room there is, so nothing scrolls: one tile size --vt (a 200:128
@@ -300,4 +283,3 @@ function fitVehicleScreen() {
   container.style.setProperty("--vg", best.g + "px");
   for (const box of container.querySelectorAll(".vehicle-section")) box.style.setProperty("--vc", best.cols[box.dataset.section]);
 }
-new ResizeObserver(fitVehicleScreen).observe(document.getElementById("vehicle-layout"));

@@ -1,21 +1,17 @@
 function openHelpModal() {
-  document.getElementById("help-modal-backdrop").hidden = false;
+  helpModal.open();
 }
 function closeHelpModal() {
-  document.getElementById("help-modal-backdrop").hidden = true;
+  helpModal.close();
 }
 document.getElementById("help-link").addEventListener("click", openHelpModal);
 document.getElementById("support-link").addEventListener("click", openSupportPage);
-document.getElementById("btn-help-modal-close").addEventListener("click", closeHelpModal);
 document.getElementById("btn-open-discord").addEventListener("click", () => openExternal(DISCORD_URL));
 document.getElementById("btn-show-log").addEventListener("click", async () => {
   const note = document.getElementById("help-log-note");
   const result = await diag.attempt(() => pywebview.api.show_log_file());
   note.hidden = !!result.success;
   if (!result.success) note.textContent = result.error;
-});
-document.getElementById("help-modal-backdrop").addEventListener("click", (e) => {
-  if (e.target.id === "help-modal-backdrop") closeHelpModal();
 });
 document.getElementById("help-modal-body").addEventListener("click", (e) => {
   const link = e.target.closest(".help-ext-link");
@@ -65,17 +61,17 @@ async function loadIconGenModIcons(name) {
   if (token !== iconGenIconsToken || !pics.length) return;
   for (const p of pics) {
     const label = (ML_KINDS.find(k => k[0] === p.kind) || [0, p.kind])[1];
-    const tile = cgEl("button", "icon-gen-icon");
+    const tile = ui.el("button", "icon-gen-icon");
     tile.type = "button";
     tile.title = p.for ? `Use this ${label} picture from ${p.from} (it is named for ${p.for})` : `Use this ${label} picture from ${p.from}`;
-    const imgBox = cgEl("div", "icon-gen-icon-img");
+    const imgBox = ui.el("div", "icon-gen-icon-img");
     const im = document.createElement("img");
     im.src = p.preview;
     im.alt = "";
     imgBox.appendChild(im);
     tile.appendChild(imgBox);
-    const cap = cgEl("span", "icon-gen-icon-cap");
-    cap.appendChild(cgEl("b", null, label + (p.colour != null ? ` \u00b7 colour ${p.colour + 1}` : "")));
+    const cap = ui.el("span", "icon-gen-icon-cap");
+    cap.appendChild(ui.el("b", null, label + (p.colour != null ? ` \u00b7 colour ${p.colour + 1}` : "")));
     cap.appendChild(document.createTextNode(p.for ? `${p.from} \u00b7 for ${p.for}` : p.from));
     tile.appendChild(cap);
     tile.addEventListener("click", async () => {
@@ -130,7 +126,7 @@ function openIconGenModal(courseName, screenshots, mode, onDone, opts) {
     grid.appendChild(img);
   }
   if (iconGenMode === "character" || iconGenMode === "part") {
-    const up = cgEl("label", "ml-upload", "Choose a picture from your computer...");
+    const up = ui.el("label", "ml-upload", "Choose a picture from your computer...");
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
@@ -145,12 +141,12 @@ function openIconGenModal(courseName, screenshots, mode, onDone, opts) {
     up.appendChild(input);
     grid.appendChild(up);
   }
-  document.getElementById("icon-gen-modal-backdrop").hidden = false;
+  iconGenModal.open();
   loadIconGenModIcons(courseName);
 }
 
 function closeIconGenModal() {
-  document.getElementById("icon-gen-modal-backdrop").hidden = true;
+  iconGenModal.close();
 }
 
 function selectIconGenScreenshot(shot) {
@@ -289,46 +285,4 @@ document.getElementById("btn-icon-gen-confirm").addEventListener("click", async 
   if (iconGenOnDone) iconGenOnDone();
 });
 
-document.getElementById("btn-icon-gen-modal-close").addEventListener("click", closeIconGenModal);
-document.getElementById("icon-gen-modal-backdrop").addEventListener("click", (e) => {
-  if (e.target.id === "icon-gen-modal-backdrop") closeIconGenModal();
-});
-
-document.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape") return;
-  if (!document.getElementById("icon-gen-modal-backdrop").hidden) {
-    closeIconGenModal();
-    return;
-  }
-  if (!document.getElementById("help-modal-backdrop").hidden) {
-    closeHelpModal();
-    return;
-  }
-  if (!document.getElementById("conflicts-modal-backdrop").hidden) {
-    closeConflictsModal();   // (opened from Settings: closing it leaves Settings open underneath)
-    return;
-  }
-  const shared = document.getElementById("modal-backdrop");
-  if (!shared.hidden && shared.classList.contains("above-settings")) {
-    closeModal();  // Clear All / Change directory, drawn above Settings
-    return;
-  }
-  if (!document.getElementById("settings-modal-backdrop").hidden) {
-    closeSettingsModal();
-    return;
-  }
-  if (!document.getElementById("add-mod-modal-backdrop").hidden) {
-    closeAddModModal();
-    return;
-  }
-  if (!document.getElementById("gb-detail-modal-backdrop").hidden) {
-    closeGbDetailModal();
-    return;
-  }
-  if (!document.getElementById("gb-browse-modal-backdrop").hidden) {
-    closeGbBrowseModal();
-    return;
-  }
-  if (openCharacter !== null) closeModal();
-});
 

@@ -16,19 +16,19 @@ function assembleItemCard(ctx) {
   if (reviewQueue.active) body.appendChild(buildReviewBar());   // the guided pass through what is unfinished
 
   // what this item is now, always in view: its picture, its name, where it stands
-  const pic = cgEl("img", "cc-item-pic");
+  const pic = ui.el("img", "cc-item-pic");
   pic.alt = "";
   pic.hidden = true;
-  const chip = cgEl("span", "cc-chip");
-  const headName = cgEl("div", "cc-headname", label);
-  const headSub = cgEl("div", "cc-headsub");
-  const headText = cgEl("div", "cc-headtext");
+  const chip = ui.chip({ size: "md" });
+  const headName = ui.el("div", "cc-headname", label);
+  const headSub = ui.el("div", "cc-headsub");
+  const headText = ui.el("div", "cc-headtext");
   headText.appendChild(headName);
   headText.appendChild(headSub);
-  const head = cgEl("div", "cc-head");
+  const head = ui.el("div", "cc-head");
   head.appendChild(pic);
   head.appendChild(headText);
-  head.appendChild(chip);
+  head.appendChild(chip.el);
   body.appendChild(head);
   const showPicture = () => {
     const src = itemIcons[name];
@@ -40,14 +40,14 @@ function assembleItemCard(ctx) {
   body.appendChild(conflictBox);   // clash warnings are never folded away
 
   // The mods: the ones in use stay on screen as rows; the rest sit behind "Manage"; adding another is a quiet row under.
-  const modPanel = cgEl("div", "cc-panel");
+  const modPanel = ui.el("div", "cc-panel");
   let manageBtn = null, modHint = null;
   if (hasMods && modsCard) {
     modsCard.classList.add("cc-mods");
     const hdr = modsCard.querySelector(".modal-card-header");
     manageBtn = button("Manage", "ghost small cc-manage", () => { manage = !manage; refresh(); });
     hdr.appendChild(manageBtn);
-    modHint = cgEl("div", "cc-hint");
+    modHint = ui.el("div", "cc-hint");
     hdr.after(modHint);
   }
   if (hasMods) modPanel.appendChild(mainCol);
@@ -57,10 +57,10 @@ function assembleItemCard(ctx) {
   // ---- "Other items": give each mod its item ----
   // Every mod's "..." menu can move it (see refile.js); "Other items" is where mods that name no single item pile up, so it also
   // lists each one with a picker right here, open by default.
-  const moveBox = cgEl("details", "cc-move");
+  const moveBox = ui.el("details", "cc-move");
   moveBox.hidden = true;
-  const moveHead = cgEl("summary", null, "Give a mod its item");
-  const moveBody = cgEl("div", "cc-move-body");
+  const moveHead = ui.el("summary", null, "Give a mod its item");
+  const moveBody = ui.el("div", "cc-move-body");
   moveBox.appendChild(moveHead);
   moveBox.appendChild(moveBody);
   if (catchAll) body.appendChild(moveBox);
@@ -73,15 +73,15 @@ function assembleItemCard(ctx) {
     const keys = entry.units.filter(k => ids[k]);
     if (!keys.length) return;
     moveBody.replaceChildren();
-    moveBody.appendChild(cgEl("div", "cg-note", `These mods don't replace one single listed item. Pick the item each one replaces and move it there - its files, its selection and its GameBanana record all move with it.`));
+    moveBody.appendChild(ui.hint(`These mods don't replace one single listed item. Pick the item each one replaces and move it there - its files, its selection and its GameBanana record all move with it.`, { class: "cg-note" }));
     for (const key of keys) {
-      const row = cgEl("div", "cc-move-row");
+      const row = ui.el("div", "cc-move-row");
       const modName = key.split("/").slice(2).join("/");
-      row.appendChild(cgEl("span", "cc-move-name", modName));
+      row.appendChild(ui.el("span", "cc-move-name", modName));
       const sel = document.createElement("select");
       sel.appendChild(new Option("Move to...", ""));
       for (const it of state.items) if (it.name !== name) sel.appendChild(new Option(itemLabel(it.name), it.name));
-      const err = cgEl("span", "gb-mod-error");
+      const err = ui.el("span", "gb-mod-error");
       const go = button("Move", "small", async () => {
         if (!sel.value) return;
         go.disabled = true;
@@ -126,8 +126,7 @@ function assembleItemCard(ctx) {
     if (!hasMods) chipText = "No mod yet";
     else if (!ticked.length) { chipText = "Choose a mod"; chipCls = "warn"; }
     else { chipText = "In use"; chipCls = "ok"; }
-    chip.textContent = chipText;
-    chip.className = "cc-chip " + chipCls;
+    chip.set(chipText, chipCls || "neutral");
   }
 
   // Ticking inside the list: the list stays open while the user works in it - "Done" folds it back to the mods in use.

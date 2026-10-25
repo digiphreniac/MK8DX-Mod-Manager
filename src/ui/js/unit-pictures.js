@@ -28,44 +28,34 @@ function pictureSummary(p) {
   return t;
 }
 async function openUnitPictures(unitKey, siblings, modLabel) {
-  closeClMenus();
-  const back = cgEl("div", "gate-backdrop");
-  const card = cgEl("div", "gate-card pics-card");
-  card.setAttribute("role", "dialog");
-  card.setAttribute("aria-modal", "true");
-  card.appendChild(cgEl("h3", null, "Menu pictures"));
-  card.appendChild(cgEl("div", "pics-sub", modLabel));
-  const body = cgEl("div", "pics-body");
-  body.appendChild(cgEl("div", "voice-empty", "Looking at the pictures\u2026"));
+  ui.menu.closeAll();
+  const modal = ui.modal({ variant: "card", class: "pics-card", title: "Menu pictures", footer: true, destroyOnClose: true });
+  const card = modal.body;
+  card.appendChild(ui.el("div", "pics-sub", modLabel));
+  const body = ui.el("div", "pics-body");
+  body.appendChild(ui.el("div", "voice-empty", "Looking at the pictures\u2026"));
   card.appendChild(body);
-  const acts = cgEl("div", "gate-actions");
-  const close = () => { back.remove(); document.removeEventListener("keydown", onKey, true); };
-  const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
-  document.addEventListener("keydown", onKey, true);
-  const closeBtn = button("Close", "primary", close);
-  acts.appendChild(closeBtn);
-  card.appendChild(acts);
-  back.appendChild(card);
-  back.addEventListener("click", (e) => { if (e.target === back) close(); });
-  document.body.appendChild(back);
+  const closeBtn = button("Close", "primary", () => modal.close());
+  modal.footer.appendChild(closeBtn);
+  modal.open();
   closeBtn.focus();
   let r;
   try { r = await pywebview.api.get_unit_picture_sets(unitKey, siblings); } catch (e) { r = null; }
-  if (!back.isConnected) return;
+  if (!modal.isOpen) return;
   body.replaceChildren();
   const sets = (r && r.sets) || [];
-  if (!sets.length) { body.appendChild(cgEl("div", "voice-empty", "No menu pictures could be read from this mod.")); return; }
+  if (!sets.length) { body.appendChild(ui.el("div", "voice-empty", "No menu pictures could be read from this mod.")); return; }
   for (const st of sets) {
-    const box = cgEl("div", "pics-set");
-    const title = cgEl("div", "pics-title", st.label);
-    if (st.colours > 1) title.appendChild(cgEl("span", "pics-note", `${st.colours} colours - the first is shown`));
+    const box = ui.el("div", "pics-set");
+    const title = ui.el("div", "pics-title", st.label);
+    if (st.colours > 1) title.appendChild(ui.el("span", "pics-note", `${st.colours} colours - the first is shown`));
     box.appendChild(title);
-    if (st.for) box.appendChild(cgEl("div", "pics-warn", `These pictures are named for ${st.for}, not for this character. You can still use them from its Icons row.`));
-    const row = cgEl("div", "pics-row");
+    if (st.for) box.appendChild(ui.el("div", "pics-warn", `These pictures are named for ${st.for}, not for this character. You can still use them from its Icons row.`));
+    const row = ui.el("div", "pics-row");
     for (const kind of PIC_ORDER) {
-      const tile = cgEl("div", "pics-tile");
+      const tile = ui.el("div", "pics-tile");
       const have = st.kinds[kind];
-      const frame = cgEl("div", "pics-img" + (have ? "" : " none"));
+      const frame = ui.el("div", "pics-img" + (have ? "" : " none"));
       if (have) {
         const img = document.createElement("img");
         img.src = have.preview;
@@ -75,64 +65,14 @@ async function openUnitPictures(unitKey, siblings, modLabel) {
         frame.textContent = kind !== "Chara" && st.kinds.Chara ? "Not included - can be made from the Select screen" : "Not included";
       }
       tile.appendChild(frame);
-      const cap = cgEl("div", "pics-cap", PIC_LABELS[kind]);
-      if (have) cap.appendChild(cgEl("span", "pics-size", have.size));
+      const cap = ui.el("div", "pics-cap", PIC_LABELS[kind]);
+      if (have) cap.appendChild(ui.el("span", "pics-size", have.size));
       tile.appendChild(cap);
       row.appendChild(tile);
     }
     box.appendChild(row);
     body.appendChild(box);
   }
-  body.appendChild(cgEl("div", "pics-hint", "You choose which pictures to use in its Icons row."));
-}
-
-// A small popup menu opened from a "..." button (`items`: [{label, title, run} | "-"]). It closes on any click
-// elsewhere and on Escape, and opens upward when it would run off the bottom of the window.
-function closeClMenus() {
-  document.querySelectorAll(".cl-menu").forEach(m => {
-    if (m._btn) m._btn.removeAttribute("aria-expanded");
-    m.remove();
-  });
-}
-document.addEventListener("click", closeClMenus);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeClMenus(); });
-window.addEventListener("resize", closeClMenus);
-window.addEventListener("scroll", closeClMenus, true);
-function clKebab(label, getItems) {
-  const btn = cgEl("button", "cl-kebab", "\u22ef");
-  btn.type = "button";
-  btn.title = label;
-  btn.setAttribute("aria-label", label);
-  btn.setAttribute("aria-haspopup", "menu");
-  btn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const wasOpen = btn.getAttribute("aria-expanded") === "true";
-    closeClMenus();
-    if (wasOpen) return;
-    const m = cgEl("div", "cl-menu");
-    m.setAttribute("role", "menu");
-    for (const it of getItems()) {
-      if (it === "-") { m.appendChild(cgEl("div", "cl-menu-sep")); continue; }
-      const b = cgEl("button", "cl-menu-item" + (it.danger ? " danger" : ""), it.label);
-      b.type = "button";
-      b.setAttribute("role", "menuitem");
-      if (it.title) b.title = it.title;
-      if (it.disabled) b.disabled = true;
-      b.addEventListener("click", (ev) => { ev.stopPropagation(); if (it.disabled) return; closeClMenus(); it.run(); });
-      m.appendChild(b);
-    }
-    // fixed to the window, beside the button: opens downward, or upward when there is no room below
-    m._btn = btn;
-    document.body.appendChild(m);
-    const r = btn.getBoundingClientRect();
-    let top = r.bottom + 4;
-    if (top + m.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - m.offsetHeight - 4);
-    m.style.top = top + "px";
-    m.style.left = Math.max(8, Math.min(window.innerWidth - m.offsetWidth - 8, r.right - m.offsetWidth)) + "px";
-    btn.setAttribute("aria-expanded", "true");
-    const first = m.querySelector(".cl-menu-item");
-    if (first) first.focus({ preventScroll: true });
-  });
-  return btn;
+  body.appendChild(ui.hint("You choose which pictures to use in its Icons row.", { class: "pics-hint", size: "md" }));
 }
 

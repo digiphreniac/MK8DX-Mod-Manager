@@ -45,7 +45,7 @@ The app copies the few files it needs into the master folder; it doesn't ship an
 
 The app walks you through four steps, shown in its header: **Setup**, **Choose mods**, **Commit**, **Copy to Switch**.
 The day-to-day guide is the app's own **Help** panel (top right); it covers the flow, Menu Look, voice editing, conflicts
-and known issues, and stays current with the UI because it lives in the UI (`src/ui/html/help-modal.html`).
+and known issues, and stays current with the UI because it lives in the UI (the `helpModal` spec in `src/ui/js/app-modals.js`).
 
 ## Project layout
 

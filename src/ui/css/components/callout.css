@@ -1,0 +1,25 @@
+  /* ui.callout and ui.hint (js/ui/callout.js): a note that asks something of the user, and one small line of explanation. */
+  .ui-callout { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--panel-border);
+    border-left: 4px solid var(--text-dim); margin-bottom: 8px; font-size: 13px; line-height: 1.45; }
+  .flow-body .ui-callout { background: var(--bg-soft); }
+  .ui-callout--todo { border-left-color: var(--accent); }
+  .ui-callout--warn { border-left-color: var(--warn); }
+  .ui-callout-icon { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; color: var(--text-dim); }
+  .ui-callout-icon svg { display: block; }
+  .ui-callout--todo .ui-callout-icon { color: var(--accent); }
+  .ui-callout--warn .ui-callout-icon { color: var(--warn); }
+  .ui-callout-text { flex: 1; min-width: 0; max-width: 64ch; }
+  .ui-callout-title { font-weight: 600; font-size: 13.5px; }
+  .ui-callout-detail { color: var(--text); margin-top: 2px; }
+  .ui-callout .ui-callout-act { flex: 0 0 auto; align-self: center; margin-left: auto; }
+  .ui-callout-list { margin-top: 6px; font-size: 12.5px; }
+  .ui-callout-list-body { max-height: 180px; overflow-y: auto; }
+  .ui-callout-list-body a { display: block; cursor: pointer; text-decoration: underline; padding: 2px 0; }
+  .ui-callout-list-body a:hover { color: var(--accent); }
+  /* said to a screen reader, not shown (the word that goes with a note's colour and shape) */
+  .ui-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .ui-hint { font-size: 12px; line-height: 1.45; color: var(--text-dim); margin: 6px 0 0 0; white-space: pre-line; }
+  .ui-hint--md { font-size: 12.5px; }
+  .ui-hint--error { font-size: 12.5px; color: var(--danger); }
+  .ui-hint--warn { font-size: 12.5px; color: var(--warn); background: var(--warn-soft); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }

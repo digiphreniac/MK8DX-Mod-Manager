@@ -1,0 +1,19 @@
+  /* ui.progress (js/ui/progress.js): one bar per phase of a long job (the commit). */
+  .ui-progress { border: 1px solid var(--panel-border); background: var(--panel); border-radius: 12px; padding: 14px 16px; margin: 0 0 16px 0; }
+  .ui-progress-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+  .ui-progress-title { font-size: 14px; font-weight: 700; }
+  .ui-progress-elapsed { font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .ui-progress-phases { display: flex; gap: 8px; }
+  .ui-progress-phase { flex: 1; min-width: 0; }
+  .ui-progress-bar { position: relative; height: 6px; border-radius: 3px; background: var(--divider); overflow: hidden; }
+  .ui-progress-fill { height: 100%; width: 0; border-radius: 3px; background: var(--accent); transition: width 0.25s ease; }
+  .ui-progress-phase--done .ui-progress-fill { background: var(--ok); }
+  /* a phase that can't say how far it is yet: a block slides along its bar. It is not the fill itself, so when the real count arrives the fill
+     starts from empty instead of shrinking back from the block's width */
+  .ui-progress-phase--unknown .ui-progress-bar::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; border-radius: 3px; background: var(--accent); animation: ui-progress-slide 1.2s ease-in-out infinite; }
+  @keyframes ui-progress-slide { from { left: -40%; } to { left: 100%; } }
+  @media (prefers-reduced-motion: reduce) { .ui-progress-phase--unknown .ui-progress-bar::after { animation: none; left: 0; width: 100%; opacity: 0.4; } }
+  .ui-progress-name { margin-top: 5px; font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ui-progress-phase--now .ui-progress-name { color: var(--text); font-weight: 600; }
+  .ui-progress-detail { margin-top: 12px; font-size: 13px; }
+  .ui-progress-note { margin-top: 6px; font-size: 12px; color: var(--text-dim); line-height: 1.4; }

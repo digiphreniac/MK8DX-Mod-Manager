@@ -24,11 +24,11 @@ Tooltips, scrollbars and waiting states; the four-step flow (Setup, Choose mods,
   Changing it moves nothing and makes the page ask for a new commit. The data folder's and the staging folder's cards each have a folder
   icon at the top right that opens the folder in the file manager (the setting's `open`; the staging folder is made first if it isn't there yet).
 - **Settings** is a wide window (up to 1040px) with two columns of cards when there is room for two (each at least 420px), one when there
-  isn't. The cards (`.settings-columns` in `html/settings-modal.html`) keep their order and the browser balances the columns by height
+  isn't. The cards (`ui.columns()` in the `settingsModal` spec, `js/app-modals.js`) keep their order and the browser balances the columns by height
   (CSS multi-column, `break-inside: avoid`), so the split moves by itself as cards fill in or grow. The columns sit in a box of automatic
-  height inside the scrolling body: multi-column inside a scrolling box of fixed height would spill sideways. The "App experience" card (the four on/off options) has a **Reset to default** button at the right of its header (`data-reset-group`), enabled only while an option differs from its default.
+  height inside the scrolling body: multi-column inside a scrolling box of fixed height would spill sideways. The "App experience" card (the four on/off options) has a **Reset to default** button at the right of its header (a header action of its `ui.section`), enabled only while an option differs from its default.
   "Conflicts and omitted files" is a **Review** button with a
-  one-line summary beside it; the list itself is in `html/conflicts-modal.html`, a modal opened from Settings (`openConflictsModal()`; Escape closes it first).
+  one-line summary beside it; the list itself is in the `conflictsModal` spec (`js/app-modals.js`), a window opened from Settings (`openConflictsModal()`; Escape closes it first, as it does the topmost of any `ui.modal`).
   The modal is kept short: a bar under its header always shows the count ("3 need settling - 104 files left out", or "All settled ..."),
   the cards that need a decision come first, and everything already done is one line each inside a "Settled / left out" section that is
   folded away while anything above still needs settling (the user's own open/close is remembered while the window stays open). File lists
