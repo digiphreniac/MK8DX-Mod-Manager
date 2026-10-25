@@ -158,7 +158,7 @@ function buildConflictCard(group, opts) {
     row.appendChild(r);
     const text = cgEl("span", "cg-choice-text");
     text.appendChild(document.createTextNode(title));
-    if (tag) text.appendChild(cgEl("span", "cg-tag", tag));
+    if (tag) text.appendChild(ui.chip({ text: tag, tone: "ok", class: "cg-tag" }).el);
     if (sub) text.appendChild(cgEl("small", null, sub));
     row.appendChild(text);
     r.addEventListener("change", () => {
@@ -220,12 +220,9 @@ function buildConflictCard(group, opts) {
   actions.appendChild(status);
   card.appendChild(actions);
 
-  const files = document.createElement("details");
-  files.className = "cg-files";
-  files.open = !!(state.settings && state.settings.advanced_mode);
-  files.appendChild(cgEl("summary", null, `Show the ${n === 1 ? "file" : n + " files"}`));
-  files.appendChild(cgFileList(group.paths));
-  card.appendChild(files);
+  card.appendChild(ui.disclosure({
+    class: "cg-files", open: !!(state.settings && state.settings.advanced_mode), summary: `Show the ${n === 1 ? "file" : n + " files"}`,
+  }, cgFileList(group.paths)).el);
   return card;
 }
 
@@ -362,14 +359,12 @@ async function renderConflicts() {
     if (result.resolved.length) counts.push(`${result.resolved.length} saved choice${result.resolved.length === 1 ? "" : "s"}`);
 
     // Finished items are one line each, and the whole section is folded away while something above still needs a decision.
-    const section = document.createElement("details");
-    section.className = "cg-settled";
-    section.open = conflictsSettledOpen !== null ? conflictsSettledOpen : result.groups.length === 0;
     const head = cgEl("summary", null, `Settled / left out (${counts.join(" \u00b7 ")})`);
     head.addEventListener("click", () => { conflictsSettledOpen = !section.open; });      // (only the user's own opening or closing counts)
-    section.appendChild(head);
     const rows = cgEl("div", "cg-rows");
-    section.appendChild(rows);
+    const section = ui.disclosure({
+      class: "cg-settled", summary: head, open: conflictsSettledOpen !== null ? conflictsSettledOpen : result.groups.length === 0,
+    }, rows);
 
     const row = (title, sub, buttons, paths) => {
       const r = cgEl("div", "cg-row");
@@ -383,11 +378,7 @@ async function renderConflicts() {
       for (const b of buttons) acts.appendChild(b);
       r.appendChild(acts);
       if (paths) {
-        const list = document.createElement("details");
-        list.className = "cg-files";
-        list.appendChild(cgEl("summary", null, `Show the ${paths.length === 1 ? "file" : paths.length + " files"}`));
-        list.appendChild(cgFileList(paths));
-        r.appendChild(list);
+        r.appendChild(ui.disclosure({ class: "cg-files", summary: `Show the ${paths.length === 1 ? "file" : paths.length + " files"}` }, cgFileList(paths)).el);
       }
       rows.appendChild(r);
     };
@@ -413,7 +404,7 @@ async function renderConflicts() {
       row(cut < 0 ? r.path : r.path.slice(cut + 1), `using ${shortName(r.preferred)} (saved earlier)`,
         [button("Clear", async () => { await pywebview.api.clear_conflict_resolution(r.path); await again(); })]);
     }
-    container.appendChild(section);
+    container.appendChild(section.el);
   }
   if (!any) {
     const none = cgEl("div", "conflicts-none");

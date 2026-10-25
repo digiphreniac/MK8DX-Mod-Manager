@@ -369,7 +369,7 @@ async function openVoiceEditor(character, onClose) {
     // one destructive action here (deleting a saved custom sound) is never a side effect of reading what it is.
     const a = cgEl("div", "ve-acts");
     if (!l.available) {
-      a.appendChild(cgEl("span", "ve-chip", l.state === "normal" ? (l.reason === "file" ? "not in this voice file" : "needs a voice file") : (l.state === "mute" ? "muted (paused)" : "replaced (paused)")));
+      a.appendChild(ui.chip({ text: l.state === "normal" ? (l.reason === "file" ? "not in this voice file" : "needs a voice file") : (l.state === "mute" ? "muted (paused)" : "replaced (paused)") }).el);
     } else {
       if (l.state === "mute" || l.state === "custom") {
         const o = button("\u25B6 original", "ve-orig", () => {});
@@ -378,9 +378,9 @@ async function openVoiceEditor(character, onClose) {
         o.addEventListener("click", (e) => { e.stopPropagation(); ob.click(); });
         a.appendChild(o);
       }
-      if (l.state === "silent") a.appendChild(cgEl("span", "ve-chip", "Already silent"));
+      if (l.state === "silent") a.appendChild(ui.chip({ text: "Already silent" }).el);
       if (l.state === "custom" && l.loud_level === "quiet") {
-        const chip = cgEl("span", "ve-chip warn", `Quiet (${l.loud_dbfs} dBFS)`);
+        const chip = ui.chip({ text: `Quiet (${l.loud_dbfs} dBFS)`, tone: "warn", bold: true }).el;
         chip.title = `Measured at ${l.loud_dbfs} dBFS; the game's own lines average about ${LOUD_TARGET_DBFS.toFixed(1)} dBFS.`;
         a.appendChild(chip);
         a.appendChild(button("Boost", "small", async () => {
@@ -395,11 +395,11 @@ async function openVoiceEditor(character, onClose) {
         }));
       }
       if (l.state === "mute") {
-        a.appendChild(cgEl("span", "ve-chip toggle-on", "Muted"));
+        a.appendChild(ui.chip({ text: "Muted", tone: "warn", bold: true }).el);
         a.appendChild(delButton("Undo the mute", () => setLine(l, "normal", row)));
       } else if (l.state === "custom") {
         const label = (l.custom && l.custom.name ? l.custom.name : "Your sound") + (l.custom && l.custom.seconds ? ` \u00b7 ${l.custom.seconds} s` : "");
-        a.appendChild(cgEl("span", "ve-chip toggle-on custom", label));
+        a.appendChild(ui.chip({ text: label, tone: "accent", bold: true }).el);
         a.appendChild(delButton("Delete this sound", async () => {
           const sure = await ui.confirm({
             title: "Delete your sound?", confirmLabel: "Delete", danger: true,

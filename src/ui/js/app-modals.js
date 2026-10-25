@@ -60,13 +60,12 @@ const conflictsModal = ui.modal({
   bar: true,
   body: [
     ui.el("div", { id: "conflicts-body" }, ui.el("div", { class: "conflicts-empty", text: "Loading…" })),
-    ui.el("details", "conflicts-howto",
-      ui.el("summary", { text: "How this works" }),
+    ui.disclosure({ class: "conflicts-howto", summary: "How this works" },
       ui.el("div", {
         class: "settings-hint",
         text: "When two selected mods change the same file you can keep one mod's copy, use the game's own file, or leave just those files out of one mod - the rest of the mod still works. " +
           "Leave-outs are remembered, even across re-downloads, and every mod's popup has a \"Files\" button (in a character's mod list it is \"Edit included files\" in the row's ... menu) to leave out any single file.",
-      })),
+      })).el,
   ],
 });
 

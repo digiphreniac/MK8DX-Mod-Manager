@@ -123,7 +123,7 @@ function buildCharacterLook(name, onLook) {
   function draw(look) {
     lastLook = look;
     if (look.error) {
-      nameWrap.replaceChildren(cgEl("div", "uis-warn", look.error));
+      nameWrap.replaceChildren(ui.hint(look.error, { tone: "warn" }));
       iconsWrap.replaceChildren();
       nameMode = iconsMode = "summary";
       if (onLook) onLook(look, { name: nameMode, icons: iconsMode });
@@ -378,7 +378,7 @@ function buildCharacterLook(name, onLook) {
     if (blocked.length) {
       const who = [...new Set(blocked.flatMap(sl => sl.blocked.who))].join(", ");
       const why = [...new Set(blocked.map(sl => sl.blocked.reason).filter(Boolean))].join("; ");
-      wrap.appendChild(cgEl("div", "uis-warn", `${blocked.length === 1 ? "One icon" : blocked.length + " icons"} from ${who} can't be applied - ${why}. The game's own ${blocked.length === 1 ? "picture is" : "pictures are"} used there.`));
+      wrap.appendChild(ui.hint(`${blocked.length === 1 ? "One icon" : blocked.length + " icons"} from ${who} can't be applied - ${why}. The game's own ${blocked.length === 1 ? "picture is" : "pictures are"} used there.`, { tone: "warn" }));
     }
     for (const m of (A.look.loose || []).filter(x => x.here)) {
       for (const set of m.sets.filter(x => x.for)) {
@@ -547,7 +547,7 @@ function assembleCharacterCard(ctx) {
   }
   // what this character is now: its (modded) name and where it stands - always in view
   if (reviewQueue.active) body.appendChild(buildReviewBar());
-  const chip = cgEl("span", "cc-chip");
+  const chip = ui.chip({ size: "md" });
   const headName = cgEl("div", "cc-headname");
   const headSub = cgEl("div", "cc-headsub");
   const headText = cgEl("div", "cc-headtext");
@@ -555,7 +555,7 @@ function assembleCharacterCard(ctx) {
   headText.appendChild(headSub);
   const head = cgEl("div", "cc-head");
   head.appendChild(headText);
-  head.appendChild(chip);
+  head.appendChild(chip.el);
   body.appendChild(head);
   body.appendChild(conflictBox);   // clash warnings are never folded away
 
@@ -676,8 +676,7 @@ function assembleCharacterCard(ctx) {
     else if (!look) { chipText = "Reading..."; chipCls = ""; }
     else if (!bothDone) { chipText = "Needs a look"; chipCls = "warn"; }
     else { chipText = "Done"; chipCls = "ok"; }
-    chip.textContent = chipText;
-    chip.className = "cc-chip " + chipCls;
+    chip.set(chipText, chipCls || "neutral");
   }
 
   // Ticking inside the list: variants (colours / options of the same files) are pick-one. The list stays

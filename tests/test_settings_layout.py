@@ -101,7 +101,7 @@ class TheConflictsModal(unittest.TestCase):
         self.assertIn("bar: true", modal)
         self.assertLess(modal.index("bar: true"), modal.index('id: "conflicts-body"'))      # (the count is outside the scrolling part: the bar is above the body)
         self.assertLess(read("js", "ui", "modal.js").index("bar, body, footer"), read("js", "ui", "modal.js").index("document.body.append(backdrop)"))
-        self.assertIn('text: "How this works"', modal[modal.index('"conflicts-howto"'):])
+        self.assertIn('summary: "How this works"', modal[modal.index('"conflicts-howto"'):])
         self.assertGreater(modal.index('"conflicts-howto"'), modal.index('id: "conflicts-body"'))      # (the answer comes before the manual)
         js = read("js", "data-and-conflicts.js")
         draw = js[js.index("async function renderConflicts()"):]

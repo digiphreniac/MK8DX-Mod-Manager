@@ -1,7 +1,8 @@
 # UI components
 
-**Status: Phases 0 and 1 are built** (the foundation, `Button`, `Modal`, `Section`, `confirm` / `alert`; Settings, Conflicts, Help,
-Guessed names and Clear All Mods use them). The rest is still plan; "What is built" below says where the code differs from the sketches.
+**Status: Phases 0 and 1 are built, and most of Phase 2** (the foundation, `Button`, `Modal`, `Section`, `confirm` / `alert`; `Callout`,
+`hint`, `Chip`, `Disclosure`; Settings, Conflicts, Help, Guessed names, Clear All Mods, the Commit notes and the card status chips use
+them). The rest is still plan; "What is built" below says where the code differs from the sketches and what Phase 2 left for later.
 Each phase turns its part of this page from plan into "how it works".
 
 The frontend stays plain HTML/CSS/JS with no build step and no framework. This page is about building our own small component
@@ -77,14 +78,36 @@ A component is a function that takes one options object and returns a **handle**
 Every component accepts a declarative spec. Where a screen needs something custom (a draggable grid, a canvas), a section body
 or modal body can be **any element or a function returning one**, so components never block custom content.
 
-## What is built (Phases 0 and 1)
+## What is built (Phases 0, 1 and most of 2)
 
 Code: `js/ui/core.js` (`ui.el`, `ui.append`, `ui.html`, and the older `cgEl`), `js/ui/icons.js` (`ui.icons`, `ui.icon`), `js/ui/button.js`
 (`ui.button`, and the older `button(text, cls, fn)`), `js/ui/modal.js`, `js/ui/section.js` (`ui.section`, `ui.columns`,
 `ui.settingsGroup`), `js/ui/confirm.js` (`ui.confirm`, `ui.alert`); styles in `css/components/modal.css`; the app's own windows as specs in
 `js/app-modals.js` (`settingsModal`, `conflictsModal`, `helpModal`, `guessedNamesModal`, `appExperienceCard`).
 
-Where it differs from the sketches below:
+Phase 2 added `js/ui/disclosure.js`, `js/ui/callout.js` (`ui.callout` and `ui.hint`) and `js/ui/chip.js`, with `css/components/callout.css`
+and `chip.css`:
+
+- **`ui.callout`** draws the Commit page's notes (`pgWarnEl` in `flow.js` just maps a note to its options): tone `warn` / `todo` / `info`
+  (icon, stripe, and a hidden word for a screen reader), a title and detail, one action button, and a list of names behind "Show the N mods".
+- **`ui.hint(text, { tone, tag })`** is one small line of explanation: tone `dim` (the default) is the quiet grey note, `warn` is the boxed
+  warning. It replaced `uis-note` and `uis-warn` (Settings' Game language card, the character / course / vehicle cards' name and icon
+  problems, the Menu Look copy results).
+- **`ui.chip`** has tones `neutral` / `ok` / `warn` / `accent`, sizes `sm` / `md`, and `bold`, `solid` and `caps`; `chip.set(text, tone)`
+  changes a chip already on the page. It replaced `cc-chip` (the status chip at the top of the character, course, vehicle and item cards),
+  `ve-chip` (the voice editor's row labels), `gate-chip` (the "isn't finished" list), `cg-tag` (the "recommended" tag in a clash) and the
+  `wiz-pill` look (the Recommended / Custom folder label).
+- **`ui.disclosure({ summary, class, open }, ...children)`** is the `<details>` + `<summary>` + children as they were laid out, so the page's
+  `details` rules still draw the chevron and the indent. It replaced every hand-built `details` on the Commit page, the Copy to Switch
+  page's "Something looks wrong?", the Conflicts window and its "How this works".
+- Small looks that moved onto the components: the chips take the page's `--thumb-bg` for "neutral" (the folder label used `--divider`
+  before), and the hint's sizes are the two it had (12px quiet, 12.5px boxed).
+- **Left for later in Phase 2:** the other hint classes (`cg-note`, `cl-hint`, `cc-hint`, `ve-note`, `settings-hint`, `setting-hint`, `mv-note`,
+  `pics-hint` ...: each has its own margin and size), the file-row badges (`part-badge`, `packed-badge`, `patch-badge`, `linked-badge`,
+  `icon-badge`, `gb-target-badge`) and error lines (`wiz-error`, the `gb-mod-error` family). They are close to the new tones but each needs
+  a look at its surroundings first.
+
+Where Phase 1 differs from the sketches below:
 
 - **A window is built when its script loads and left hidden**, not on first `open()`. Every part has the id the old markup gave it
   (`<id>`, `<id>-backdrop`, `<id>-header`, `<id>-title`, `<id>-bar`, `<id>-body`, `btn-<id>-close`), so code can still look them up at any
@@ -211,9 +234,8 @@ ui.notify({ message, tone: "error" });        // non-blocking line/toast for fai
 ui.callout({ tone: "info" | "todo" | "warn" | "error", title, detail, action: { label, onClick }, items, itemsLabel, collapsed })
 ```
 
-- One component for the Commit page notes (`pgWarnEl`), the one-line warnings in Settings, error lines (`wiz-error`,
-  `clear-all-result`) and plain hints (`tone: "plain"`). Icon, left stripe, hidden severity word and the optional
-  "Show the N mods" disclosure come with it. The many `*-note` / `*-hint` classes collapse into this and a `ui.hint()` helper.
+- Built, with these options: `tone` (`warn` / `todo` / `info`), `title`, `detail`, `action`, `items`, `itemsLabel`. Error lines and plain
+  hints are not part of it: plain hints are `ui.hint()`, and error lines are still to do (see "What is built").
 
 ### Chip / Badge (`ui/chip.js`)
 
@@ -275,7 +297,7 @@ order. Move the existing SVGs into the registry; `cgEl` becomes an alias. No vis
 Done when: no native `confirm()` / `alert()`, no `*-modal-backdrop` open/close boilerplate for those modals, Escape closes only the
 topmost modal, and Settings looks the same.
 
-**Phase 2 - Callout, Chip, Disclosure, hints.** Commit page notes (`pgWarnEl` -> `ui.callout`), Settings warnings, error lines,
+**Phase 2 - Callout, Chip, Disclosure, hints (mostly done: see "What is built" for what is left).** Commit page notes (`pgWarnEl` -> `ui.callout`), Settings warnings, error lines,
 the `*-note` / `*-hint` classes, the badge/chip classes. Delete the superseded CSS as each goes.
 
 **Phase 3 - Menu, Tabs, AsyncBox, List/Row.** `cl-kebab` menu, view tabs and the GameBanana toggle, loading/empty wrappers, the

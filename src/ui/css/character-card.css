@@ -112,12 +112,6 @@
   .ve-desc { font-size: 12.5px; color: var(--text-dim); line-height: 1.4; }
   .ve-desc.unknown { opacity: 0.6; font-style: italic; }
   .ve-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
-  .ve-chip { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--thumb-bg); color: var(--text-dim); }
-  .ve-chip.warn { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
-  /* an edited line's current state - "pressed" coloring, same as the toggle buttons elsewhere, but a plain (non-clickable)
-     chip now: the trash-can button below is the only thing on the row that changes anything. */
-  .ve-chip.toggle-on { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
-  .ve-chip.toggle-on.custom { background: var(--accent-soft); color: var(--accent); }
   .ve-orig { font-size: 11.5px; color: var(--accent); background: none; border: none; box-shadow: none; padding: 0 2px; cursor: pointer; }
   .ve-orig:hover { text-decoration: underline; background: none; border: none; }
   .ve-del {
@@ -178,9 +172,6 @@
   @keyframes sk-indet { to { left: 100%; } }
   .sk-tile { height: 190px; border-radius: 10px; }
   @media (prefers-reduced-motion: reduce) { .sk::after, .spin, .indet::after, #btn-refresh.busy svg { animation: none; } }
-  .cc-chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--thumb-bg); color: var(--text-dim); }
-  .cc-chip.warn { background: var(--warn-soft); color: var(--warn); }
-  .cc-chip.ok { background: var(--ok-soft); color: var(--ok); }
   .cc-step { border-top: 1px solid var(--divider); padding: 9px 0 4px 0; }
   .cc-step-row { display: flex; align-items: flex-start; gap: 10px; }
   .cc-dot { width: 20px; height: 20px; flex: none; border-radius: 50%; box-sizing: border-box; margin-top: 1px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
@@ -228,8 +219,6 @@
   .gate-card h3 { margin: 0 0 10px 0; font-size: 17px; }
   .gate-card p { margin: 12px 0 0 0; font-size: 13.5px; line-height: 1.5; color: var(--text-dim); }
   .gate-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .gate-chip { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); }
-  .gate-chip.more { background: var(--thumb-bg); color: var(--text-dim); }
   .gate-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
   /* the walkthrough: 1 Name, 2 Icons */
   .cl-steps { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }

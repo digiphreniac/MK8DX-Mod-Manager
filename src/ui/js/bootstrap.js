@@ -18,9 +18,12 @@
     "js/ui/core.js",            // (the component layer first: any later script may use it, see docs/ui-components.md)
     "js/ui/icons.js",
     "js/ui/button.js",
+    "js/ui/disclosure.js",
     "js/ui/modal.js",
     "js/ui/section.js",
     "js/ui/confirm.js",
+    "js/ui/callout.js",
+    "js/ui/chip.js",
     "js/app-modals.js",         // (Settings, Conflicts, Help and Guessed names, built from the components and left hidden)
     "js/api-coalesce.js",
     "js/state-and-helpers.js",

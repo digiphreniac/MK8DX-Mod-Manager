@@ -75,34 +75,38 @@ class WhatThePageShows(unittest.TestCase):
         self.assertIn('w.severity !== "info"', draw)
         self.assertIn('"Needs your attention"', draw)
         self.assertIn("`Notes (${notes.length})`", draw)
-        self.assertIn('document.createElement("details")', draw)
+        self.assertIn('ui.disclosure({ class: "pg-notes"', draw)
         self.assertNotIn("Good to know", flow)
         self.assertIn("thing${attention.length === 1", draw)       # (the Committed card says how many things to check)
 
     def test_a_note_has_an_icon_and_an_action_button_and_its_mods_are_behind_a_disclosure(self):
         flow = (ROOT / "src" / "ui" / "js" / "flow.js").read_text(encoding="utf-8")
         card = flow[flow.index("function pgWarnEl(w)"):flow.index("function drawCommitPage()")]
-        self.assertIn("PG_WARN_ICON[w.severity]", card)
-        icons = flow[flow.index("const PG_WARN_ICON = {"):flow.index("const PG_WARN_WORD")]
-        self.assertNotIn("<svg", icons)                                 # (the pictures live in the icon registry, once)
-        self.assertNotIn("u2610", icons)                                # (pictures, not text characters: they look the same on any computer)
-        registry = (ROOT / "src" / "ui" / "js" / "ui" / "icons.js").read_text(encoding="utf-8")
-        for name in ("warning", "todo", "info"):
-            self.assertIn(f'"{name}"', icons)
-            self.assertIn(f"  {name}: '<", registry)
-        self.assertIn("pg-sr", card)                                    # (read out as well, for someone who can't see the colour)
+        self.assertIn("ui.callout({", card)                              # (the component draws the icon, the stripe and the button)
+        self.assertIn("tone: w.severity", card)
         self.assertIn('"Review names"', card)
         self.assertIn('"Open Settings"', card)
         self.assertIn('`Show the ${names.length === 1 ? noun : names.length + " " + noun + "s"}`', card)
         self.assertNotIn(".slice(0, 6)", card)                          # (no more "and 55 more")
+        self.assertNotIn("PG_WARN_ICON", flow)                          # (the pictures live in the icon registry, once)
+        callout = (ROOT / "src" / "ui" / "js" / "ui" / "callout.js").read_text(encoding="utf-8")
+        self.assertIn('ui-sr', callout)                                 # (read out as well, for someone who can't see the colour)
+        self.assertIn('{ warn: "Check: ", todo: "To do: ", info: "Note: " }', callout)
+        self.assertIn('{ warn: "warning", todo: "todo", info: "info" }', callout)
+        self.assertNotIn("u2610", flow + callout)                       # (pictures, not text characters: they look the same on any computer)
+        registry = (ROOT / "src" / "ui" / "js" / "ui" / "icons.js").read_text(encoding="utf-8")
+        for name in ("warning", "todo", "info"):
+            self.assertIn(f"  {name}: '<", registry)
 
     def test_the_styles(self):
-        css = (ROOT / "src" / "ui" / "css" / "flow.css").read_text(encoding="utf-8")
-        for rule in (".pg-warn.warn {", ".pg-warn.todo {", ".pg-warn-text {", ".pg-list-body {", ".pg-notes[open] > .pg-notes-body"):
+        flow_css = (ROOT / "src" / "ui" / "css" / "flow.css").read_text(encoding="utf-8")
+        self.assertIn(".pg-notes[open] > .pg-notes-body", flow_css)
+        self.assertNotIn(".pg-warn", flow_css)                          # (the note's own styles moved with the component)
+        css = (ROOT / "src" / "ui" / "css" / "components" / "callout.css").read_text(encoding="utf-8")
+        for rule in (".ui-callout--warn {", ".ui-callout--todo {", ".ui-callout-text {", ".ui-callout-list-body {"):
             self.assertIn(rule, css)
-        self.assertRegex(css, r"\.pg-list-body \{[^}]*max-height: \d+px; overflow-y: auto")
-        self.assertRegex(css, r"\.pg-warn \{[^}]*border-left: 4px solid")
-
+        self.assertRegex(css, r"\.ui-callout-list-body \{[^}]*max-height: \d+px; overflow-y: auto")
+        self.assertRegex(css, r"\.ui-callout \{[^}]*border-left: 4px solid")
 
 if __name__ == "__main__":
     unittest.main()

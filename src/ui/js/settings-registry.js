@@ -229,7 +229,7 @@ function folderCard(dir, onOpen) {
   const recommended = dir.is_recommended !== undefined ? dir.is_recommended : dir.is_default;
   const where = cgEl("div", "wiz-folder" + (recommended ? " is-default" : ""));
   const head = cgEl("div", "wiz-folder-head");
-  head.appendChild(cgEl("span", "wiz-pill" + (recommended ? " rec" : ""), dir.label || (recommended ? "Recommended" : "Custom folder")));
+  head.appendChild(ui.chip({ text: dir.label || (recommended ? "Recommended" : "Custom folder"), tone: recommended ? "ok" : "neutral", solid: recommended, caps: true, class: "wiz-pill" }).el);
   if (onOpen) {
     const open = button("", "ghost small wiz-folder-open", onOpen);
     open.title = "Open this folder in the file manager";

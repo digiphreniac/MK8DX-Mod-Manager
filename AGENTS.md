@@ -45,7 +45,7 @@ notes, measurements and rules live in `docs/` (index below).
 - `src/gamebanana_api.py` - GameBanana client. `roster.json` - every character/course/part/item; `name-labels.json` - text ids.
 - `src/image_cache.py`, `library_cache.py`, `gb_desc_cache.py` - caches (see below).
 - `src/ui/` - `index.html` frame, `html/` the remaining modal markup, `css/`, `js/` scripts (see "Frontend rules"). `js/ui/` is the component
-  layer (`ui.el`, `ui.button`, `ui.modal`, `ui.section`, `ui.confirm` ...) and `js/app-modals.js` builds Settings, Conflicts, Help and
+  layer (`ui.el`, `ui.button`, `ui.modal`, `ui.section`, `ui.confirm`, `ui.callout`, `ui.hint`, `ui.chip`, `ui.disclosure` ...) and `js/app-modals.js` builds Settings, Conflicts, Help and
   Guessed names from it (`docs/ui-components.md`).
 
 ## Rules that are easy to break
@@ -85,7 +85,7 @@ notes, measurements and rules live in `docs/` (index below).
 - Scripts in `src/ui/js/` are ordinary (non-module) scripts sharing **one global scope**, loaded in the order of `SCRIPTS` in
   `js/bootstrap.js`. Top-level code may only use what an *earlier* file declared; add a new file after what it depends on.
 - CSS order in `index.html` is the cascade: add a stylesheet after whatever it must override.
-- Build windows, cards, buttons and confirmations with the components in `js/ui/` (`docs/ui-components.md`), not by hand: no native `confirm()` /
+- Build windows, cards, buttons, notes, chips and folds with the components in `js/ui/` (`docs/ui-components.md`), not by hand: no native `confirm()` /
   `alert()` (use `await ui.confirm(...)` / `ui.alert(...)`), no `*-backdrop` open/close/Escape wiring of your own (`ui.modal` owns the stack, z-order,
   Escape and focus), no `above-settings`-style z-index tricks.
 - `js/api-coalesce.js` shares identical in-flight calls for the methods in its `SHARED` list. Only **read-only** backend calls
@@ -105,7 +105,7 @@ notes, measurements and rules live in `docs/` (index below).
 | Guided flow, Commit staleness, look and feel | `docs/ui-and-flow.md` |
 | Browse GameBanana window | `docs/gamebanana-browse.md` |
 | Course Select, course card, course-select icons | `docs/course-select.md` |
-| UI components: modals, cards, buttons, confirmations | `docs/ui-components.md` |
+| UI components: modals, cards, buttons, confirmations, notes, chips | `docs/ui-components.md` |
 | Combined character icons / names built on commit | `docs/menu-icons-and-text.md` |
 | Menu look card, Name and Icons steps | `docs/menu-look.md` |
 | Vehicle parts and items | `docs/vehicle-parts-and-items.md` |

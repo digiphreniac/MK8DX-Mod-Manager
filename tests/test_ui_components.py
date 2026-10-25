@@ -13,7 +13,7 @@ from pathlib import Path
 
 UI = Path(__file__).resolve().parent.parent / "src" / "ui"
 JS = UI / "js"
-COMPONENTS = ("core", "icons", "button", "modal", "section", "confirm")
+COMPONENTS = ("core", "icons", "button", "disclosure", "modal", "section", "confirm", "callout", "chip")
 
 
 def read(*parts):
@@ -64,7 +64,7 @@ class WhatThePageCalls(unittest.TestCase):
         defined = set()
         for name in COMPONENTS:
             defined.update(re.findall(r"(?<![\w.])ui\.(\w+) = ", read("js", "ui", f"{name}.js")))
-        self.assertTrue({"el", "icon", "button", "modal", "section", "confirm", "alert"} <= defined)
+        self.assertTrue({"el", "icon", "button", "modal", "section", "confirm", "alert", "disclosure", "callout", "hint", "chip"} <= defined)
         for path in all_scripts():
             for used in re.findall(r"(?<![\w.])ui\.(\w+)", code(path.read_text(encoding="utf-8"))):
                 self.assertIn(used, defined, f"{path.name} uses ui.{used}")
@@ -72,12 +72,12 @@ class WhatThePageCalls(unittest.TestCase):
     def test_every_icon_asked_for_is_in_the_registry(self):
         registry = set(re.findall(r"^  (\w+): '<", read("js", "ui", "icons.js"), re.M))
         self.assertEqual(registry, {"warning", "todo", "info", "folder"})
+        asked = set()
         for path in all_scripts():
-            for name in re.findall(r'ui\.icon\("(\w+)"', path.read_text(encoding="utf-8")):
-                self.assertIn(name, registry, f"{path.name}: {name}")
-        flow = read("js", "flow.js")
-        for name in re.findall(r'(?:warn|todo|info): "(\w+)"', flow[flow.index("const PG_WARN_ICON"):flow.index("const PG_WARN_WORD")]):
-            self.assertIn(name, registry)
+            asked.update(re.findall(r'ui\.icon\("(\w+)"', path.read_text(encoding="utf-8")))
+        callout = read("js", "ui", "callout.js")
+        asked.update(re.findall(r': "(\w+)"', callout[callout.index("ui.icon({"):callout.index("}[tone]", callout.index("ui.icon({"))]))
+        self.assertTrue(asked and asked <= registry, asked - registry)
 
     def test_markup_strings_are_only_made_in_the_two_places_that_own_them(self):
         for path in (JS / "ui").glob("*.js"):
@@ -108,6 +108,44 @@ class OldPatternsAreGone(unittest.TestCase):
         for name in ("settings", "conflicts", "help", "guessed-names"):
             for css in (UI / "css").glob("*.css"):
                 self.assertNotRegex(css.read_text(encoding="utf-8"), rf"#{name}-modal(-backdrop|-header)? \{{", f"{css.name}: #{name}-modal")
+
+
+class PhaseTwoOldPatternsAreGone(unittest.TestCase):
+    def test_the_note_hint_chip_and_disclosure_classes_the_components_replaced_are_gone(self):
+        gone = ("uis-warn", "uis-note", "cc-chip", "ve-chip", "gate-chip", "pg-warn", "pg-sr", "pg-list", "pg-icon")
+        for path in list(JS.rglob("*.js")) + list((UI / "css").rglob("*.css")):
+            text = path.read_text(encoding="utf-8")
+            for name in gone:
+                self.assertNotRegex(text, rf"(?<![\w-]){name}(?![\w-])", f"{path.name} still has {name}")
+
+    def test_the_notes_chips_and_folds_are_made_by_the_components(self):
+        for name in ("flow.js", "data-and-conflicts.js", "app-modals.js"):
+            self.assertNotIn('createElement("details")', read("js", name), name)
+        voice = read("js", "voice.js")
+        self.assertNotIn('"ve-chip', voice)
+        self.assertEqual(voice.count("ui.chip({"), 5)
+        for name in ("character-card.js", "course-card.js", "item-card.js", "vehicle-card.js"):
+            text = read("js", name)
+            self.assertIn('const chip = ui.chip({ size: "md" });', text, name)
+            self.assertIn('chip.set(chipText, chipCls || "neutral");', text, name)
+
+    def test_the_chip_has_a_tone_for_each_look_it_replaced(self):
+        css = read("css", "components", "chip.css")
+        for rule in (".ui-chip {", ".ui-chip--md", ".ui-chip--ok", ".ui-chip--warn", ".ui-chip--accent", ".ui-chip--bold", ".ui-chip--solid", ".ui-chip--caps"):
+            self.assertIn(rule, css, rule)
+        chip = read("js", "ui", "chip.js")
+        self.assertIn("set(text, nextTone)", chip)
+
+    def test_the_hint_has_a_quiet_tone_and_a_warning_tone(self):
+        css = read("css", "components", "callout.css")
+        self.assertIn(".ui-hint {", css)
+        self.assertIn(".ui-hint--warn {", css)
+        self.assertRegex(css, r"\.ui-hint--warn \{[^}]*background: var\(--warn-soft\)")
+
+    def test_the_components_and_their_styles_are_loaded(self):
+        html = read("index.html")
+        for sheet in ("modal", "callout", "chip"):
+            self.assertIn(f"css/components/{sheet}.css", html)
 
 
 class TheModalStack(unittest.TestCase):

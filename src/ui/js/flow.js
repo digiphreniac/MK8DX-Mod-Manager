@@ -290,47 +290,20 @@ async function renderCommitPage() {
   renderNextButton();
 }
 
-// A note on the Commit page, by what it asks of the user. The shape says so as well as the colour (a warning triangle, an arrow for "your move",
-// an "i"; drawn as pictures, so they look the same whatever fonts the computer has), the left stripe repeats it, and one action is a button at the right. A list of mods or characters is behind "Show the N mods", in a
-// box of limited height - the card is about what is wrong, and which mods is the second question.
-const PG_WARN_ICON = { warn: "warning", todo: "todo", info: "info" };       // (names in ui.icons)
-const PG_WARN_WORD = { warn: "Check: ", todo: "To do: ", info: "Note: " };
-
+// A note on the Commit page, by what it asks of the user (ui.callout draws it: an icon and a stripe say what kind it is, one action is a button
+// at the right). A list of mods or characters is behind "Show the N mods", in a box of limited height - the card is about what is wrong,
+// and which mods is the second question.
 function pgWarnEl(w) {
-  const row = cgEl("div", "pg-warn " + w.severity);
-  const icon = cgEl("span", "pg-icon");
-  icon.setAttribute("aria-hidden", "true");
-  icon.append(ui.icon(PG_WARN_ICON[w.severity] || "info"));
-  row.appendChild(icon);
-  const t = cgEl("div", "pg-warn-text");
-  const title = cgEl("div", "wt");
-  title.append(cgEl("span", "pg-sr", PG_WARN_WORD[w.severity] || ""), w.title);
-  t.appendChild(title);
-  t.appendChild(cgEl("div", "wd", w.detail));
-  const names = (w.items || []).map(item => ({ label: item, go: () => { goStep("mods"); if (isItemName(item)) openItemCard(item); else openCharacterModal(item); } }))
-    .concat((w.mods || []).map(k => ({ label: modLabel(k), go: () => jumpToModKey(k) })));
-  if (names.length) {
-    const noun = (w.items && w.items.length) ? "character" : "mod";
-    const list = document.createElement("details");
-    list.className = "pg-list";
-    list.appendChild(cgEl("summary", null, `Show the ${names.length === 1 ? noun : names.length + " " + noun + "s"}`));
-    const listBody = cgEl("div", "pg-list-body");
-    for (const n of names) {
-      const a = cgEl("a", null, n.label);
-      a.addEventListener("click", n.go);
-      listBody.appendChild(a);
-    }
-    list.appendChild(listBody);
-    t.appendChild(list);
-  }
-  row.appendChild(t);
-  const act = w.action === "guessed-names" ? button("Review names", "small", openGuessedNamesModal)
-    : w.action === "settings" ? button("Open Settings", "small", () => openSettingsModal()) : null;
-  if (act) {
-    act.classList.add("pg-warn-act");
-    row.appendChild(act);
-  }
-  return row;
+  const names = (w.items || []).map(item => ({ label: item, onClick: () => { goStep("mods"); if (isItemName(item)) openItemCard(item); else openCharacterModal(item); } }))
+    .concat((w.mods || []).map(k => ({ label: modLabel(k), onClick: () => jumpToModKey(k) })));
+  const noun = (w.items && w.items.length) ? "character" : "mod";
+  return ui.callout({
+    tone: w.severity, title: w.title, detail: w.detail,
+    items: names,
+    itemsLabel: `Show the ${names.length === 1 ? noun : names.length + " " + noun + "s"}`,
+    action: w.action === "guessed-names" ? { label: "Review names", onClick: openGuessedNamesModal }
+      : w.action === "settings" ? { label: "Open Settings", onClick: () => openSettingsModal() } : null,
+  }).el;
 }
 
 function drawCommitPage() {
@@ -413,17 +386,11 @@ function drawCommitPage() {
     for (const w of attention) body.appendChild(pgWarnEl(w));
   }
   if (notes.length) {
-    const group = document.createElement("details");
-    group.className = "pg-notes";
-    group.appendChild(cgEl("summary", null, `Notes (${notes.length})`));
-    const groupBody = cgEl("div", "pg-notes-body");
-    for (const w of notes) groupBody.appendChild(pgWarnEl(w));
-    group.appendChild(groupBody);
-    body.appendChild(group);
+    body.appendChild(ui.disclosure({ class: "pg-notes", summary: `Notes (${notes.length})` },
+      ui.el("div", "pg-notes-body", notes.map(w => pgWarnEl(w)))).el);
   }
 
   if (res && res.lines) {
-    const det = document.createElement("details");
     const summary = cgEl("summary", "pg-log-summary", "Details (full log)");
     const copy = button("Copy log", "ghost small pg-copy-log", async (e) => {
       e.preventDefault();    // (the button sits in the summary: a click on it must not fold or unfold the log)
@@ -433,9 +400,7 @@ function drawCommitPage() {
       setTimeout(() => { copy.textContent = "Copy log"; }, 1500);
     });
     summary.appendChild(copy);
-    det.appendChild(summary);
-    det.appendChild(cgEl("div", "pg-log", res.lines.join("\n")));
-    body.appendChild(det);
+    body.appendChild(ui.disclosure({ summary }, cgEl("div", "pg-log", res.lines.join("\n"))).el);
   }
 }
 
@@ -462,9 +427,8 @@ async function doCommit() {
 
 // ---- Step 5: Copy to Switch ----
 function buildTroubleshooting() {
-  const trouble = document.createElement("details");
-  trouble.appendChild(cgEl("summary", null, "Something looks wrong?"));
-  const tb = cgEl("div", "uis-note");
+  const trouble = ui.disclosure({ summary: "Something looks wrong?" });
+  const tb = ui.hint("");
   tb.style.fontSize = "12.5px";
   const items = [
     "The game crashes on startup, or the menus are blank. This is usually a file made for a different game version. Deselect the mods that change menu pictures or names (all of them, to find out), then commit and copy again. (Tip: hold L while the game starts to turn all mods off for that launch.)",
@@ -477,8 +441,8 @@ function buildTroubleshooting() {
   ul.style.paddingLeft = "20px";
   for (const t of items) ul.appendChild(cgEl("li", null, t));
   tb.appendChild(ul);
-  trouble.appendChild(tb);
-  return trouble;
+  trouble.el.appendChild(tb);
+  return trouble.el;
 }
 
 // Plain pictures for the ways to help (a thumbs-up, a star, a cup of coffee, a speech bubble), drawn for this app: not the logos of GameBanana,

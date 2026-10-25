@@ -412,8 +412,8 @@ function showUnfinishedGate(list, resolve) {
   const n = list.length;
   card.appendChild(cgEl("h3", null, `${unfinishedPhrase(list)} ${n === 1 ? "isn't" : "aren't"} finished`));
   const chips = cgEl("div", "gate-chips");
-  for (const it of list.slice(0, 8)) chips.appendChild(cgEl("span", "gate-chip", it.shown !== it.name ? `${it.shown} (${it.name})` : it.name));
-  if (n > 8) chips.appendChild(cgEl("span", "gate-chip more", `and ${n - 8} more`));
+  for (const it of list.slice(0, 8)) chips.appendChild(ui.chip({ text: it.shown !== it.name ? `${it.shown} (${it.name})` : it.name, tone: "warn", size: "md" }).el);
+  if (n > 8) chips.appendChild(ui.chip({ text: `and ${n - 8} more`, size: "md" }).el);
   card.appendChild(chips);
   card.appendChild(cgEl("p", null, `${n === 1 ? "Its name or icon hasn't" : "Their names or icons haven't"} been confirmed yet. If you continue, they're used as they are now - and a name that was only a guess is built into the game's menus without being confirmed.`));
   const acts = cgEl("div", "gate-actions");

@@ -19,7 +19,7 @@ function assembleItemCard(ctx) {
   const pic = cgEl("img", "cc-item-pic");
   pic.alt = "";
   pic.hidden = true;
-  const chip = cgEl("span", "cc-chip");
+  const chip = ui.chip({ size: "md" });
   const headName = cgEl("div", "cc-headname", label);
   const headSub = cgEl("div", "cc-headsub");
   const headText = cgEl("div", "cc-headtext");
@@ -28,7 +28,7 @@ function assembleItemCard(ctx) {
   const head = cgEl("div", "cc-head");
   head.appendChild(pic);
   head.appendChild(headText);
-  head.appendChild(chip);
+  head.appendChild(chip.el);
   body.appendChild(head);
   const showPicture = () => {
     const src = itemIcons[name];
@@ -126,8 +126,7 @@ function assembleItemCard(ctx) {
     if (!hasMods) chipText = "No mod yet";
     else if (!ticked.length) { chipText = "Choose a mod"; chipCls = "warn"; }
     else { chipText = "In use"; chipCls = "ok"; }
-    chip.textContent = chipText;
-    chip.className = "cc-chip " + chipCls;
+    chip.set(chipText, chipCls || "neutral");
   }
 
   // Ticking inside the list: the list stays open while the user works in it - "Done" folds it back to the mods in use.

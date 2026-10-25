@@ -53,7 +53,7 @@ async function renderUiSetupSettingsCard() {
   try { d = await pywebview.api.get_ui_setup(); } catch (e) { d = { error: String(e) }; }
   uiSetup.data = d;
   body.replaceChildren();
-  if (d.error) { body.appendChild(uisEl("div", "uis-warn", d.error)); return; }
+  if (d.error) { body.appendChild(ui.hint(d.error, { tone: "warn" })); return; }
 
   // the language (and the English variant) are settings like any other: drawn by settings-registry.js. The one thing worth saying about the
   // mods here is when they would do nothing: none of them change the chosen language, but some change another.
@@ -64,19 +64,19 @@ async function renderUiSetupSettingsCard() {
   const others = d.locales.filter(l => !chosen.includes(l.code)).map(l => l.label);
   if (others.length && !d.locales.some(l => chosen.includes(l.code))) {
     const shown = others.slice(0, 3).join(", ") + (others.length > 3 ? ` and ${others.length - 3} more` : "");
-    body.appendChild(uisEl("p", "uis-note", `None of your mods change this language - they change ${shown}.`));
+    body.appendChild(ui.hint(`None of your mods change this language - they change ${shown}.`, { tag: "p" }));
   }
 
   const conflictEls = d.archives.map(renderUiArchiveConflicts).filter(Boolean);
   if (conflictEls.length) {
-    body.appendChild(uisEl("p", "uis-note", "Two of your selected mods change the exact same icon or name - pick which one should win (otherwise the first one, alphabetically, is used):"));
+    body.appendChild(ui.hint("Two of your selected mods change the exact same icon or name - pick which one should win (otherwise the first one, alphabetically, is used):", { tag: "p" }));
     for (const el of conflictEls) body.appendChild(el);
   }
 
   // (what was built, file by file, isn't listed: nothing here can be done about it - a commit builds it, and the step bar says when one is due.
   // A file that is damaged is the one thing worth saying.)
   const damaged = d.archives.filter(a => a.verify && a.verify.problems && a.verify.problems.length).map(a => uisArchiveTitle(a)[1]);
-  if (damaged.length) body.appendChild(uisEl("div", "uis-warn", `A built menu file has a problem (${damaged.join(", ")}) - commit again to build it fresh.`));
+  if (damaged.length) body.appendChild(ui.hint(`A built menu file has a problem (${damaged.join(", ")}) - commit again to build it fresh.`, { tone: "warn" }));
 }
 
 // Shared by the first-run setup overlay and the Settings "Change..." flow:
