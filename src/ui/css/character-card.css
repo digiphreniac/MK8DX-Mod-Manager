@@ -71,7 +71,7 @@
      table (Sound / Description / Actions) without a literal <table> - <details> needs to wrap only some rows (one per
      category), which a real table can't do - so .ve-thead and every .ve-row instead share one CSS grid column template,
      which lines their columns up just as a table's would. */
-  .gate-card.voice-editor { max-width: min(1080px, 96vw); max-height: min(90vh, 860px); display: flex; flex-direction: column; }   /* (.gate-card, further down, sets 480px) */
+  .ui-modal--card.voice-editor { max-width: min(1080px, 96vw); max-height: min(90vh, 860px); display: flex; flex-direction: column; }   /* (.ui-modal--card sets 480px) */
   .ve-status { font-size: 12px; font-weight: 600; color: var(--text-dim); margin: -6px 0 8px 0; }
   .ve-note { font-size: 12.5px; line-height: 1.45; color: var(--text-dim); margin: 0 0 8px 0; }
   .ve-base { font-size: 12.5px; line-height: 1.45; padding: 8px 10px; border-radius: 9px; background: var(--bg-soft); border: 1px solid var(--panel-border); margin-bottom: 8px; }
@@ -127,13 +127,13 @@
     .ve-row { grid-template-columns: 1fr; gap: 4px; padding: 9px 2px; }
   }
   /* "Use my own sound": choose a file, pick the part, preview, use */
-  .gate-card.ve-custom { max-width: 620px; max-height: 92vh; overflow-y: auto; transition: box-shadow 0.12s ease, background-color 0.12s ease; }
+  .ui-modal--card.ve-custom { max-width: 620px; max-height: 92vh; overflow-y: auto; transition: box-shadow 0.12s ease, background-color 0.12s ease; }
   .ve-custom .ve-note { margin-bottom: 10px; }
   .ve-drop { border: 2px dashed var(--panel-border); border-radius: 12px; padding: 36px 16px; text-align: center; font-size: 13.5px; color: var(--text-dim); }
   /* the whole dialog is the real drop target (see openCustomAudio's window-level listeners) - this box is just
      where the instructions and file picker live, so the highlight belongs on the dialog, not the box. */
-  .gate-card.ve-custom.drop-target { box-shadow: 0 0 0 3px var(--accent); background: var(--accent-soft); }
-  .gate-card.ve-custom.drop-target .ve-drop { border-color: var(--accent); }
+  .ui-modal--card.ve-custom.drop-target { box-shadow: 0 0 0 3px var(--accent); background: var(--accent-soft); }
+  .ui-modal--card.ve-custom.drop-target .ve-drop { border-color: var(--accent); }
   .ve-file { font-size: 12.5px; margin: 10px 0 4px 0; overflow-wrap: anywhere; }
   .ve-wave { position: relative; height: 84px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--bg-soft); cursor: crosshair; overflow: hidden; touch-action: none; user-select: none; }
   .ve-wave canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -214,12 +214,7 @@
   .review-bar .review-text { flex: 1; min-width: 160px; font-weight: 600; }
   .review-bar.is-done { background: var(--ok-soft); border-color: var(--ok); }
   /* "N characters aren't finished": asked once, when leaving Choose mods */
-  .gate-backdrop { position: fixed; inset: 0; z-index: 9000; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .gate-card { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5); padding: 20px 22px; max-width: 480px; width: 100%; }
-  .gate-card h3 { margin: 0 0 10px 0; font-size: 17px; }
-  .gate-card p { margin: 12px 0 0 0; font-size: 13.5px; line-height: 1.5; color: var(--text-dim); }
   .gate-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .gate-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
   /* the walkthrough: 1 Name, 2 Icons */
   .cl-steps { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
   .cl-step-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; box-shadow: none; padding: 2px 4px; font: inherit; color: inherit; cursor: default; }
@@ -361,10 +356,10 @@
   .cc-notice span { flex: 1; }
 
   /* "Move to another ...": the small dialog over the card */
-  .mv-backdrop { position: fixed; inset: 0; z-index: 45; display: flex; align-items: center; justify-content: center; background: rgba(20, 22, 28, 0.55); animation: fadeIn 0.14s ease-out; }
-  .mv-dialog { width: 420px; max-width: calc(100vw - 40px); padding: 18px 20px; border-radius: 12px; background: var(--panel); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
+  .mv-dialog { width: 420px; max-width: calc(100vw - 40px); padding: 18px 20px; border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
   .mv-dialog h3 { margin: 0 0 6px 0; font-size: 15px; }
-  .mv-note { margin: 0 0 12px 0; font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
+  .mv-dialog .mv-note { margin: 0 0 12px 0; font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
   .mv-dialog select { width: 100%; }
-  .mv-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  .mv-dialog .ui-modal-footer { margin-top: 14px; gap: 8px; }
+
 

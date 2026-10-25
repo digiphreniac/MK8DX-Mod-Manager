@@ -56,3 +56,14 @@
   .ui-result { font-size: 12px; margin-top: 10px; }
   .ui-result.ok { color: var(--ok); }
   .ui-result.err { color: var(--danger); }
+
+  /* variant "card": a small centred dialog with its title in it, for the app's own questions and tools (the move dialog, the "isn't finished"
+     question, the picture and voice windows). Its body is part of the dialog's own layout, so a dialog that scrolls one part of itself
+     (the voice editor's list) can still say how tall it is. */
+  .ui-modal-backdrop--card { align-items: center; background: rgba(0, 0, 0, 0.55); padding: 20px; }
+  .ui-modal--card { display: block; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    padding: 20px 22px; max-width: 480px; width: 100%; max-height: none; }
+  .ui-modal--card h3 { margin: 0 0 10px 0; font-size: 17px; }
+  .ui-modal--card .ui-modal-body > p { margin: 12px 0 0 0; font-size: 13.5px; line-height: 1.5; color: var(--text-dim); }
+  .ui-modal-body--part { display: contents; }
+  .ui-modal--card .ui-modal-footer { padding: 0; border-top: 0; margin-top: 18px; }

@@ -396,36 +396,31 @@ async function passUnfinishedGate() {
   } finally { gateBusy = false; }
 }
 function showUnfinishedGate(list, resolve) {
-  const back = cgEl("div", "gate-backdrop");
-  const card = cgEl("div", "gate-card");
-  card.setAttribute("role", "dialog");
-  card.setAttribute("aria-modal", "true");
   const n = list.length;
-  card.appendChild(cgEl("h3", null, `${unfinishedPhrase(list)} ${n === 1 ? "isn't" : "aren't"} finished`));
+  let finished = false;
+  // (closing it any other way - Escape, a click outside - is the same as "Review them" minus the review: the answer is no)
+  const modal = ui.modal({
+    variant: "card", footer: true, destroyOnClose: true, title: `${unfinishedPhrase(list)} ${n === 1 ? "isn't" : "aren't"} finished`,
+    onClose: () => done(false),
+  });
+  const card = modal.body;
   const chips = cgEl("div", "gate-chips");
   for (const it of list.slice(0, 8)) chips.appendChild(ui.chip({ text: it.shown !== it.name ? `${it.shown} (${it.name})` : it.name, tone: "warn", size: "md" }).el);
   if (n > 8) chips.appendChild(ui.chip({ text: `and ${n - 8} more`, size: "md" }).el);
   card.appendChild(chips);
   card.appendChild(cgEl("p", null, `${n === 1 ? "Its name or icon hasn't" : "Their names or icons haven't"} been confirmed yet. If you continue, they're used as they are now - and a name that was only a guess is built into the game's menus without being confirmed.`));
-  const acts = cgEl("div", "gate-actions");
-  let finished = false;
+  const acts = modal.footer;
   const done = (value, after) => {
     if (finished) return;
     finished = true;
-    back.remove();
-    document.removeEventListener("keydown", onKey, true);
     resolve(value);
+    modal.close();
     if (after) after();
   };
-  const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); done(false); } };
-  document.addEventListener("keydown", onKey, true);
   const review = button("Review them", "primary", () => done(false, () => startReviewQueue(list)));
   acts.appendChild(review);
   acts.appendChild(button("Continue anyway", "ghost", () => done(true)));
-  card.appendChild(acts);
-  back.appendChild(card);
-  back.addEventListener("click", (e) => { if (e.target === back) done(false); });
-  document.body.appendChild(back);
+  modal.open();
   review.focus();
 }
 

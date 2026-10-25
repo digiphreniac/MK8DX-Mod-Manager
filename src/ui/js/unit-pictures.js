@@ -29,29 +29,19 @@ function pictureSummary(p) {
 }
 async function openUnitPictures(unitKey, siblings, modLabel) {
   ui.menu.closeAll();
-  const back = cgEl("div", "gate-backdrop");
-  const card = cgEl("div", "gate-card pics-card");
-  card.setAttribute("role", "dialog");
-  card.setAttribute("aria-modal", "true");
-  card.appendChild(cgEl("h3", null, "Menu pictures"));
+  const modal = ui.modal({ variant: "card", class: "pics-card", title: "Menu pictures", footer: true, destroyOnClose: true });
+  const card = modal.body;
   card.appendChild(cgEl("div", "pics-sub", modLabel));
   const body = cgEl("div", "pics-body");
   body.appendChild(cgEl("div", "voice-empty", "Looking at the pictures\u2026"));
   card.appendChild(body);
-  const acts = cgEl("div", "gate-actions");
-  const close = () => { back.remove(); document.removeEventListener("keydown", onKey, true); };
-  const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
-  document.addEventListener("keydown", onKey, true);
-  const closeBtn = button("Close", "primary", close);
-  acts.appendChild(closeBtn);
-  card.appendChild(acts);
-  back.appendChild(card);
-  back.addEventListener("click", (e) => { if (e.target === back) close(); });
-  document.body.appendChild(back);
+  const closeBtn = button("Close", "primary", () => modal.close());
+  modal.footer.appendChild(closeBtn);
+  modal.open();
   closeBtn.focus();
   let r;
   try { r = await pywebview.api.get_unit_picture_sets(unitKey, siblings); } catch (e) { r = null; }
-  if (!back.isConnected) return;
+  if (!modal.isOpen) return;
   body.replaceChildren();
   const sets = (r && r.sets) || [];
   if (!sets.length) { body.appendChild(cgEl("div", "voice-empty", "No menu pictures could be read from this mod.")); return; }

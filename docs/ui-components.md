@@ -1,6 +1,6 @@
 # UI components
 
-**Status: Phases 0, 1 and 3 are built, and most of Phase 2** (the foundation, `Button`, `Modal`, `Section`, `confirm` / `alert`; `Callout`,
+**Status: Phases 0, 1, 3 and 4 are built, and most of Phase 2** (the foundation, `Button`, `Modal`, `Section`, `confirm` / `alert`; `Callout`,
 `hint`, `Chip`, `Disclosure`; `Menu`, `Tabs` / `Segmented`, `AsyncBox` / `loading`, `List` / `Row`; Settings, Conflicts, Help, Guessed
 names, Clear All Mods, the Commit notes, the card chips, the main tabs and the "..." menus use them). The rest is still plan; "What is built" below says where the code differs from the sketches and what Phase 2 left for later.
 Each phase turns its part of this page from plan into "how it works".
@@ -78,7 +78,7 @@ A component is a function that takes one options object and returns a **handle**
 Every component accepts a declarative spec. Where a screen needs something custom (a draggable grid, a canvas), a section body
 or modal body can be **any element or a function returning one**, so components never block custom content.
 
-## What is built (Phases 0, 1, 3 and most of 2)
+## What is built (Phases 0, 1, 3, 4 and most of 2)
 
 Code: `js/ui/core.js` (`ui.el`, `ui.append`, `ui.html`, and the older `cgEl`), `js/ui/icons.js` (`ui.icons`, `ui.icon`), `js/ui/button.js`
 (`ui.button`, and the older `button(text, cls, fn)`), `js/ui/modal.js`, `js/ui/section.js` (`ui.section`, `ui.columns`,
@@ -116,6 +116,20 @@ and `chip.css`:
     left out" section of the Conflicts window (they were `cg-row*`).
   - Not done: the step bar (`renderStepBar` still builds its own buttons: it is drawn from `get_flow_status()` and has its own states), the
     other places that show "Loading..." with a hand-written line, and the voice and Guessed names lists.
+- **Phase 4** put the dialogs the page used to build by hand (the move dialog, the "isn't finished" question, the Menu pictures window, the
+  Voice lines window, the voice editor and its "Use your own sound" window) on `ui.modal`, so they stack with everything else. What it added to
+  `ui.modal`:
+  - **`variant: "card"`** is the small centred dialog they all had: the title is in the card (no header bar, no Close button: the dialog has its
+    own buttons), the backdrop is the darker one, and the body is laid out as part of the dialog (`display: contents`) so the voice editor's
+    scrolling list still gets its height from the dialog. `class` adds the dialog's own class (`voice-editor`, `ve-custom`, `pics-card`, `mv-dialog`),
+    `footer: true` makes a footer for buttons added later (`modal.footer`), `destroyOnClose: true` removes a one-use dialog when it closes, and `id`
+    may be left out (one is made). `ui.confirm` and `ui.alert` use `destroyOnClose` too.
+  - What went away: `gate-backdrop`, `gate-card`, `gate-actions`, `mv-backdrop`, `mv-actions`, the five hand-written Escape handlers and click-outside
+    handlers, and the voice editor's "not while a sub-dialog is open" rule (the stack closes only the top window, so the sound dialog closes first).
+  - Small visible changes: these dialogs now fade and pop in like the others, a confirm opened from inside them (deleting your own sound) sits above
+    them (it was hidden behind at z-index 9000 before the stack), and the move dialog has the card border.
+  - Not moved (still their own markup): the Add a mod, GameBanana browse and detail, icon generator and character windows (`html/*.html`), and the
+    Setup overlay. Each has its own look, so they are a decision for Phase 5.
 - **Left for later in Phase 2:** the other hint classes (`cg-note`, `cl-hint`, `cc-hint`, `ve-note`, `settings-hint`, `setting-hint`, `mv-note`,
   `pics-hint` ...: each has its own margin and size), the file-row badges (`part-badge`, `packed-badge`, `patch-badge`, `linked-badge`,
   `icon-badge`, `gb-target-badge`) and error lines (`wiz-error`, the `gb-mod-error` family). They are close to the new tones but each needs
@@ -316,7 +330,7 @@ the `*-note` / `*-hint` classes, the badge/chip classes. Delete the superseded C
 **Phase 3 - Menu, Tabs, AsyncBox, List/Row (done, apart from the step bar and the other hand-written "Loading..." lines).** `cl-kebab` menu, view tabs and the GameBanana toggle, loading/empty wrappers, the
 worklist and conflicts lists, guessed-names rows.
 
-**Phase 4 - The JS-built dialogs.** `gate-backdrop` / `mv-backdrop` dialogs (`refile.js` move dialog, `tiles-and-review.js` gate,
+**Phase 4 - The JS-built dialogs (done; the markup-file windows are not part of it).** `gate-backdrop` / `mv-backdrop` dialogs (`refile.js` move dialog, `tiles-and-review.js` gate,
 `unit-pictures.js`, the three in `voice.js`) onto `ui.modal`, so they join the stack. Their bodies stay custom; only the shell,
 Escape, focus and z-order change. `voice.js` has a sub-dialog (`ve-sub`) whose Escape rule ("not while a sub-dialog is open") the
 stack must express naturally.

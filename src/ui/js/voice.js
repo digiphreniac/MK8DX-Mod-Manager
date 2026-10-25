@@ -131,29 +131,19 @@ function selectCharacter(name) {
 async function openVoiceLines(unitKey, modLabel) {
   ui.menu.closeAll();
   voiceStop();
-  const back = cgEl("div", "gate-backdrop");
-  const card = cgEl("div", "gate-card voice-card");
-  card.setAttribute("role", "dialog");
-  card.setAttribute("aria-modal", "true");
-  card.appendChild(cgEl("h3", null, "Voice lines"));
+  const modal = ui.modal({ variant: "card", class: "voice-card", title: "Voice lines", footer: true, destroyOnClose: true, onClose: () => voiceStop() });
+  const card = modal.body;
   card.appendChild(cgEl("div", "voice-sub", modLabel));
   const list = cgEl("div", "voice-list");
   list.appendChild(ui.loading("Reading the voice files\u2026"));
   card.appendChild(list);
-  const acts = cgEl("div", "gate-actions");
-  const close = () => { voiceStop(); back.remove(); document.removeEventListener("keydown", onKey, true); };
-  const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
-  document.addEventListener("keydown", onKey, true);
-  const closeBtn = button("Close", "primary", close);
-  acts.appendChild(closeBtn);
-  card.appendChild(acts);
-  back.appendChild(card);
-  back.addEventListener("click", (e) => { if (e.target === back) close(); });
-  document.body.appendChild(back);
+  const closeBtn = button("Close", "primary", () => modal.close());
+  modal.footer.appendChild(closeBtn);
+  modal.open();
   closeBtn.focus();
   let r;
   try { r = await pywebview.api.get_voice_clips(unitKey); } catch (e) { r = null; }
-  if (!back.isConnected) return;
+  if (!modal.isOpen) return;
   list.replaceChildren();
   const clips = (r && r.clips) || [];
   if (!clips.length) {
@@ -192,11 +182,11 @@ async function openVoiceEditor(character, onClose) {
   ui.menu.closeAll();
   voiceStop();
   let changed = false;
-  const back = cgEl("div", "gate-backdrop");
-  const card = cgEl("div", "gate-card voice-editor");
-  card.setAttribute("role", "dialog");
-  card.setAttribute("aria-modal", "true");
-  card.appendChild(cgEl("h3", null, `Voice \u2013 ${character}`));
+  const modal = ui.modal({
+    variant: "card", class: "voice-editor", title: `Voice \u2013 ${character}`, footer: true, destroyOnClose: true,
+    onClose: () => { voiceStop(); if (changed && onClose) onClose(); },
+  });
+  const card = modal.body;
   const status = cgEl("div", "ve-status", "\u2026");
   card.appendChild(status);
   card.appendChild(cgEl("div", "ve-note", "Mute a line or use your own sound for it. Your changes are saved as a mod called \u201cCustom voice\u201d that Commit merges like any other."));
@@ -230,13 +220,8 @@ async function openVoiceEditor(character, onClose) {
   const noMatch = cgEl("div", "voice-empty");
   noMatch.hidden = true;
   let activeCat = null;
-  const acts = cgEl("div", "gate-actions");
-  const close = () => {
-    voiceStop(); back.remove(); document.removeEventListener("keydown", onKey, true);
-    if (changed && onClose) onClose();
-  };
-  const onKey = (e) => { if (e.key === "Escape" && !document.querySelector(".ve-sub")) { e.stopPropagation(); close(); } };
-  document.addEventListener("keydown", onKey, true);
+  const acts = modal.footer;
+  const close = () => modal.close();
   const resetBtn = button("Undo all changes", "ghost", async () => {
     resetBtn.disabled = true;
     try { render(await pywebview.api.voice_reset_all(character)); changed = true; } finally { resetBtn.disabled = false; }
@@ -248,7 +233,7 @@ async function openVoiceEditor(character, onClose) {
     let r;
     try { r = await pywebview.api.voice_mute_all(character); } catch (e) { r = { success: false, error: String(e) }; }
     muteAllBtn.disabled = false;
-    if (!back.isConnected) return;
+    if (!modal.isOpen) return;
     if (!r || !r.success) { showError((r && r.error) || "That didn't work."); return; }
     changed = true;
     render(r);
@@ -262,7 +247,7 @@ async function openVoiceEditor(character, onClose) {
     let r;
     try { r = await pywebview.api.voice_boost_all(character); } catch (e) { r = { success: false, error: String(e) }; }
     boostAllBtn.disabled = false;
-    if (!back.isConnected) return;
+    if (!modal.isOpen) return;
     if (!r || !r.success) { showError((r && r.error) || "That didn't work."); return; }
     changed = true;
     render(r);
@@ -275,10 +260,7 @@ async function openVoiceEditor(character, onClose) {
   acts.appendChild(resetBtn);
   const closeBtn = button("Close", "primary", close);
   acts.appendChild(closeBtn);
-  card.appendChild(acts);
-  back.appendChild(card);
-  back.addEventListener("click", (e) => { if (e.target === back) close(); });
-  document.body.appendChild(back);
+  modal.open();
   closeBtn.focus();
 
   const showError = (msg) => { errBox.replaceChildren(); if (msg) errBox.appendChild(cgEl("div", "ve-err", msg)); };
@@ -340,7 +322,7 @@ async function openVoiceEditor(character, onClose) {
     row.classList.add("busy");
     let r;
     try { r = await pywebview.api.voice_set_line(character, l.key, mode); } catch (e) { r = { success: false, error: String(e) }; }
-    if (!back.isConnected) return;
+    if (!modal.isOpen) return;
     if (!r || !r.success) { row.classList.remove("busy"); showError((r && r.error) || "That didn't work."); return; }
     changed = true;
     render(r);
@@ -388,7 +370,7 @@ async function openVoiceEditor(character, onClose) {
           row.classList.add("busy");
           let r;
           try { r = await pywebview.api.voice_boost_line(character, l.key); } catch (e) { r = { success: false, error: String(e) }; }
-          if (!back.isConnected) return;
+          if (!modal.isOpen) return;
           if (!r || !r.success) { row.classList.remove("busy"); showError((r && r.error) || "That didn't work."); return; }
           changed = true;
           render(r);
@@ -507,7 +489,7 @@ async function openVoiceEditor(character, onClose) {
 
   let st;
   try { st = await pywebview.api.get_voice_editor(character); } catch (e) { st = { success: false, error: String(e) }; }
-  if (!back.isConnected) return;
+  if (!modal.isOpen) return;
   render(st);
 }
 
@@ -623,11 +605,8 @@ function wavBlob(pcm, nch) {
 
 function openCustomAudio(character, line, onDone) {
   voiceStop();
-  const back = cgEl("div", "gate-backdrop ve-sub");
-  const card = cgEl("div", "gate-card ve-custom");
-  card.setAttribute("role", "dialog");
-  card.setAttribute("aria-modal", "true");
-  card.appendChild(cgEl("h3", null, "Use your own sound"));
+  const modal = ui.modal({ variant: "card", class: "ve-custom", title: "Use your own sound", footer: true, destroyOnClose: true, onClose: () => cleanup() });
+  const card = modal.body;
   card.appendChild(cgEl("div", "ve-note", `For \u201c${line.label}\u201d` + (line.count > 1 ? ` \u2013 it is used for all ${line.count} sounds of this line.` : ".")
     + " Choose an audio file (mp3, wav, ogg, m4a...). The app converts it to the game's sound format and keeps it, so it can be used again if the voice file it goes into changes."));
   const drop = cgEl("div", "ve-drop");
@@ -691,17 +670,18 @@ function openCustomAudio(character, line, onDone) {
   mid.append(fileInfo, wave, range, loudBox, gainRow, opts);
   card.append(mid, errBox);
 
-  const acts = cgEl("div", "gate-actions");
+  const acts = modal.footer;
   let buf = null, fileName = "", start = 0, end = 0, previewUrl = null, gainDb = 0;
-  const cancel = () => {
-    voiceStop(); if (previewUrl) URL.revokeObjectURL(previewUrl); back.remove();
-    document.removeEventListener("keydown", onKey, true);
+  const cancel = () => modal.close();
+  // (runs however it closes: Cancel, Escape, a click outside, or "Use this sound")
+  function cleanup() {
+    voiceStop(); if (previewUrl) URL.revokeObjectURL(previewUrl);
     window.removeEventListener("dragover", winOver);
     window.removeEventListener("dragenter", winEnter);
     window.removeEventListener("dragleave", winLeave);
     window.removeEventListener("drop", winDrop);
     window.removeEventListener("resize", onResize);
-  };
+  }
   const isFiles = (e) => !!e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files");
   // The whole dialog is a drop target, not just the dashed box - it's just the one place a file could usefully go
   // while this is open, so there's no reason to make the user aim for a small rectangle. dragDepth counts entries
@@ -709,20 +689,18 @@ function openCustomAudio(character, line, onDone) {
   // same listener) so the highlight doesn't flicker off between child elements, only when the drag actually leaves.
   let dragDepth = 0;
   const winOver = (e) => { if (isFiles(e)) e.preventDefault(); };
-  const winEnter = (e) => { if (isFiles(e)) { dragDepth++; card.classList.add("drop-target"); } };
-  const winLeave = (e) => { if (isFiles(e) && --dragDepth <= 0) { dragDepth = 0; card.classList.remove("drop-target"); } };
+  const winEnter = (e) => { if (isFiles(e)) { dragDepth++; modal.dialog.classList.add("drop-target"); } };
+  const winLeave = (e) => { if (isFiles(e) && --dragDepth <= 0) { dragDepth = 0; modal.dialog.classList.remove("drop-target"); } };
   const winDrop = (e) => {
     if (!isFiles(e)) return;
     e.preventDefault();
-    dragDepth = 0; card.classList.remove("drop-target");
+    dragDepth = 0; modal.dialog.classList.remove("drop-target");
     load(e.dataTransfer.files[0]);
   };
   window.addEventListener("dragover", winOver);
   window.addEventListener("dragenter", winEnter);
   window.addEventListener("dragleave", winLeave);
   window.addEventListener("drop", winDrop);
-  const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); cancel(); } };
-  document.addEventListener("keydown", onKey, true);
   function playPreview() {
     voiceStop();
     if (!buf) return;
@@ -760,10 +738,7 @@ function openCustomAudio(character, line, onDone) {
   previewBtn.hidden = true;
   useBtn.hidden = true;
   acts.append(previewBtn, compareBtn, button("Cancel", "ghost", cancel), useBtn);
-  card.appendChild(acts);
-  back.appendChild(card);
-  back.addEventListener("click", (e) => { if (e.target === back) cancel(); });
-  document.body.appendChild(back);
+  modal.open();
 
   function showError(msg) { errBox.replaceChildren(); if (msg) errBox.appendChild(cgEl("div", "ve-err", msg)); }
 
@@ -857,7 +832,7 @@ function openCustomAudio(character, line, onDone) {
   wave.addEventListener("pointerdown", (e) => { if (!buf) return; dragFrom = timeAt(e); wave.setPointerCapture(e.pointerId); });
   wave.addEventListener("pointermove", (e) => { if (dragFrom === null) return; const t = timeAt(e); start = Math.min(dragFrom, t); end = Math.max(dragFrom, t); refreshRange(); });
   wave.addEventListener("pointerup", () => { dragFrom = null; });
-  const onResize = () => { if (buf && back.isConnected) { computePeaks(); draw(); } };
+  const onResize = () => { if (buf && modal.isOpen) { computePeaks(); draw(); } };
   window.addEventListener("resize", onResize);
 
   async function load(file) {
@@ -877,7 +852,7 @@ function openCustomAudio(character, line, onDone) {
       showError(`Couldn't read \u201c${file.name}\u201d as audio. Try an mp3, wav, ogg or m4a file.`);
       return;
     }
-    if (!back.isConnected) return;
+    if (!modal.isOpen) return;
     fileInfo.textContent = `${file.name} \u00b7 ${buf.duration.toFixed(2)} s \u00b7 ${buf.numberOfChannels === 1 ? "mono" : "stereo"}`;
     useBtn.hidden = false; previewBtn.hidden = false;
     computePeaks();

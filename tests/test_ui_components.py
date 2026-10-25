@@ -173,7 +173,7 @@ class PhaseThreeOldPatternsAreGone(unittest.TestCase):
             self.assertIn(rule, read("css", "components", "menu.css"))
         card = read("js", "character-card.js")
         self.assertEqual(card.count("ui.menu({"), 3)
-        self.assertNotRegex(card, r"run: ")             # (an entry's callback is onClick, like every other component's)
+        self.assertNotRegex(card, r"\brun: ")             # (an entry's callback is onClick, like every other component's)
 
     def test_the_main_tabs_are_made_by_ui_tabs_and_the_counts_by_setCount(self):
         self.assertNotIn("<button", read("index.html")[read("index.html").index('id="tabs"'):][:60])
@@ -201,6 +201,51 @@ class PhaseThreeOldPatternsAreGone(unittest.TestCase):
         conflicts = read("js", "data-and-conflicts.js")
         self.assertIn("ui.list({", conflicts)
         self.assertIn("ui.row(spec)", conflicts)
+
+
+class PhaseFourDialogsJoinTheStack(unittest.TestCase):
+    DIALOGS = (("refile.js", 1), ("tiles-and-review.js", 1), ("unit-pictures.js", 1), ("voice.js", 3))
+
+    def test_the_hand_made_backdrops_and_their_classes_are_gone(self):
+        for path in list(JS.rglob("*.js")) + list((UI / "css").rglob("*.css")):
+            text = path.read_text(encoding="utf-8")
+            for name in ("gate-backdrop", "gate-card", "gate-actions", "mv-backdrop", "mv-actions", "ve-sub"):
+                self.assertNotRegex(text, rf"(?<![\w-]){name}(?![\w-])", f"{path.name} still has {name}")
+
+    def test_each_of_them_is_a_card_modal_and_has_no_escape_or_backdrop_wiring_of_its_own(self):
+        for name, count in self.DIALOGS:
+            text = code(read("js", name))
+            self.assertEqual(text.count('variant: "card"'), count, name)
+            self.assertNotIn('"Escape"', text, name)                         # (the stack closes the top window, so a sub-dialog needs no rule of its own)
+            self.assertNotIn("keydown", text, name)
+            self.assertNotIn("document.body.appendChild(back", text, name)
+            self.assertNotRegex(text, r"\bback\.(appendChild|remove|isConnected|addEventListener|querySelector)", name)
+
+    def test_the_voice_editor_and_its_sub_dialog_close_one_at_a_time_through_the_stack(self):
+        voice = read("js", "voice.js")
+        self.assertIn('class: "voice-editor"', voice)
+        self.assertIn('class: "ve-custom"', voice)
+        self.assertIn("function cleanup()", voice)                           # (what closing the sound dialog undoes, however it closes)
+        self.assertIn("onClose: () => cleanup()", voice)
+        self.assertIn("modal.dialog.classList.add(\"drop-target\")", voice)       # (the highlight goes on the dialog, not on its body)
+        self.assertNotIn("backdrop", code(voice))
+
+    def test_the_question_that_waits_for_an_answer_resolves_once_however_it_closes(self):
+        gate = read("js", "tiles-and-review.js")
+        gate = gate[gate.index("function showUnfinishedGate("):]
+        gate = gate[:gate.index("\n}\n")]
+        self.assertIn("onClose: () => done(false)", gate)
+        self.assertIn("if (finished) return;", gate)
+        self.assertLess(gate.index("finished = true;"), gate.index("modal.close();"))       # (closing it from "done" does not answer twice)
+
+    def test_the_card_variant_is_in_the_modal_and_its_styles(self):
+        modal = read("js", "ui", "modal.js")
+        for needed in ('spec.variant === "card"', "spec.destroyOnClose", "spec.footer", '"ui-modal-body ui-modal-body--part"', 'spec.id || "ui-modal-"'):
+            self.assertIn(needed, modal, needed)
+        css = read("css", "components", "modal.css")
+        for rule in (".ui-modal-backdrop--card {", ".ui-modal--card {", ".ui-modal-body--part { display: contents; }"):
+            self.assertIn(rule, css, rule)
+        self.assertIn("destroyOnClose: true", read("js", "ui", "confirm.js"))
 
 
 class TheModalStack(unittest.TestCase):

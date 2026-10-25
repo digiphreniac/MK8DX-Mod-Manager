@@ -113,10 +113,8 @@ function buildCardNotice(name) {
 // "Move to another <thing>..." from a mod's "..." menu: pick where, then go there.
 function openMoveDialog({ from, modName, modId, recordType }) {
   const noun = refileNoun(from);
-  const backdrop = cgEl("div", "mv-backdrop");
-  const dialog = cgEl("div", "mv-dialog");
-  dialog.setAttribute("role", "dialog");
-  dialog.appendChild(cgEl("h3", null, `Move "${modName}" to another ${noun}`));
+  const modal = ui.modal({ variant: "card", class: "mv-dialog", footer: true, destroyOnClose: true, title: `Move "${modName}" to another ${noun}` });
+  const dialog = modal.body;
   dialog.appendChild(cgEl("p", "mv-note", `It is under ${refileLabel(from)} now. Pick the ${noun} it replaces - its files, its selection and its GameBanana record all move with it.`));
   const select = document.createElement("select");
   select.appendChild(new Option(`Choose a ${noun}...`, ""));
@@ -136,7 +134,7 @@ function openMoveDialog({ from, modName, modId, recordType }) {
   }
   dialog.appendChild(select);
   const err = cgEl("div", "gb-mod-error");
-  const close = () => backdrop.remove();
+  const close = () => modal.close();
   const go = button("Move", "primary", async () => {
     if (!select.value) return;
     go.disabled = true;
@@ -149,14 +147,8 @@ function openMoveDialog({ from, modName, modId, recordType }) {
   });
   go.disabled = true;
   select.addEventListener("change", () => { go.disabled = !select.value; });
-  const actions = cgEl("div", "mv-actions");
-  actions.appendChild(button("Cancel", "ghost", close));
-  actions.appendChild(go);
   dialog.appendChild(err);
-  dialog.appendChild(actions);
-  backdrop.appendChild(dialog);
-  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
-  backdrop.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } });
-  document.body.appendChild(backdrop);
+  modal.footer.append(button("Cancel", "ghost", close), go);
+  modal.open();
   select.focus();
 }

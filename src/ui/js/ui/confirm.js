@@ -33,7 +33,8 @@ ui.confirm = function (opts) {
       id: "ui-confirm-" + Math.random().toString(36).slice(2, 8),
       title: opts.title, size: "narrow", role: "alertdialog", body: content,
       beforeClose: () => !busy,
-      onClose: () => { resolve(answer); setTimeout(() => modal.destroy()); },
+      destroyOnClose: true,
+      onClose: () => resolve(answer),
       actions: [
         { label: opts.cancelLabel || "Cancel", variant: "ghost", size: "small", onClick: () => modal.close() },
         {
@@ -74,7 +75,8 @@ ui.alert = function (opts) {
       id: "ui-alert-" + Math.random().toString(36).slice(2, 8),
       title: opts.title || "Heads up", size: "narrow", role: "alertdialog",
       body: ui.el("p", { class: "ui-confirm-message", text: opts.message || "" }),
-      onClose: () => { resolve(); setTimeout(() => modal.destroy()); },
+      destroyOnClose: true,
+      onClose: () => resolve(),
       actions: [{ label: opts.okLabel || "OK", variant: "primary", size: "small", onClick: () => modal.close() }],
     });
     modal.open();

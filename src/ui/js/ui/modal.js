@@ -12,6 +12,11 @@
 //     onOpen(), onClose(),
 //     onEscape(event),             return true when Escape was used for something else (it then does not close the window)
 //     role,                        "dialog" (default) or "alertdialog"
+//     variant, class, footer,      variant "card": a small centred dialog with the title in it (no header bar and no Close button: it has
+//                                  buttons of its own), for the app's own questions and tools. `class` adds a class to the dialog, `footer: true`
+//                                  makes the footer even without `actions` (add your own buttons to m.footer). In a card the body is laid
+//                                  out as part of the dialog itself (display: contents), so a dialog that scrolls one part keeps working.
+//     destroyOnClose,              remove it from the page when it closes (a dialog made for one use)
 //   })  ->  { el, dialog, body, bar, footer, actions, isOpen, open(), close(), setTitle(text), setBody(content), destroy() }
 //
 // The windows that are open form a stack. Opening one puts it above everything already showing (z-order is worked out from what is on
@@ -19,6 +24,7 @@
 // it. The window is built once, hidden, and shown by open(): scripts may look its parts up by id at any time.
 (function () {
   const BASE_Z = 20, STEP = 5;
+  let nextId = 0;
   const stack = [];          // open windows, the lowest first: { api, z, spec }
 
   // The highest z-index among windows the page drew by itself (the older popups and the Setup overlay): ours go above them.
@@ -55,21 +61,22 @@
   }, true);
 
   ui.modal = function (spec) {
-    const id = spec.id;
-    const size = spec.size || "normal";
-    const closeButton = ui.el("button", { class: "ghost", id: `btn-${id}-close`, text: spec.closeLabel || "Close", attrs: { type: "button" }, on: { click: () => api.close() } });
-    const titleEl = ui.el("h2", { id: `${id}-title`, text: spec.title || "" });
-    const header = ui.el("div", { class: "ui-modal-header", id: `${id}-header` }, titleEl, closeButton);
+    const id = spec.id || "ui-modal-" + (++nextId);
+    const card = spec.variant === "card";
+    const size = card ? "card" : (spec.size || "normal");
+    const closeButton = card ? null : ui.el("button", { class: "ghost", id: `btn-${id}-close`, text: spec.closeLabel || "Close", attrs: { type: "button" }, on: { click: () => api.close() } });
+    const titleEl = ui.el(card ? "h3" : "h2", { id: `${id}-title`, text: spec.title || "" });
+    const header = card ? titleEl : ui.el("div", { class: "ui-modal-header", id: `${id}-header` }, titleEl, closeButton);
     const bar = spec.bar ? ui.el("div", { class: "ui-modal-bar", id: `${id}-bar`, hidden: true }) : null;
-    const body = ui.el("div", { class: "ui-modal-body", id: `${id}-body` });
+    const body = ui.el("div", { class: card ? "ui-modal-body ui-modal-body--part" : "ui-modal-body", id: `${id}-body` });
     const actions = (spec.actions || []).map(a => ui.button(a));
-    const footer = actions.length ? ui.el("div", { class: "ui-modal-footer", id: `${id}-footer` }, actions.map(a => a.el)) : null;
+    const footer = actions.length || spec.footer ? ui.el("div", { class: "ui-modal-footer", id: `${id}-footer` }, actions.map(a => a.el)) : null;
     const dialog = ui.el("div", {
-      class: `ui-modal ui-modal--${size}`, id,
+      class: `ui-modal ui-modal--${size}` + (spec.class ? " " + spec.class : ""), id,
       attrs: { role: spec.role || "dialog", "aria-modal": "true", "aria-labelledby": `${id}-title`, tabindex: "-1" },
     }, header, bar, body, footer);
     const backdrop = ui.el("div", {
-      class: "ui-modal-backdrop", id: `${id}-backdrop`, hidden: true,
+      class: "ui-modal-backdrop" + (card ? " ui-modal-backdrop--card" : ""), id: `${id}-backdrop`, hidden: true,
       on: { click: (e) => { if (e.target === backdrop && spec.closeOnBackdrop !== false) api.close(); } },
     }, dialog);
 
@@ -106,6 +113,7 @@
         if (opener && opener.isConnected && opener.focus) opener.focus({ preventScroll: true });
         opener = null;
         if (spec.onClose) spec.onClose();
+        if (spec.destroyOnClose) setTimeout(api.destroy);
         return true;
       },
       setTitle(text) { titleEl.textContent = text; },
