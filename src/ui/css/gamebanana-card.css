@@ -106,8 +106,6 @@
     font-size: 12px;
     word-break: break-all;
   }
-  .conflict-line { margin: 6px 0; }
-  .conflict-line:first-of-type { margin-top: 8px; }
 
   .mod-row.checked { background: var(--accent-soft); }
 

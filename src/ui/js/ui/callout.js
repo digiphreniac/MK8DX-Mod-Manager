@@ -10,8 +10,9 @@
 //     itemsLabel,                  that line ("Show the 3 mods")
 //   })  ->  { el }
 //
-// ui.hint(text, { tone, tag, class }) - one small line of explanation. Tone "dim" (the default) is a quiet grey note; "warn" is a boxed
-// warning. A new kind of small note is a tone here, not a new class of its own.
+// ui.hint(text, { tone, size, tag, class }) - one small line of explanation. Tone "dim" (the default) is a quiet grey note, "warn" a boxed
+// warning, "error" red text; size "md" is a little larger. `class` adds a class for what is particular to where it sits (a margin). A new
+// kind of small note is a tone or a size here, not a new class of its own. A newline in the text starts a new line.
 ui.callout = function (spec) {
   const tone = spec.tone || "info";
   const word = { warn: "Check: ", todo: "To do: ", info: "Note: " }[tone] || "";
@@ -29,6 +30,6 @@ ui.callout = function (spec) {
   return { el };
 };
 
-ui.hint = function (text, { tone = "dim", tag = "div", class: extra } = {}) {
-  return ui.el(tag, { class: `ui-hint ui-hint--${tone}` + (extra ? " " + extra : ""), text });
+ui.hint = function (text, { tone = "dim", tag = "div", size, class: extra } = {}) {
+  return ui.el(tag, { class: `ui-hint ui-hint--${tone}` + (size ? ` ui-hint--${size}` : "") + (extra ? " " + extra : ""), text });
 };

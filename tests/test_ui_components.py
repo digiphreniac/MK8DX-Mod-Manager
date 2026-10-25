@@ -13,7 +13,7 @@ from pathlib import Path
 
 UI = Path(__file__).resolve().parent.parent / "src" / "ui"
 JS = UI / "js"
-COMPONENTS = ("core", "icons", "button", "disclosure", "modal", "section", "confirm", "callout", "chip", "menu", "tabs", "asyncbox", "list")
+COMPONENTS = ("core", "icons", "button", "disclosure", "modal", "section", "confirm", "callout", "chip", "menu", "tabs", "asyncbox", "list", "progress", "folder", "tile")
 
 
 def read(*parts):
@@ -64,7 +64,7 @@ class WhatThePageCalls(unittest.TestCase):
         defined = set()
         for name in COMPONENTS:
             defined.update(re.findall(r"(?<![\w.])ui\.(\w+) = ", read("js", "ui", f"{name}.js")))
-        self.assertTrue({"el", "icon", "button", "modal", "section", "confirm", "alert", "disclosure", "callout", "hint", "chip", "menu", "tabs", "segmented", "loading", "asyncBox", "row", "list"} <= defined)
+        self.assertTrue({"el", "icon", "button", "modal", "section", "confirm", "alert", "disclosure", "callout", "hint", "chip", "menu", "tabs", "segmented", "loading", "asyncBox", "row", "list", "progress", "folderCard", "tile"} <= defined)
         for path in all_scripts():
             for used in re.findall(r"(?<![\w.])ui\.(\w+)", code(path.read_text(encoding="utf-8"))):
                 self.assertIn(used, defined, f"{path.name} uses ui.{used}")
@@ -246,6 +246,128 @@ class PhaseFourDialogsJoinTheStack(unittest.TestCase):
         for rule in (".ui-modal-backdrop--card {", ".ui-modal--card {", ".ui-modal-body--part { display: contents; }"):
             self.assertIn(rule, css, rule)
         self.assertIn("destroyOnClose: true", read("js", "ui", "confirm.js"))
+
+
+class PhaseFiveTidy(unittest.TestCase):
+    ADOPTED = {"add-mod-modal": "addModModal", "gb-detail-modal": "gbDetailModal", "icon-gen-modal": "iconGenModal",
+               "gb-browse-modal": "gbBrowseModal", "modal": "characterModal"}
+
+    def test_the_older_element_helpers_are_ui_el(self):
+        for path in all_scripts():
+            text = path.read_text(encoding="utf-8")
+            for gone in ("cgEl", "uisEl", "wizEl"):
+                self.assertNotRegex(text, rf"(?<![\w-]){gone}(?![\w-])", f"{path.name} still has {gone}")
+
+    def test_every_window_is_on_the_stack_and_the_page_has_no_escape_handler_of_its_own(self):
+        modals = read("js", "app-modals.js")
+        for markup_id, handle in self.ADOPTED.items():
+            self.assertRegex(modals, rf'const {handle} = ui\.modal\(\{{\s*adopt: "{markup_id}"')
+        for path in all_scripts():
+            text = code(path.read_text(encoding="utf-8"))
+            if path.name in ("modal.js", "tooltips.js", "menu.js"):
+                continue
+            self.assertNotIn('"Escape"', text, path.name)                 # (Escape is the stack's job; the menu and the tooltip close themselves)
+            for markup_id in self.ADOPTED:
+                self.assertNotRegex(text, rf'getElementById\("{markup_id}-backdrop"\)', f"{path.name} reaches into {markup_id}'s backdrop")
+
+    def test_what_closing_the_adopted_windows_undoes_is_in_one_place(self):
+        modals = read("js", "app-modals.js")
+        self.assertIn("onClose: () => { openCharacter = null; markActiveTile(); }", modals)
+        self.assertIn("onClose: () => { if (gbBrowse) gbBrowse.stop(); gbBrowse = null; }", modals)
+        self.assertIn("onEscape: () => !!(gbBrowseClearSearch && gbBrowseClearSearch())", modals)
+        modal = read("js", "ui", "modal.js")
+        self.assertIn("function adopt(spec)", modal)
+        self.assertIn("btn-${id}-close", modal)
+
+    def test_the_progress_bars_and_the_folder_card_are_components(self):
+        progress = read("js", "ui", "progress.js")
+        self.assertIn("ui.progress.formatElapsed", progress)
+        self.assertIn("units", progress)
+        flow = read("js", "flow.js")
+        self.assertNotIn("function formatElapsed", flow)
+        self.assertNotRegex(flow, r"[\"']cp-")
+        folder = read("js", "ui", "folder.js")
+        self.assertIn("ui-folder-open", folder)
+        registry = read("js", "settings-registry.js")
+        self.assertNotIn("wiz-folder", registry)
+        for sheet in ("progress", "folder"):
+            self.assertIn(f"css/components/{sheet}.css", read("index.html"))
+
+    def test_the_unused_styles_are_gone(self):
+        css = "\n".join(p.read_text(encoding="utf-8") for p in (UI / "css").rglob("*.css"))
+        for name in ("conflict-group", "conflict-option-row", "cl-step-btn", "cl-step-bar", "cl-edit-btn", "ml-chip", "ml-custom", "ml-verdict", "leftout-badge",
+                     "uis-icons", "uis-mod-name", "uis-step-head", "help-link-list", "wiz-hint", "modal-side-col", "wiz-folder", "wiz-pill"):
+            self.assertNotRegex(css, rf"\.{name}(?![\w-])", name)
+
+
+class PhaseTwoLeftovers(unittest.TestCase):
+    HINTS = ("cg-note", "cl-hint", "ve-note", "mv-note", "pics-hint", "setting-hint", "wiz-error")
+
+    def test_the_small_notes_and_the_error_line_are_ui_hint_and_nothing_builds_them_by_hand(self):
+        for path in all_scripts():
+            text = path.read_text(encoding="utf-8")
+            for name in self.HINTS:
+                # (as the class of an element made by ui.el: the class is only passed on to ui.hint now, as `class: "..."`)
+                self.assertNotRegex(text, rf'ui\.el\("(div|span|p)", "{name}"', f"{path.name} builds a {name} by hand")
+        self.assertGreaterEqual(sum(path.read_text(encoding="utf-8").count("ui.hint(") for path in all_scripts()), 40)
+
+    def test_what_is_left_of_those_classes_is_only_where_they_sit(self):
+        css = read("css", "conflicts.css") + read("css", "character-card.css")
+        for rule in (".cg-note { margin: 4px 0 6px; }", ".pics-hint { margin: 14px 0 0 0; }", ".ve-note { margin: 0 0 8px 0; }", ".cl-hint { margin: -4px 0 0 2px; }"):
+            self.assertIn(rule, css, rule)
+        self.assertNotIn(".setting-hint", read("css", "setting-controls.css"))
+        self.assertNotIn(".wiz-error", read("css", "setup-overlay.css"))
+        hint = read("css", "components", "callout.css")
+        for rule in (".ui-hint--md {", ".ui-hint--error {"):
+            self.assertIn(rule, hint, rule)
+
+    def test_the_badges_on_a_row_are_chips(self):
+        for name, needed in (("character-card.js", ('class: "packed-badge"', 'class: "patch-badge"')), ("menu-look.js", ('class: "packed-badge"',)),
+                             ("views.js", ('class: "linked-badge"',)), ("gb-browse.js", ('class: "gb-pending-pill"', "outline: true"))):
+            text = read("js", name)
+            for item in needed:
+                self.assertIn(item, text, f"{name}: {item}")
+            self.assertNotRegex(text, r'className = "(packed|patch|linked)-badge"', name)
+            self.assertNotIn('"gb-target-badge', text, name)
+        css = "\n".join(p.read_text(encoding="utf-8") for p in (UI / "css").glob("*.css"))
+        self.assertNotIn("gb-target-badge", css)
+        for name in ("packed-badge", "patch-badge", "linked-badge"):
+            self.assertEqual(css.count(name), 1, name)       # (only the one rule that stops the badge shrinking in a row: no look of its own)
+            self.assertRegex(css, rf"\.mod-row \.{name}[^{{]*\{{ flex: 0 0 auto; \}}", name)
+        chip = read("css", "components", "chip.css")
+        for rule in (".ui-chip--xs {", ".ui-chip--outline {", ".ui-chip--dashed {", ".ui-chip--help {", ".ui-chip--pointer {"):
+            self.assertIn(rule, chip, rule)
+        self.assertLess(chip.index(".ui-chip--caps {"), chip.index(".ui-chip--xs {"))       # (the badge size wins over the capitals' size)
+
+
+class TheTileShell(unittest.TestCase):
+    def test_every_tile_is_a_ui_tile_and_buildtile_only_turns_what_it_knows_into_options(self):
+        review = read("js", "tiles-and-review.js")
+        build = review[review.index("function buildTile("):]
+        build = build[:build.index("\n}\n")]
+        self.assertIn("ui.tile({", build)
+        self.assertIn("state.checked[k]", build)                      # (the page's part: which mods are ticked)
+        for hand_made in ("document.createElement", "tile-count-bubble", "char-count", "char-badge"):
+            self.assertNotIn(hand_made, build, hand_made)
+        for name in all_scripts():
+            if name.name == "tile.js":
+                continue
+            text = name.read_text(encoding="utf-8")
+            self.assertNotIn("char-conflict-badge", text, name.name)         # (the red "!" is ui.tile.markConflict)
+            self.assertNotIn('classList.add("has-conflict")', text, name.name)
+
+    def test_the_conflict_mark_is_made_in_one_place_by_the_six_screens(self):
+        uses = {name: read("js", name).count("ui.tile.markConflict(") for name in ("item-screen.js", "tiles-and-review.js", "views.js", "vehicle-screen.js")}
+        self.assertEqual(uses, {"item-screen.js": 1, "tiles-and-review.js": 2, "views.js": 2, "vehicle-screen.js": 1})
+        tile = read("js", "ui", "tile.js")
+        self.assertIn("ui.tile.markConflict = function (tile, title)", tile)
+
+    def test_the_tile_draws_the_three_ways_of_counting_and_the_no_mods_states(self):
+        tile = read("js", "ui", "tile.js")
+        for needed in ('spec.count === "quiet"', 'spec.count === "bubble"', "needs attention", "No mods yet", "char-attention-dot", "tile-pending-dot",
+                       "el.dataset.countNote", "el.dataset.char = spec.key"):
+            self.assertIn(needed, tile, needed)
+        self.assertLess(tile.index('"char-badge"'), tile.index('"char-name"'))          # (the order the children have always had)
 
 
 class TheModalStack(unittest.TestCase):

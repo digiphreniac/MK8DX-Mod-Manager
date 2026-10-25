@@ -64,13 +64,13 @@ async function loadSettings() {
 // The files of a conflict, one per line: the file's name first and plain, the folder it is in dim after it (the name is what you recognise,
 // and every file of a mod shares most of its folder). In a box of limited height, so a mod with hundreds of files can't push the rest off screen.
 function cgFileList(paths) {
-  const list = cgEl("div", "cg-file-list");
+  const list = ui.el("div", "cg-file-list");
   for (const p of paths) {
     const cut = p.lastIndexOf("/");
-    const line = cgEl("code");
+    const line = ui.el("code");
     line.title = p;
-    line.appendChild(cgEl("b", null, cut < 0 ? p : p.slice(cut + 1)));
-    if (cut > 0) line.appendChild(cgEl("span", "cg-dir", " " + p.slice(0, cut)));
+    line.appendChild(ui.el("b", null, cut < 0 ? p : p.slice(cut + 1)));
+    if (cut > 0) line.appendChild(ui.el("span", "cg-dir", " " + p.slice(0, cut)));
     list.appendChild(line);
   }
   return list;
@@ -117,20 +117,20 @@ function cgJoin(labels) {
 
 function buildConflictCard(group, opts) {
   const onSettled = (opts && opts.onSettled) || (() => {});
-  const card = cgEl("div", "cg-card" + (group.can_exclude ? "" : " code"));
+  const card = ui.el("div", "cg-card" + (group.can_exclude ? "" : " code"));
   const n = group.paths.length;
   const labelOf = (m) => group.labels[group.mods.indexOf(m)];
 
   if (group.can_exclude) {
-    const title = cgEl("div", "cg-title",
+    const title = ui.el("div", "cg-title",
       `${cgJoin(group.labels)} both change the same ${n === 1 ? "file" : n + " files"}`);
     if (group.full_labels) title.title = group.full_labels.join("\n");
     card.appendChild(title);
-    card.appendChild(cgEl("div", "cg-sub", group.summary ? `That's ${group.summary}.` : ""));
+    card.appendChild(ui.el("div", "cg-sub", group.summary ? `That's ${group.summary}.` : ""));
   } else {
-    card.appendChild(cgEl("div", "cg-title",
+    card.appendChild(ui.el("div", "cg-title",
       `${cgJoin(group.labels)} both patch the same part of the game's code`));
-    card.appendChild(cgEl("div", "cg-sub",
+    card.appendChild(ui.el("div", "cg-sub",
       "Half of a code patch can't be dropped, so only one of these can be used."));
   }
   const parts = group.mods.map(m => {
@@ -138,28 +138,28 @@ function buildConflictCard(group, opts) {
     return imp && imp.total ? `${labelOf(m)}: ${imp.shared} of its ${imp.total} files` : null;
   }).filter(Boolean);
   if (parts.length && group.can_exclude) {
-    card.appendChild(cgEl("div", "cg-impact",
+    card.appendChild(ui.el("div", "cg-impact",
       "How much each mod is affected - " + parts.join(" · ") + ". Either way, the rest of each mod still works."));
   }
   for (const k of group.known || []) {
-    card.appendChild(cgEl("div", "cg-note", `${k.label} - ${k.note}`));
+    card.appendChild(ui.hint(`${k.label} - ${k.note}`, { class: "cg-note" }));
   }
 
   // Choices
-  const choices = cgEl("div", "cg-choices");
+  const choices = ui.el("div", "cg-choices");
   const radios = [];
   let idx = 0;
   const addChoice = (value, title, sub, isDefault, tag) => {
-    const row = cgEl("label", "cg-choice");
+    const row = ui.el("label", "cg-choice");
     const r = document.createElement("input");
     r.type = "radio";
     r.name = "cg-" + group.id + "-" + (opts && opts.scope || "x");
     r.value = value;
     row.appendChild(r);
-    const text = cgEl("span", "cg-choice-text");
+    const text = ui.el("span", "cg-choice-text");
     text.appendChild(document.createTextNode(title));
     if (tag) text.appendChild(ui.chip({ text: tag, tone: "ok", class: "cg-tag" }).el);
-    if (sub) text.appendChild(cgEl("small", null, sub));
+    if (sub) text.appendChild(ui.el("small", null, sub));
     row.appendChild(text);
     r.addEventListener("change", () => {
       for (const x of radios) x.row.classList.toggle("selected", x.r.checked);
@@ -186,9 +186,9 @@ function buildConflictCard(group, opts) {
   for (const x of radios) x.row.classList.toggle("selected", x.r.checked);
   card.appendChild(choices);
 
-  const actions = cgEl("div", "cg-actions");
-  const apply = cgEl("button", "primary small", "Apply");
-  const status = cgEl("span", "cg-note");
+  const actions = ui.el("div", "cg-actions");
+  const apply = ui.el("button", "primary small", "Apply");
+  const status = ui.hint("", { tag: "span", class: "cg-note" });
   apply.addEventListener("click", async () => {
     const pick = radios.find(x => x.r.checked);
     if (!pick) return;
@@ -208,7 +208,7 @@ function buildConflictCard(group, opts) {
       apply.disabled = false;
       return;
     }
-    card.replaceChildren(cgEl("div", "cg-done", "✓ Settled - " + (
+    card.replaceChildren(ui.el("div", "cg-done", "✓ Settled - " + (
       v.startsWith("keep:") ? `keeping ${labelOf(v.slice(5))}'s version.`
         : v === "none" ? "using the game's own files."
         : `${labelOf(v.slice(7))} is deselected.`)));
@@ -229,21 +229,20 @@ function buildConflictCard(group, opts) {
 // "Files" panel for one mod: every file it ships, with a checkbox to leave a
 // single file out of the merge. `onChange` runs after any change.
 function buildFilesPanel(modKey, onChange) {
-  const panel = cgEl("div", "files-panel");
-  const head = cgEl("div", "files-panel-head");
-  const summary = cgEl("span", null, "Loading...");
+  const panel = ui.el("div", "files-panel");
+  const head = ui.el("div", "files-panel-head");
+  const summary = ui.el("span", null, "Loading...");
   const filter = document.createElement("input");
   filter.type = "text";
   filter.placeholder = "Filter files...";
-  const includeAll = cgEl("button", "ghost small", "Include all again");
+  const includeAll = ui.el("button", "ghost small", "Include all again");
   includeAll.hidden = true;
   head.appendChild(summary);
   head.appendChild(filter);
   head.appendChild(includeAll);
   panel.appendChild(head);
-  panel.appendChild(cgEl("div", "cg-note",
-    "Deselect a file to leave it out of the merge - handy when it clashes with another mod and you'd rather keep the other one's. The rest of the mod is unaffected."));
-  const list = cgEl("div", "files-list");
+  panel.appendChild(ui.hint("Deselect a file to leave it out of the merge - handy when it clashes with another mod and you'd rather keep the other one's. The rest of the mod is unaffected.", { class: "cg-note" }));
+  const list = ui.el("div", "files-list");
   panel.appendChild(list);
   let data = null;
   let reasons = {};
@@ -258,7 +257,7 @@ function buildFilesPanel(modKey, onChange) {
       .filter(f => !q || f.path.toLowerCase().includes(q))
       .sort((a, b) => (b.left_out - a.left_out) || a.path.localeCompare(b.path));
     for (const f of shown.slice(0, 300)) {
-      const row = cgEl("label", "files-row" + (f.left_out ? " left-out" : ""));
+      const row = ui.el("label", "files-row" + (f.left_out ? " left-out" : ""));
       const cb = document.createElement("input");
       cb.type = "checkbox";
       cb.checked = !f.left_out;
@@ -271,16 +270,16 @@ function buildFilesPanel(modKey, onChange) {
         onChange();
       });
       row.appendChild(cb);
-      row.appendChild(cgEl("code", null, f.path));
+      row.appendChild(ui.el("code", null, f.path));
       const why = reasons[f.path.toLowerCase()];
       const note = f.skipped_anyway ? "never copied (see docs/merge-rules.md)"
         : f.left_out ? (why && why.kept_label ? `kept ${why.kept_label}'s instead` : why && why.reason === "conflict" ? "game's own file used" : "you left this out")
         : f.kind;
-      row.appendChild(cgEl("small", null, note));
+      row.appendChild(ui.el("small", null, note));
       list.appendChild(row);
     }
-    if (shown.length > 300) list.appendChild(cgEl("div", "cg-note", `... and ${shown.length - 300} more - use the filter to find a file.`));
-    if (data.truncated) list.appendChild(cgEl("div", "cg-note", `Only the first ${data.files.length} of ${data.total} files are listed.`));
+    if (shown.length > 300) list.appendChild(ui.hint(`... and ${shown.length - 300} more - use the filter to find a file.`, { class: "cg-note" }));
+    if (data.truncated) list.appendChild(ui.hint(`Only the first ${data.files.length} of ${data.total} files are listed.`, { class: "cg-note" }));
   }
   filter.addEventListener("input", draw);
   includeAll.addEventListener("click", async () => {
@@ -341,7 +340,7 @@ async function renderConflicts() {
 
   if (result.groups.length) {
     any = true;
-    container.appendChild(cgEl("div", "cg-section-title", `Needs settling (${result.groups.length})`));
+    container.appendChild(ui.el("div", "cg-section-title", `Needs settling (${result.groups.length})`));
     for (const g of result.groups) container.appendChild(buildConflictCard(g, { scope: "settings", onSettled: () => setTimeout(again, 900) }));
   }
 
@@ -359,7 +358,7 @@ async function renderConflicts() {
     if (result.resolved.length) counts.push(`${result.resolved.length} saved choice${result.resolved.length === 1 ? "" : "s"}`);
 
     // Finished items are one line each, and the whole section is folded away while something above still needs a decision.
-    const head = cgEl("summary", null, `Settled / left out (${counts.join(" \u00b7 ")})`);
+    const head = ui.el("summary", null, `Settled / left out (${counts.join(" \u00b7 ")})`);
     head.addEventListener("click", () => { conflictsSettledOpen = !section.open; });      // (only the user's own opening or closing counts)
     const rows = ui.list({ class: "cg-rows", renderItem: (spec) => ui.row(spec).el });
     const section = ui.disclosure({
@@ -371,7 +370,7 @@ async function renderConflicts() {
       below: paths ? ui.disclosure({ class: "cg-files", summary: `Show the ${paths.length === 1 ? "file" : paths.length + " files"}` }, cgFileList(paths)).el : null,
     });
     const button = (label, onClick) => {
-      const b = cgEl("button", "ghost small", label);
+      const b = ui.el("button", "ghost small", label);
       b.addEventListener("click", onClick);
       return b;
     };
@@ -395,10 +394,10 @@ async function renderConflicts() {
     container.appendChild(section.el);
   }
   if (!any) {
-    const none = cgEl("div", "conflicts-none");
-    none.appendChild(cgEl("div", "conflicts-none-mark", "\u2713"));
-    none.appendChild(cgEl("div", "conflicts-none-title", "No conflicts, and no files left out."));
-    none.appendChild(cgEl("div", "conflicts-none-sub", "The mods you have selected fit together."));
+    const none = ui.el("div", "conflicts-none");
+    none.appendChild(ui.el("div", "conflicts-none-mark", "\u2713"));
+    none.appendChild(ui.el("div", "conflicts-none-title", "No conflicts, and no files left out."));
+    none.appendChild(ui.el("div", "conflicts-none-sub", "The mods you have selected fit together."));
     container.appendChild(none);
   }
 }

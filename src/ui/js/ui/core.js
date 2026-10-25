@@ -39,11 +39,3 @@ ui.html = function (markup) {
   t.innerHTML = markup;
   return t.content;
 };
-
-// The older helper the screens still use: an element with a class and text. Same as ui.el(tag, { class, text }).
-function cgEl(tag, cls, text) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text;
-  return e;
-}

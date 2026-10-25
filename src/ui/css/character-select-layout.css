@@ -82,6 +82,5 @@
   @keyframes speaker-talk { 0%, 100% { opacity: 0.2; } 45% { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .tile-voice-mark.speaking .speaker-wave { animation: none; } }
   .ml-review { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-  .ml-checked { color: var(--ok); font-weight: 600; font-size: 13px; }
   /* in the card, the check-it row stays in view while the Look step is scrolled */
   .cl-look .ml-review { position: sticky; bottom: 0; z-index: 1; background: var(--panel); margin-top: 4px; padding: 8px 0 4px 0; border-top: 1px solid var(--divider); }

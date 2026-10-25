@@ -28,6 +28,9 @@
     "js/ui/tabs.js",
     "js/ui/asyncbox.js",
     "js/ui/list.js",
+    "js/ui/progress.js",
+    "js/ui/folder.js",
+    "js/ui/tile.js",
     "js/app-modals.js",         // (Settings, Conflicts, Help and Guessed names, built from the components and left hidden)
     "js/api-coalesce.js",
     "js/state-and-helpers.js",

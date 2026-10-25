@@ -14,8 +14,8 @@
 // ---- the two steps' walkthroughs ----
 // `onLook(look, {name, icons})` tells the card which of walk / summary each step is showing.
 function buildCourseLook(name, onLook) {
-  const nameWrap = cgEl("div", "cl-look");
-  const iconsWrap = cgEl("div", "cl-look");
+  const nameWrap = ui.el("div", "cl-look");
+  const iconsWrap = ui.el("div", "cl-look");
   let nameView = null;     // "walk" forces the name editor open (Edit); null: follow the data
   let iconsView = null;    // same, for the picture
   let nameMode = "summary", iconsMode = "summary";
@@ -23,7 +23,7 @@ function buildCourseLook(name, onLook) {
   const draftKey = "course|" + name;
 
   function skeleton_() {
-    const sk = cgEl("div", "cl-sk");
+    const sk = ui.el("div", "cl-sk");
     sk.appendChild(ui.loading("Reading the mod's menu files..."));
     return sk;
   }
@@ -89,7 +89,7 @@ function buildCourseLook(name, onLook) {
     const r = look.review, nm = look.name;
     if (!nm || !r.name_applicable) {
       nameMode = "summary";
-      nameWrap.appendChild(cgEl("div", "cg-note", `Nothing to check: nothing changes what ${name} is called.`));
+      nameWrap.appendChild(ui.hint(`Nothing to check: nothing changes what ${name} is called.`, { class: "cg-note" }));
       return;
     }
     const walk = nameView === "walk" || (nameView === null && !r.name_done);
@@ -98,11 +98,11 @@ function buildCourseLook(name, onLook) {
   }
 
   function plateOf(text, input) {
-    const box = cgEl("div", "cl-sum-name");
-    const plate = cgEl("div", "cl-plate");
+    const box = ui.el("div", "cl-sum-name");
+    const plate = ui.el("div", "cl-plate");
     if (input) {
       plate.classList.add("is-edit");
-      const base = cgEl("span", "np-base", "");
+      const base = ui.el("span", "np-base", "");
       const sync = () => {
         const t = input.value.trim();
         base.textContent = t && t !== name ? "(" + name + ")" : "";
@@ -114,7 +114,7 @@ function buildCourseLook(name, onLook) {
       sync();
     } else {
       plate.append(text);
-      if (text !== name) plate.appendChild(cgEl("span", "np-base", "(" + name + ")"));
+      if (text !== name) plate.appendChild(ui.el("span", "np-base", "(" + name + ")"));
     }
     box.appendChild(plate);
     return box;
@@ -123,8 +123,8 @@ function buildCourseLook(name, onLook) {
   function drawNameStep(look) {
     const nm = look.name, wrap = nameWrap;
     const guess = nm.state === "vanilla" ? nm.suggestion : null;
-    wrap.appendChild(cgEl("div", "cl-q", `What should ${name} be called in the game?`));
-    wrap.appendChild(cgEl("div", "cl-sub",
+    wrap.appendChild(ui.el("div", "cl-q", `What should ${name} be called in the game?`));
+    wrap.appendChild(ui.el("div", "cl-sub",
       guess ? `We guessed this from ${guess.source}. Change it if you like, or keep the game's name.`
       : nm.state === "you" ? "This is the name you chose. Change it if you like."
       : nm.state === "mod" ? `The mod (${(nm.who || []).join(", ")}) gives it this name. Change it if you like.`
@@ -139,12 +139,12 @@ function buildCourseLook(name, onLook) {
     const baseline = nm.state === "vanilla" ? (guess ? guess.text : "") : nm.text;
     const draft = nameDrafts[draftKey] && nameDrafts[draftKey].base === baseline ? nameDrafts[draftKey].value : null;
     input.value = draft !== null ? draft : baseline;
-    if (draft !== null && draft !== baseline) wrap.appendChild(cgEl("div", "cl-sub", "You had started typing this name - it wasn't saved yet."));
+    if (draft !== null && draft !== baseline) wrap.appendChild(ui.el("div", "cl-sub", "You had started typing this name - it wasn't saved yet."));
     wrap.appendChild(plateOf(null, input));
-    const err = cgEl("span", "gb-mod-error");
+    const err = ui.el("span", "gb-mod-error");
     wrap.appendChild(err);
 
-    const row = cgEl("div", "ml-review");
+    const row = ui.el("div", "ml-review");
     const go = button(input.value.trim() ? "Use this name" : "Keep the game's name", "primary small", async () => {
       go.disabled = true;
       const typed = input.value.trim();
@@ -166,7 +166,7 @@ function buildCourseLook(name, onLook) {
     });
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go.click(); } });
     row.appendChild(go);
-    row.appendChild(cgEl("span", "cg-note", "Or type a different one above."));
+    row.appendChild(ui.hint("Or type a different one above.", { tag: "span", class: "cg-note" }));
     wrap.appendChild(row);
     setTimeout(() => { if (input.isConnected) { input.focus(); const n = input.value.length; input.setSelectionRange(n, n); } }, 30);
   }
@@ -175,8 +175,8 @@ function buildCourseLook(name, onLook) {
     const nm = look.name;
     const top = plateOf(nm ? nm.text : name);
     if (nm) {
-      top.appendChild(cgEl("span", "cl-hint", nm.state === "you" ? (nm.auto ? "Name guessed from " + (nm.source || "the mod") : "Your name")
-        : nm.state === "mod" ? "Name from " + (nm.who || []).join(", ") : "The game's own name"));
+      top.appendChild(ui.hint(nm.state === "you" ? (nm.auto ? "Name guessed from " + (nm.source || "the mod") : "Your name")
+        : nm.state === "mod" ? "Name from " + (nm.who || []).join(", ") : "The game's own name", { tag: "span", class: "cl-hint" }));
     }
     nameWrap.appendChild(top);
   }
@@ -187,14 +187,14 @@ function buildCourseLook(name, onLook) {
     const p = look.picture;
     src = src === undefined ? (p && p.preview) : src;
     if (!src) return null;
-    const box = cgEl("div", "cl-course-pict");
-    const wrap = cgEl("div", "course-pict-wrap");
+    const box = ui.el("div", "cl-course-pict");
+    const wrap = ui.el("div", "course-pict-wrap");
     const img = document.createElement("img");
     img.className = "course-pict-preview";
     img.src = src;
     img.alt = "";
     wrap.appendChild(img);
-    wrap.appendChild(cgEl("div", "course-pict-title", look.name && look.name.text ? look.name.text : name));
+    wrap.appendChild(ui.el("div", "course-pict-title", look.name && look.name.text ? look.name.text : name));
     box.appendChild(wrap);
     return box;
   }
@@ -206,7 +206,7 @@ function buildCourseLook(name, onLook) {
       iconsMode = "summary";
       const box = pictureBox(look);
       if (box) iconsWrap.appendChild(box);
-      iconsWrap.appendChild(cgEl("div", "cg-note", `Nothing to check: ${p.mod ? "the mod " + p.mod : "the mod"} brings its own course-select picture.`));
+      iconsWrap.appendChild(ui.hint(`Nothing to check: ${p.mod ? "the mod " + p.mod : "the mod"} brings its own course-select picture.`, { class: "cg-note" }));
       return;
     }
     const walk = iconsView === "walk" || (iconsView === null && !r.icons_done);
@@ -231,12 +231,12 @@ function buildCourseLook(name, onLook) {
 
   function drawIconsStep(look) {
     const p = look.picture, wrap = iconsWrap;
-    wrap.appendChild(cgEl("div", "cl-q", `Which picture should ${name} have on the course-select screen?`));
+    wrap.appendChild(ui.el("div", "cl-q", `Which picture should ${name} have on the course-select screen?`));
     const box = pictureBox(look);
     if (p.state === "you") {
-      wrap.appendChild(cgEl("div", "cl-sub", "A picture made from one of the mod's screenshots. Keep it, make a different one, or go back to the game's."));
+      wrap.appendChild(ui.el("div", "cl-sub", "A picture made from one of the mod's screenshots. Keep it, make a different one, or go back to the game's."));
       wrap.appendChild(box);
-      const row = cgEl("div", "ml-review");
+      const row = ui.el("div", "ml-review");
       row.appendChild(button("Use this picture", "primary small", async () => { await pywebview.api.mark_course_icon_reviewed(name); iconsView = null; changed(); }));
       row.appendChild(makeOne("Make a different one", false));
       row.appendChild(button("Back to the game's picture", "small", async () => {
@@ -248,10 +248,10 @@ function buildCourseLook(name, onLook) {
       wrap.appendChild(row);
       return;
     }
-    wrap.appendChild(cgEl("div", "cl-sub", "The mod doesn't bring a course-select picture, so the game's own picture for this course shows (below). You can make one from one of the mod's screenshots instead."));
+    wrap.appendChild(ui.el("div", "cl-sub", "The mod doesn't bring a course-select picture, so the game's own picture for this course shows (below). You can make one from one of the mod's screenshots instead."));
     const own = pictureBox(look, p.default);
     if (own) wrap.appendChild(own);
-    const row = cgEl("div", "ml-review");
+    const row = ui.el("div", "ml-review");
     row.appendChild(makeOne("Make one from a screenshot", true));
     row.appendChild(button("Keep the game's picture", "small", async () => { await pywebview.api.mark_course_icon_reviewed(name); iconsView = null; changed(); }));
     wrap.appendChild(row);
@@ -261,7 +261,7 @@ function buildCourseLook(name, onLook) {
     const p = look.picture, wrap = iconsWrap;
     const box = pictureBox(look, p.state === "vanilla" ? p.default : undefined);
     if (box) wrap.appendChild(box);
-    wrap.appendChild(cgEl("div", "cl-hint", p.state === "you" ? "A picture made from a screenshot" : "The game's own picture"));
+    wrap.appendChild(ui.hint(p.state === "you" ? "A picture made from a screenshot" : "The game's own picture", { class: "cl-hint" }));
   }
 
   load();
@@ -286,26 +286,26 @@ function assembleCourseCard(ctx) {
 
   // what this course is now: its (modded) name and where it stands - always in view
   const chip = ui.chip({ size: "md" });
-  const headName = cgEl("div", "cc-headname");
-  const headSub = cgEl("div", "cc-headsub");
-  const headText = cgEl("div", "cc-headtext");
+  const headName = ui.el("div", "cc-headname");
+  const headSub = ui.el("div", "cc-headsub");
+  const headText = ui.el("div", "cc-headtext");
   headText.appendChild(headName);
   headText.appendChild(headSub);
-  const head = cgEl("div", "cc-head");
+  const head = ui.el("div", "cc-head");
   head.appendChild(headText);
   head.appendChild(chip.el);
   body.appendChild(head);
   body.appendChild(conflictBox);   // clash warnings are never folded away
 
   // The mods: the ones in use stay on screen as rows; the rest sit behind "Manage"; adding another is a quiet row under.
-  const modPanel = cgEl("div", "cc-panel");
+  const modPanel = ui.el("div", "cc-panel");
   let manageBtn = null, modHint = null;
   if (hasMods && modsCard) {
     modsCard.classList.add("cc-mods");
     const hdr = modsCard.querySelector(".modal-card-header");
     manageBtn = button("Manage", "ghost small cc-manage", () => { manage = !manage; refresh(); });
     hdr.appendChild(manageBtn);
-    modHint = cgEl("div", "cc-hint");
+    modHint = ui.el("div", "cc-hint");
     hdr.after(modHint);
     modPanel.appendChild(mainCol);
   }
@@ -371,7 +371,7 @@ function assembleCourseCard(ctx) {
     headName.hidden = !(ticked.length && nm && nm.state !== "vanilla" && nm.text !== name);
     if (!headName.hidden) {
       headName.append(nm.text);
-      headName.appendChild(cgEl("span", "np-base", "(" + name + ")"));
+      headName.appendChild(ui.el("span", "np-base", "(" + name + ")"));
     }
     const bothDone = ns.state === "done" && is_.state === "done";
     // it just became finished: if a guided review is walking through unfinished items, on to the next. Opening a card that

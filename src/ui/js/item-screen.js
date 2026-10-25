@@ -55,14 +55,7 @@ function renderItemsView() {
     if (item.catch_all) tile.classList.add("catch-all");
     if (checkedUnits.length >= 2) {
       conflictCount(checkedUnits).then(n => {
-        if (n > 0) {
-          tile.classList.add("has-conflict");
-          const badge = document.createElement("div");
-          badge.className = "char-conflict-badge";
-          badge.textContent = "!";
-          badge.title = `${n} conflicting file(s) among selected mods`;
-          tile.appendChild(badge);
-        }
+        if (n > 0) ui.tile.markConflict(tile, `${n} conflicting file(s) among selected mods`);
       });
     }
     paintItemTile(tile);
@@ -140,7 +133,7 @@ function closeItemDetail() {
 
 // Called at the start of building a docked card (see beginDetail): where to build it.
 function beginItemDetail(key) {
-  document.getElementById("modal-backdrop").hidden = true;   // a pop-up left open gives way to the docked card
+  characterModal.close();   // a pop-up left open gives way to the docked card
   openCharacter = null;
   itemDockedKey = key;
   if (isItemName(key)) lastItemKey = key;

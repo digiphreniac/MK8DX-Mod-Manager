@@ -17,6 +17,9 @@
 //                                  makes the footer even without `actions` (add your own buttons to m.footer). In a card the body is laid
 //                                  out as part of the dialog itself (display: contents), so a dialog that scrolls one part keeps working.
 //     destroyOnClose,              remove it from the page when it closes (a dialog made for one use)
+//     adopt,                       the id of a window whose markup is already on the page (html/*.html: <id>-backdrop, <id>, <id>-body ...
+//                                  and a btn-<id>-close button): nothing is built, the window just joins the stack and gets the same
+//                                  open / close / Escape / backdrop-click / focus behaviour. `title` is not used then.
 //   })  ->  { el, dialog, body, bar, footer, actions, isOpen, open(), close(), setTitle(text), setBody(content), destroy() }
 //
 // The windows that are open form a stack. Opening one puts it above everything already showing (z-order is worked out from what is on
@@ -61,6 +64,7 @@
   }, true);
 
   ui.modal = function (spec) {
+    if (spec.adopt) return adopt(spec);
     const id = spec.id || "ui-modal-" + (++nextId);
     const card = spec.variant === "card";
     const size = card ? "card" : (spec.size || "normal");
@@ -80,15 +84,27 @@
       on: { click: (e) => { if (e.target === backdrop && spec.closeOnBackdrop !== false) api.close(); } },
     }, dialog);
 
-    function setBody(content) {
-      const parts = typeof content === "function" ? content() : content;
-      body.replaceChildren();
-      ui.append(body, [parts]);
-    }
-    if (spec.sections) setBody(spec.sections.map(s => s.el || s));
-    else if (spec.body) setBody(spec.body);
+    const api = makeApi(spec, { backdrop, dialog, body, bar, footer, actions, titleEl });
+    if (spec.sections) api.setBody(spec.sections.map(s => s.el || s));
+    else if (spec.body) api.setBody(spec.body);
     document.body.append(backdrop);
+    return api;
+  };
 
+  function adopt(spec) {
+    const id = spec.adopt;
+    const backdrop = document.getElementById(`${id}-backdrop`);
+    const dialog = document.getElementById(id);
+    if (!backdrop || !dialog) throw new Error("No window on the page called " + id);
+    const closeButton = document.getElementById(`btn-${id}-close`);
+    const parts = { backdrop, dialog, body: document.getElementById(`${id}-body`), bar: null, footer: null, actions: [], titleEl: document.getElementById(`${id}-title`) };
+    const api = makeApi(spec, parts);
+    if (closeButton) closeButton.addEventListener("click", () => api.close());
+    backdrop.addEventListener("click", (e) => { if (e.target === backdrop && spec.closeOnBackdrop !== false) api.close(); });
+    return api;
+  }
+
+  function makeApi(spec, { backdrop, dialog, body, bar, footer, actions, titleEl }) {
     let opener = null;
     const api = {
       el: backdrop, dialog, body, bar, footer, actions,
@@ -116,12 +132,16 @@
         if (spec.destroyOnClose) setTimeout(api.destroy);
         return true;
       },
-      setTitle(text) { titleEl.textContent = text; },
-      setBody,
+      setTitle(text) { if (titleEl) titleEl.textContent = text; },
+      setBody(content) {
+        const parts = typeof content === "function" ? content() : content;
+        body.replaceChildren();
+        ui.append(body, [parts]);
+      },
       destroy() { api.close(); backdrop.remove(); },
     };
     return api;
-  };
+  }
 
   // How many of our windows are open (the page can ask before it does something that needs a quiet screen).
   ui.modal.openCount = () => stack.length;

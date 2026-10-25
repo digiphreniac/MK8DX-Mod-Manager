@@ -527,7 +527,6 @@ function buildGameBananaCard(itemName, category, opts) {
 }
 
 async function openGbDetailModal(modId, onUseMod) {
-  const backdrop = document.getElementById("gb-detail-modal-backdrop");
   const titleEl = document.getElementById("gb-detail-modal-title");
   const bodyEl = document.getElementById("gb-detail-modal-body");
   const viewMoreBtn = document.getElementById("btn-gb-detail-view-more");
@@ -538,7 +537,7 @@ async function openGbDetailModal(modId, onUseMod) {
   viewMoreBtn.disabled = true;
   useBtn.disabled = true;
   useBtn.textContent = "Use this mod";
-  backdrop.hidden = false;
+  gbDetailModal.open();
 
   const result = await pywebview.api.gb_preview_mod(modId);
   if (!result.success) {
@@ -644,11 +643,6 @@ async function openGbDetailModal(modId, onUseMod) {
 }
 
 function closeGbDetailModal() {
-  document.getElementById("gb-detail-modal-backdrop").hidden = true;
+  gbDetailModal.close();
 }
-
-document.getElementById("btn-gb-detail-modal-close").addEventListener("click", closeGbDetailModal);
-document.getElementById("gb-detail-modal-backdrop").addEventListener("click", (e) => {
-  if (e.target.id === "gb-detail-modal-backdrop") closeGbDetailModal();
-});
 

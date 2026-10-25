@@ -29,17 +29,13 @@ function resetAddModModal() {
 
 function openAddModModal() {
   resetAddModModal();
-  document.getElementById("add-mod-modal-backdrop").hidden = false;
+  addModModal.open();
   document.getElementById("add-mod-link-input").focus();
 }
 function closeAddModModal() {
-  document.getElementById("add-mod-modal-backdrop").hidden = true;
+  addModModal.close();
 }
 document.getElementById("btn-add-mod-fab").addEventListener("click", openAddModModal);
-document.getElementById("btn-add-mod-modal-close").addEventListener("click", closeAddModModal);
-document.getElementById("add-mod-modal-backdrop").addEventListener("click", (e) => {
-  if (e.target.id === "add-mod-modal-backdrop") closeAddModModal();
-});
 
 function populateAddModSelects(result) {
   const charSelect = document.getElementById("add-mod-character-select");

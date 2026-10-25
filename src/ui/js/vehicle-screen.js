@@ -80,14 +80,7 @@ function renderVehiclesView() {
       const conflictPool = checkedUnits;
       if (conflictPool.length >= 2) {
         conflictCount(conflictPool).then(n => {
-          if (n > 0) {
-            tile.classList.add("has-conflict");
-            const badge = document.createElement("div");
-            badge.className = "char-conflict-badge";
-            badge.textContent = "!";
-            badge.title = `${n} conflicting file(s) among selected mods`;
-            tile.appendChild(badge);
-          }
+          if (n > 0) ui.tile.markConflict(tile, `${n} conflicting file(s) among selected mods`);
         });
       }
       paintVehicleTile(tile);

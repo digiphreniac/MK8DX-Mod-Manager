@@ -157,10 +157,11 @@ class ThePage(unittest.TestCase):
         self.assertIn("get_commit_progress()", flow)
         self.assertIn("if (mine < shown || !commitPage.busy) return;", flow)      # (a late answer must not move the bars back)
         self.assertIn("if (commitPage.busy) {", flow)               # (the panel is part of the page while busy, so a redraw keeps it)
-        css = (ROOT / "src" / "ui" / "css" / "flow.css").read_text(encoding="utf-8")
-        unknown = css[css.index(".cp-phase.cp-unknown .cp-bar::after {"):]
-        self.assertNotIn(".cp-fill", unknown[:unknown.index("}")])      # (the sliding block is not the fill: the fill never shrinks back from it)
-        for rule in (".cp-phase.done .cp-fill", ".cp-phase.cp-unknown .cp-bar::after", ".cp-detail"):
+        self.assertIn("ui.progress({", flow)                          # (the bars are a component; the page only asks and passes the answer on)
+        css = (ROOT / "src" / "ui" / "css" / "components" / "progress.css").read_text(encoding="utf-8")
+        unknown = css[css.index(".ui-progress-phase--unknown .ui-progress-bar::after {"):]
+        self.assertNotIn(".ui-progress-fill", unknown[:unknown.index("}")])      # (the sliding block is not the fill: the fill never shrinks back from it)
+        for rule in (".ui-progress-phase--done .ui-progress-fill", ".ui-progress-phase--unknown .ui-progress-bar::after", ".ui-progress-detail"):
             self.assertIn(rule, css)
 
     def test_every_phase_the_backend_names_has_a_label(self):

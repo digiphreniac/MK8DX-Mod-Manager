@@ -37,7 +37,7 @@ function trashGlyph() {
   return svg;
 }
 function delButton(title, onClick) {
-  const b = cgEl("button", "ve-del");
+  const b = ui.el("button", "ve-del");
   b.type = "button";
   b.title = title;
   b.setAttribute("aria-label", title);
@@ -61,7 +61,7 @@ function voiceStop() {
 function voiceError(host, msg) {
   if (!host) return;
   host.querySelectorAll(":scope > .voice-err").forEach(e => e.remove());
-  if (msg) host.appendChild(cgEl("div", "reveal-error voice-err", msg));
+  if (msg) host.appendChild(ui.el("div", "reveal-error voice-err", msg));
 }
 async function voicePlay(unitKey, clipId, btn, host) {
   return voicePlayWith(() => pywebview.api.get_voice_clip(unitKey, clipId), btn, host);
@@ -94,7 +94,7 @@ async function voicePlayWith(fetch, btn, host) {
   if (token === voiceNow.token) setPlayState(btn, "playing");
 }
 function voicePlayButton(unitKey, clipId, what, host) {
-  const b = cgEl("button", "voice-play");
+  const b = ui.el("button", "voice-play");
   b.type = "button";
   b._what = what;
   setPlayState(b, "idle");
@@ -133,8 +133,8 @@ async function openVoiceLines(unitKey, modLabel) {
   voiceStop();
   const modal = ui.modal({ variant: "card", class: "voice-card", title: "Voice lines", footer: true, destroyOnClose: true, onClose: () => voiceStop() });
   const card = modal.body;
-  card.appendChild(cgEl("div", "voice-sub", modLabel));
-  const list = cgEl("div", "voice-list");
+  card.appendChild(ui.el("div", "voice-sub", modLabel));
+  const list = ui.el("div", "voice-list");
   list.appendChild(ui.loading("Reading the voice files\u2026"));
   card.appendChild(list);
   const closeBtn = button("Close", "primary", () => modal.close());
@@ -147,19 +147,19 @@ async function openVoiceLines(unitKey, modLabel) {
   list.replaceChildren();
   const clips = (r && r.clips) || [];
   if (!clips.length) {
-    list.appendChild(cgEl("div", "voice-empty", "No voice sounds could be read from this mod." + ((r && r.problems || []).length ? ` (Couldn't read: ${r.problems.join(", ")})` : "")));
+    list.appendChild(ui.el("div", "voice-empty", "No voice sounds could be read from this mod." + ((r && r.problems || []).length ? ` (Couldn't read: ${r.problems.join(", ")})` : "")));
     return;
   }
   const GROUPS = { select: "Character select", race: "During the race", horn: "Horn" };
   let last = null;
   for (const c of clips) {
-    if (c.group !== last) { list.appendChild(cgEl("div", "voice-group", GROUPS[c.group] || "Other")); last = c.group; }
-    const row = cgEl("div", "voice-row");
+    if (c.group !== last) { list.appendChild(ui.el("div", "voice-group", GROUPS[c.group] || "Other")); last = c.group; }
+    const row = ui.el("div", "voice-row");
     row.appendChild(voicePlayButton(unitKey, c.id, c.label, row));
-    const label = cgEl("span", "voice-label", c.label);
+    const label = ui.el("span", "voice-label", c.label);
     label.title = c.raw;                            // the game's own name for it
     row.appendChild(label);
-    if (c.seconds != null) row.appendChild(cgEl("span", "voice-len", `${c.seconds.toFixed(1)} s`));
+    if (c.seconds != null) row.appendChild(ui.el("span", "voice-len", `${c.seconds.toFixed(1)} s`));
     list.appendChild(row);
   }
 }
@@ -170,7 +170,7 @@ async function openVoiceLines(unitKey, modLabel) {
 const VE_LINE_WORD = n => `${n} line${n === 1 ? "" : "s"}`;
 
 function voiceLineButton(character, key, which, what, host) {
-  const b = cgEl("button", "voice-play");
+  const b = ui.el("button", "voice-play");
   b.type = "button";
   b._what = what;
   setPlayState(b, "idle");
@@ -187,37 +187,37 @@ async function openVoiceEditor(character, onClose) {
     onClose: () => { voiceStop(); if (changed && onClose) onClose(); },
   });
   const card = modal.body;
-  const status = cgEl("div", "ve-status", "\u2026");
+  const status = ui.el("div", "ve-status", "\u2026");
   card.appendChild(status);
-  card.appendChild(cgEl("div", "ve-note", "Mute a line or use your own sound for it. Your changes are saved as a mod called \u201cCustom voice\u201d that Commit merges like any other."));
-  const baseBox = cgEl("div");
+  card.appendChild(ui.hint("Mute a line or use your own sound for it. Your changes are saved as a mod called \u201cCustom voice\u201d that Commit merges like any other.", { class: "ve-note", size: "md" }));
+  const baseBox = ui.el("div");
   card.appendChild(baseBox);
-  const sizeBox = cgEl("div");
+  const sizeBox = ui.el("div");
   card.appendChild(sizeBox);
-  const errBox = cgEl("div");
+  const errBox = ui.el("div");
   card.appendChild(errBox);
   // a search box (filters every line below by label/description) and, once lines are in, one pill per category to
   // narrow "All voice lines" further - both stand in for the several separate collapsed sections this used to be
-  const searchWrap = cgEl("div", "ve-search");
-  const searchInput = cgEl("input");
+  const searchWrap = ui.el("div", "ve-search");
+  const searchInput = ui.el("input");
   searchInput.type = "text";
   searchInput.placeholder = "Search lines by name or what they mean\u2026";
   searchWrap.hidden = true;
   searchWrap.appendChild(searchInput);
   card.appendChild(searchWrap);
-  const catPills = cgEl("div", "ve-catbar");
+  const catPills = ui.el("div", "ve-catbar");
   catPills.hidden = true;
   card.appendChild(catPills);
-  const thead = cgEl("div", "ve-thead");
+  const thead = ui.el("div", "ve-thead");
   thead.hidden = true;
-  thead.appendChild(cgEl("span", null, "Sound"));
-  thead.appendChild(cgEl("span", null, "Description"));
-  thead.appendChild(cgEl("span", null, "Actions"));
+  thead.appendChild(ui.el("span", null, "Sound"));
+  thead.appendChild(ui.el("span", null, "Description"));
+  thead.appendChild(ui.el("span", null, "Actions"));
   card.appendChild(thead);
-  const list = cgEl("div", "ve-list");
+  const list = ui.el("div", "ve-list");
   list.appendChild(ui.loading("Reading the voice files\u2026"));
   card.appendChild(list);
-  const noMatch = cgEl("div", "voice-empty");
+  const noMatch = ui.el("div", "voice-empty");
   noMatch.hidden = true;
   let activeCat = null;
   const acts = modal.footer;
@@ -263,7 +263,7 @@ async function openVoiceEditor(character, onClose) {
   modal.open();
   closeBtn.focus();
 
-  const showError = (msg) => { errBox.replaceChildren(); if (msg) errBox.appendChild(cgEl("div", "ve-err", msg)); };
+  const showError = (msg) => { errBox.replaceChildren(); if (msg) errBox.appendChild(ui.el("div", "ve-err", msg)); };
 
   // Search text narrows every row, moments included; a category pill is a stronger "just this" filter, so picking
   // one hides Important moments entirely - none of those four belong to any one category, so leaving them pinned
@@ -330,26 +330,26 @@ async function openVoiceEditor(character, onClose) {
   }
 
   function lineRow(l) {
-    const row = cgEl("div", "ve-row" + (l.available ? "" : " off"));
+    const row = ui.el("div", "ve-row" + (l.available ? "" : " off"));
     row.dataset.category = l.category || "";   // read by applyFilter() for the category pills
     // column 1: Sound - the play button and the line's label/length, together (what you'd click to hear it)
-    const sound = cgEl("div", "ve-sound");
-    const playBtn = l.available ? voiceLineButton(character, l.key, "current", l.label, row) : cgEl("span", "ve-play-spacer");
+    const sound = ui.el("div", "ve-sound");
+    const playBtn = l.available ? voiceLineButton(character, l.key, "current", l.label, row) : ui.el("span", "ve-play-spacer");
     if (l.available) playBtn.title = l.count > 1 ? `Plays one of ${l.count} sounds sharing this line (they're always changed together)` : "Play this sound";
     sound.appendChild(playBtn);
-    const soundText = cgEl("div", "ve-sound-text");
-    const labelEl = cgEl("span", "ve-label", l.label);
+    const soundText = ui.el("div", "ve-sound-text");
+    const labelEl = ui.el("span", "ve-label", l.label);
     labelEl.title = l.key;   // the line's internal name (e.g. "GOL_TOP", "STR_FAIL") - for modders who know it by that
     soundText.appendChild(labelEl);
-    if (l.available && l.seconds > 0) soundText.appendChild(cgEl("span", "ve-count", `${l.seconds.toFixed(1)}s`));
+    if (l.available && l.seconds > 0) soundText.appendChild(ui.el("span", "ve-count", `${l.seconds.toFixed(1)}s`));
     sound.appendChild(soundText);
     row.appendChild(sound);
     // column 2: Description - what the line means (dimmed when nobody's traced what it actually is)
-    row.appendChild(cgEl("div", "ve-desc" + (l.description === "Unknown." ? " unknown" : ""), l.description));
+    row.appendChild(ui.el("div", "ve-desc" + (l.description === "Unknown." ? " unknown" : ""), l.description));
     // column 3: Actions - its current state and what you can do to it, as one row: a "pressed" chip says what's
     // currently on the line (Muted / the file name), and its own trash-can button undoes it - kept apart so the
     // one destructive action here (deleting a saved custom sound) is never a side effect of reading what it is.
-    const a = cgEl("div", "ve-acts");
+    const a = ui.el("div", "ve-acts");
     if (!l.available) {
       a.appendChild(ui.chip({ text: l.state === "normal" ? (l.reason === "file" ? "not in this voice file" : "needs a voice file") : (l.state === "mute" ? "muted (paused)" : "replaced (paused)") }).el);
     } else {
@@ -406,17 +406,17 @@ async function openVoiceEditor(character, onClose) {
     sizeBox.replaceChildren();
     if (!st || !st.success) {
       status.hidden = thead.hidden = searchWrap.hidden = catPills.hidden = muteAllBtn.hidden = boostAllBtn.hidden = true;
-      list.replaceChildren(cgEl("div", "voice-empty", (st && st.error) || "Couldn't read this character's voice."));
+      list.replaceChildren(ui.el("div", "voice-empty", (st && st.error) || "Couldn't read this character's voice."));
       return;
     }
     if (!st.known) {
       status.hidden = thead.hidden = searchWrap.hidden = catPills.hidden = muteAllBtn.hidden = boostAllBtn.hidden = true;
-      list.replaceChildren(cgEl("div", "voice-empty", "The app doesn't know this character's voice files yet, so their voice can't be edited."));
+      list.replaceChildren(ui.el("div", "voice-empty", "The app doesn't know this character's voice files yet, so their voice can't be edited."));
       return;
     }
     // where the voice comes from
     const noBase = !st.bases.length;
-    const box = cgEl("div", "ve-base" + (noBase || st.suspended ? " warn" : ""));
+    const box = ui.el("div", "ve-base" + (noBase || st.suspended ? " warn" : ""));
     if (st.suspended) {
       box.appendChild(document.createTextNode("Your changes are saved but paused: the voice mod they were made from isn't selected any more, and there's no other voice file to start from. Select a voice mod for this character, or choose your game's files folder, and they come back."));
     } else if (noBase) {
@@ -426,14 +426,14 @@ async function openVoiceEditor(character, onClose) {
       box.appendChild(document.createTextNode(`Starting from: ${from.join(" and ")}. If you select a different voice mod for this character, your changes move onto it.`));
     }
     if (noBase || st.suspended) {
-      const act = cgEl("div", "ve-base-act");
+      const act = ui.el("div", "ve-base-act");
       act.appendChild(button("Choose game files folder\u2026", "small", async () => {
         if (await chooseGameFiles()) { changed = true; render(await pywebview.api.get_voice_editor(character)); }
       }));
       box.appendChild(act);
     }
     baseBox.appendChild(box);
-    for (const p of st.problems || []) baseBox.appendChild(cgEl("div", "ve-err", p));
+    for (const p of st.problems || []) baseBox.appendChild(ui.el("div", "ve-err", p));
 
     // the archive size: always shown (how much of the game's own largest-ever archive this character is using), so
     // it's visible well before it becomes a problem, not just once it's close. A rebuilt archive bigger than the
@@ -444,7 +444,7 @@ async function openVoiceEditor(character, onClose) {
     for (const s of st.sizes || []) {
       if (s.ceiling == null) continue;
       const pct = Math.round(s.fraction * 100);
-      const sb = cgEl("div", "ve-size " + s.level);
+      const sb = ui.el("div", "ve-size " + s.level);
       const base = `${SIZE_KIND_LABEL[s.kind] || s.kind}: ${mb(s.bytes)} of ${mb(s.ceiling)} (${pct}%) – the largest the game itself ships for one character's voice`;
       sb.appendChild(document.createTextNode(s.level === "over"
         ? `${base}. An archive this size is known to go completely silent in-game, even on lines you didn't touch - mute or shorten a few lines to bring it back under that.`
@@ -466,7 +466,7 @@ async function openVoiceEditor(character, onClose) {
 
     list.replaceChildren();
     const moments = st.lines.filter(l => l.moment);
-    list.appendChild(cgEl("div", "ve-head", "Important moments"));
+    list.appendChild(ui.el("div", "ve-head", "Important moments"));
     for (const l of moments) list.appendChild(lineRow(l));
     const rest = st.lines.filter(l => !l.moment && l.available);
     const cats = [];
@@ -476,7 +476,7 @@ async function openVoiceEditor(character, onClose) {
     // the category pills above are what narrows this down now, so there's nothing left for a collapse to earn its
     // keep hiding
     for (const c of cats) {
-      list.appendChild(cgEl("div", "ve-head", c.name));
+      list.appendChild(ui.el("div", "ve-head", c.name));
       for (const l of c.lines) list.appendChild(lineRow(l));
     }
     applyFilter();
@@ -607,9 +607,9 @@ function openCustomAudio(character, line, onDone) {
   voiceStop();
   const modal = ui.modal({ variant: "card", class: "ve-custom", title: "Use your own sound", footer: true, destroyOnClose: true, onClose: () => cleanup() });
   const card = modal.body;
-  card.appendChild(cgEl("div", "ve-note", `For \u201c${line.label}\u201d` + (line.count > 1 ? ` \u2013 it is used for all ${line.count} sounds of this line.` : ".")
-    + " Choose an audio file (mp3, wav, ogg, m4a...). The app converts it to the game's sound format and keeps it, so it can be used again if the voice file it goes into changes."));
-  const drop = cgEl("div", "ve-drop");
+  card.appendChild(ui.hint(`For \u201c${line.label}\u201d` + (line.count > 1 ? ` \u2013 it is used for all ${line.count} sounds of this line.` : ".")
+    + " Choose an audio file (mp3, wav, ogg, m4a...). The app converts it to the game's sound format and keeps it, so it can be used again if the voice file it goes into changes.", { class: "ve-note", size: "md" }));
+  const drop = ui.el("div", "ve-drop");
   drop.appendChild(document.createTextNode("Drop an audio file here, or "));
   const input = document.createElement("input");
   input.type = "file";
@@ -618,32 +618,32 @@ function openCustomAudio(character, line, onDone) {
   const pick = button("Choose a file\u2026", "small", () => input.click());
   drop.append(pick, input);
   card.appendChild(drop);
-  const fileInfo = cgEl("div", "ve-file");
-  const wave = cgEl("div", "ve-wave");
+  const fileInfo = ui.el("div", "ve-file");
+  const wave = ui.el("div", "ve-wave");
   const canvas = document.createElement("canvas");
   wave.appendChild(canvas);
-  const range = cgEl("div", "ve-range");
+  const range = ui.el("div", "ve-range");
   const startIn = document.createElement("input"), endIn = document.createElement("input");
   for (const i of [startIn, endIn]) { i.type = "number"; i.min = "0"; i.step = "0.01"; }
-  const lenEl = cgEl("span", "ve-len");
-  const l1 = cgEl("label", null, "Start (s)"); l1.appendChild(startIn);
-  const l2 = cgEl("label", null, "End (s)"); l2.appendChild(endIn);
+  const lenEl = ui.el("span", "ve-len");
+  const l1 = ui.el("label", null, "Start (s)"); l1.appendChild(startIn);
+  const l2 = ui.el("label", null, "End (s)"); l2.appendChild(endIn);
   range.append(l1, l2, lenEl);
-  const opts = cgEl("div", "ve-opts");
-  const mkOpt = (text, on) => { const l = cgEl("label"); const c = document.createElement("input"); c.type = "checkbox"; c.checked = on; l.append(c, document.createTextNode(text)); opts.appendChild(l); return c; };
+  const opts = ui.el("div", "ve-opts");
+  const mkOpt = (text, on) => { const l = ui.el("label"); const c = document.createElement("input"); c.type = "checkbox"; c.checked = on; l.append(c, document.createTextNode(text)); opts.appendChild(l); return c; };
   const trimOpt = mkOpt("Cut the quiet parts at the start and end", true);
   const normOpt = mkOpt("Match the game's own voice volume (fixes a quiet recording)", true);
   // A live readout of how loud the chosen part will actually be, next to the same number every saved custom line is
   // later measured against (see voice_api.get_voice_editor's "quiet" flag) - so a still-too-quiet result is visible
   // before it's saved, not discovered later in the editor or, worse, in the game itself.
-  const loudBox = cgEl("div", "ve-loud");
+  const loudBox = ui.el("div", "ve-loud");
   // Manual control, as an alternative to "Match the game's own voice volume" above - not on top of it. Only one
   // of the two ever sets the level: the slider is disabled while auto-matching is on (see its "change" handler
   // below), so there's never a question of which number actually won. A slider instead of a plain number so it
   // can be nudged by ear: drag, release, hear it, drag again. Auto-plays on release (not while dragging, which
   // would overlap a new sound every few pixels).
-  const gainRow = cgEl("div", "ve-gain");
-  const gainLabel = cgEl("span", null, "Volume");
+  const gainRow = ui.el("div", "ve-gain");
+  const gainLabel = ui.el("span", null, "Volume");
   const gainSlider = document.createElement("input");
   gainSlider.type = "range";
   gainSlider.min = "-12";
@@ -651,7 +651,7 @@ function openCustomAudio(character, line, onDone) {
   gainSlider.step = "0.5";
   gainSlider.value = "0";
   const fmtDb = (v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`;
-  const gainVal = cgEl("span", "ve-gain-val", fmtDb(0));
+  const gainVal = ui.el("span", "ve-gain-val", fmtDb(0));
   const gainReset = button("Reset", "ve-orig", () => {
     if (gainSlider.value === "0") return;
     gainSlider.value = "0";
@@ -664,8 +664,8 @@ function openCustomAudio(character, line, onDone) {
     gainRow.title = on ? "" : "Turn off “Match the game's own voice volume” above to set this by hand instead.";
   };
   gainRow.append(gainLabel, gainSlider, gainVal, gainReset);
-  const errBox = cgEl("div");
-  const mid = cgEl("div");
+  const errBox = ui.el("div");
+  const mid = ui.el("div");
   mid.hidden = true;
   mid.append(fileInfo, wave, range, loudBox, gainRow, opts);
   card.append(mid, errBox);
@@ -740,7 +740,7 @@ function openCustomAudio(character, line, onDone) {
   acts.append(previewBtn, compareBtn, button("Cancel", "ghost", cancel), useBtn);
   modal.open();
 
-  function showError(msg) { errBox.replaceChildren(); if (msg) errBox.appendChild(cgEl("div", "ve-err", msg)); }
+  function showError(msg) { errBox.replaceChildren(); if (msg) errBox.appendChild(ui.el("div", "ve-err", msg)); }
 
   // ---- the waveform (the whole file, the chosen part lit) and the start / end
   let peaks = null;
@@ -871,13 +871,13 @@ function openCustomAudio(character, line, onDone) {
 // Greyed out until the character has a ticked mod (like Name and Icons); the card calls setEnabled() from its refresh().
 function attachVoiceRow(body, name) {
   let enabled = false;
-  const root = cgEl("div", "cc-step cc-step-inline");
+  const root = ui.el("div", "cc-step cc-step-inline");
   root.hidden = true;
-  const row = cgEl("div", "cc-step-row");
-  const dot = cgEl("span", "cc-dot pending");
-  const text = cgEl("div", "cc-step-text");
-  text.appendChild(cgEl("b", null, "Voice"));
-  const sum = cgEl("span", null, "");
+  const row = ui.el("div", "cc-step-row");
+  const dot = ui.el("span", "cc-dot pending");
+  const text = ui.el("div", "cc-step-text");
+  text.appendChild(ui.el("b", null, "Voice"));
+  const sum = ui.el("span", null, "");
   text.appendChild(sum);
   const edit = button("Edit voice lines", "small", () => openVoiceEditor(name, afterChange));
   edit.hidden = true;

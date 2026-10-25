@@ -88,44 +88,7 @@
   .icon-only-row .icon-only-label { flex: 1 1 12em; min-width: 8em; overflow-wrap: anywhere; }
   .icon-only-row .icon-only-note { flex: 1 1 100%; font-size: 12px; color: var(--text-dim); }
   .mod-row .patch-badge, .mod-row .packed-badge { flex: 0 0 auto; }
-  .packed-badge {
-    font-size: 10.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 700;
-    color: var(--warn);
-    background: var(--warn-soft);
-    border-radius: 10px;
-    padding: 2px 8px;
-    white-space: nowrap;
-    cursor: help;
-  }
-  .linked-badge {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: var(--accent);
-    background: transparent;
-    border: 1px dashed var(--accent);
-    border-radius: 10px;
-    padding: 1px 8px;
-    white-space: nowrap;
-    cursor: pointer;
-  }
   .mod-row .linked-badge { flex: 0 0 auto; }
-  .patch-badge {
-    font-size: 10.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 700;
-    color: var(--accent);
-    background: var(--accent-soft);
-    border: 1px solid var(--accent);
-    border-radius: 10px;
-    padding: 1px 8px;
-    white-space: nowrap;
-    cursor: help;
-  }
   .icon-badge {
     font-size: 10.5px;
     text-transform: uppercase;
@@ -147,14 +110,6 @@
     color: var(--danger);
     margin-top: 4px;
   }
-  .icon-path {
-    flex-basis: 100%;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-top: 3px;
-    word-break: break-all;
-  }
   .remove-mod-btn {
     font-size: 10.5px;
     padding: 3px 8px;
@@ -166,8 +121,6 @@
   }
   .remove-mod-btn:hover { background: var(--danger-soft); border-color: var(--danger); }
 
-  .log-mod-link { color: inherit; text-decoration: underline; cursor: pointer; }
-  .log-mod-link:hover { color: var(--accent); }
   #empty-msg {
     color: var(--text-dim);
     font-size: 13px;

@@ -27,10 +27,10 @@ function wizardFrame(index, title, lead, wide) {
   card.classList.toggle("wide", !!wide);
   const body = document.getElementById("setup-overlay-body");
   body.replaceChildren();
-  if (rich) body.appendChild(wizEl("div", "wiz-lead", ...lead));
-  const dots = cgEl("div", "wiz-dots");
+  if (rich) body.appendChild(ui.el("div", "wiz-lead", ...lead));
+  const dots = ui.el("div", "wiz-dots");
   const count = setupSteps().length;
-  for (let i = 0; i < count; i++) dots.appendChild(cgEl("span", i <= index ? "on" : ""));
+  for (let i = 0; i < count; i++) dots.appendChild(ui.el("span", i <= index ? "on" : ""));
   body.appendChild(dots);
   return body;
 }
@@ -55,7 +55,7 @@ async function openSetupWizard(index, rerun) {
   document.getElementById("setup-overlay").hidden = false;
   if (!state.settings || !Object.keys(state.settings).length) state.settings = await pywebview.api.get_settings();
   const nav = (body, back, nextLabel, onNext, skip) => {
-    const row = cgEl("div", "uis-actions");
+    const row = ui.el("div", "uis-actions");
     if (back) row.appendChild(button("Back", "ghost", back));
     else if (rerun) row.appendChild(button("Close", "ghost", closeSetupWizard));
     if (skip) row.appendChild(button("Skip", "ghost", skip));
@@ -70,7 +70,7 @@ async function openSetupWizard(index, rerun) {
     // A group of settings, drawn by the same code as the Settings window: same names, descriptions and controls, saved as they change.
     const group = SETTING_GROUPS[step.group];
     const body = wizardFrame(index, group.setupTitle || group.title, group.setupLead || "");
-    const host = cgEl("div");
+    const host = ui.el("div");
     body.appendChild(host);
     await renderSettingsGroup(step.group, host, { setup: true, afterFolderChange: go(index) });
     // Skip = the setting's "don't know" answer (for the game version: "I'm not sure", no version checks), whatever the list says.
@@ -78,20 +78,20 @@ async function openSetupWizard(index, rerun) {
     nav(body, index > 0 ? go(index - 1) : null, "Next", go(index + 1), skip);
   } else if (step.id === "game-files") {
     const body = wizardFrame(index, "Game files", [
-      wizEl("p", null, wizEl("strong", null, "This is a required step."), document.createElement("br"),
+      ui.el("p", null, ui.el("strong", null, "This is a required step."), document.createElement("br"),
         "This tool will not work properly unless it first has a copy of a few Mario Kart 8 Deluxe game files. These files include:"),
-      wizEl("ul", null,
-        wizEl("li", null, "Character Icons"),
-        wizEl("li", null, "Character voice-lines"),
-        wizEl("li", null, "Character and course names (the game's menu text, in every language)"),
-        wizEl("li", null, "Course pictures"),
-        wizEl("li", null, "Vehicle part and item pictures")),
-      wizEl("p", null, "The app needs these files to work properly. Including these files make it incredibly easy to modify things like character names, icons, voice lines."),
+      ui.el("ul", null,
+        ui.el("li", null, "Character Icons"),
+        ui.el("li", null, "Character voice-lines"),
+        ui.el("li", null, "Character and course names (the game's menu text, in every language)"),
+        ui.el("li", null, "Course pictures"),
+        ui.el("li", null, "Vehicle part and item pictures")),
+      ui.el("p", null, "The app needs these files to work properly. Including these files make it incredibly easy to modify things like character names, icons, voice lines."),
     ], true);
     body.appendChild(gameDataInstructions());
-    const block = cgEl("div");
+    const block = ui.el("div");
     body.appendChild(block);
-    const row = cgEl("div", "uis-actions");
+    const row = ui.el("div", "uis-actions");
     row.appendChild(button("Back", "ghost", go(index - 1)));
     const nextBtn = button("Next", "primary", go(index + 1));
     row.appendChild(nextBtn);

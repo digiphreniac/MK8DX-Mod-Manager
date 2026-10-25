@@ -126,10 +126,11 @@ over its built-in local HTTP server (which is why relative links and `fetch()` w
 under `src/ui/`.
 
 - `index.html` - the page frame only: the header, tabs, the main views, the footer, and one `<link>` per stylesheet.
-- `html/*.html` - one file per modal / overlay not yet moved to the component layer (`add-mod-modal`, `gb-browse-modal`,
-  `gb-detail-modal`, `icon-gen-modal`, `character-modal`, `setup-overlay`). `js/bootstrap.js` fetches them and adds them after the
-  frame, in the order it lists them. Settings, Conflicts, Help and Guessed names are not markup files any more: `js/app-modals.js`
-  builds them from the components in `js/ui/` (`ui.modal`, `ui.section`, ...), which load first. See `docs/ui-components.md`.
+- `html/*.html` - the markup of the windows that are not built from specs (`add-mod-modal`, `gb-browse-modal`, `gb-detail-modal`,
+  `icon-gen-modal`, `character-modal`, `setup-overlay`). `js/bootstrap.js` fetches them and adds them after the frame. All but the Setup
+  overlay are adopted onto the window stack in `js/app-modals.js` (`ui.modal({ adopt })`), so they open, close, stack and take Escape like the rest.
+  Settings, Conflicts, Help and Guessed names are not markup files at all: `js/app-modals.js` builds them from the components in `js/ui/`
+  (`ui.modal`, `ui.section`, ...), which load first. See `docs/ui-components.md`.
 - `css/*.css` - the styles, split along the old file's section comments. **Order matters**: later rules override earlier ones,
   so the `<link>` order in `index.html` is the cascade. Add a stylesheet after whatever it needs to override.
 - `js/*.js` - the app. These are ordinary (non-module) scripts that share **one global scope**, run one after another in the

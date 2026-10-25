@@ -71,8 +71,9 @@ class EverySettingIsDefinedOnce(unittest.TestCase):
 
 class DescriptionsCanBreakLines(unittest.TestCase):
     def test_a_newline_in_a_description_shows_as_a_line_break(self):
-        css = read("css", "setting-controls.css")
-        self.assertRegex(css, r"\.setting-hint \{[^}]*white-space: pre-line")
+        css = read("css", "components", "callout.css")
+        self.assertRegex(css, r"\.ui-hint \{[^}]*white-space: pre-line")       # (a setting's description is a ui.hint)
+        self.assertIn("ui.hint(def.description)", read("js", "settings-registry.js"))
         self.assertIn("starts a new line", read("js", "settings-registry.js"))      # (the registry's own notes say so too)
 
 

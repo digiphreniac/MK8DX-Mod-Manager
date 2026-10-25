@@ -1,6 +1,6 @@
 # UI components
 
-**Status: Phases 0, 1, 3 and 4 are built, and most of Phase 2** (the foundation, `Button`, `Modal`, `Section`, `confirm` / `alert`; `Callout`,
+**Status: Phases 0 to 5 and the tile shell are built** (the foundation, `Button`, `Modal`, `Section`, `confirm` / `alert`; `Callout`,
 `hint`, `Chip`, `Disclosure`; `Menu`, `Tabs` / `Segmented`, `AsyncBox` / `loading`, `List` / `Row`; Settings, Conflicts, Help, Guessed
 names, Clear All Mods, the Commit notes, the card chips, the main tabs and the "..." menus use them). The rest is still plan; "What is built" below says where the code differs from the sketches and what Phase 2 left for later.
 Each phase turns its part of this page from plan into "how it works".
@@ -23,7 +23,7 @@ What the code does today (counts are from grep, so approximate):
 - **Small elements.** About a dozen near-identical note / hint classes (`cg-note`, `cl-hint`, `cc-hint`, `ve-note`, `uis-note`,
   `pics-note`, ...) and about ten chip / badge classes (`cc-chip`, `ve-chip`, `packed-badge`, `gb-target-badge`, `part-badge`,
   `wiz-pill`, ...).
-- **Helpers in odd places.** `button()` lives in `flow.js`, `cgEl()` in `data-and-conflicts.js`; both load late, so earlier
+- **Helpers in odd places (before).** `button()` lived in `flow.js`, `cgEl()` in `data-and-conflicts.js`; both loaded late, so earlier
   files can't use them. Inline SVG strings are pasted into several files.
 
 Already good, and the model for the rest: the **settings registry** (`settings-registry.js`: one definition drawn identically in
@@ -78,7 +78,7 @@ A component is a function that takes one options object and returns a **handle**
 Every component accepts a declarative spec. Where a screen needs something custom (a draggable grid, a canvas), a section body
 or modal body can be **any element or a function returning one**, so components never block custom content.
 
-## What is built (Phases 0, 1, 3, 4 and most of 2)
+## What is built (Phases 0 to 5 and the tile shell)
 
 Code: `js/ui/core.js` (`ui.el`, `ui.append`, `ui.html`, and the older `cgEl`), `js/ui/icons.js` (`ui.icons`, `ui.icon`), `js/ui/button.js`
 (`ui.button`, and the older `button(text, cls, fn)`), `js/ui/modal.js`, `js/ui/section.js` (`ui.section`, `ui.columns`,
@@ -128,12 +128,39 @@ and `chip.css`:
     handlers, and the voice editor's "not while a sub-dialog is open" rule (the stack closes only the top window, so the sound dialog closes first).
   - Small visible changes: these dialogs now fade and pop in like the others, a confirm opened from inside them (deleting your own sound) sits above
     them (it was hidden behind at z-index 9000 before the stack), and the move dialog has the card border.
-  - Not moved (still their own markup): the Add a mod, GameBanana browse and detail, icon generator and character windows (`html/*.html`), and the
-    Setup overlay. Each has its own look, so they are a decision for Phase 5.
-- **Left for later in Phase 2:** the other hint classes (`cg-note`, `cl-hint`, `cc-hint`, `ve-note`, `settings-hint`, `setting-hint`, `mv-note`,
-  `pics-hint` ...: each has its own margin and size), the file-row badges (`part-badge`, `packed-badge`, `patch-badge`, `linked-badge`,
-  `icon-badge`, `gb-target-badge`) and error lines (`wiz-error`, the `gb-mod-error` family). They are close to the new tones but each needs
-  a look at its surroundings first.
+  - The windows whose markup is still in `html/*.html` were handled in Phase 5 (below).
+- **Phase 5** tidied up:
+  - **Every window is on the stack.** `ui.modal({ adopt: "<id>" })` takes a window whose markup is already on the page (`<id>-backdrop`, `<id>`,
+    `<id>-body`, `btn-<id>-close`) and gives it the stack's behaviour without rebuilding it: the Add a mod, GameBanana detail, icon generator,
+    GameBanana browse and the character / course / vehicle / item pop-up (`html/*.html`, adopted in `js/app-modals.js`). Their open / close /
+    backdrop-click code and the page's own Escape handler (`help-and-icon-generator.js`) are gone; what closing one undoes is its `onClose`
+    (`characterModal` clears `openCharacter`, `gbBrowseModal` stops its search), and the GameBanana browser's "Esc clears the search box first" is its
+    `onEscape`. Only the Setup overlay (shown before anything else can be) is still its own thing.
+  - **`cgEl`, `uisEl` and `wizEl` are gone**: all 480 calls are `ui.el(tag, "class", "text")`, which does the same (a string is the class, strings after
+    it are text). `button(text, class, onClick)` stays as the short form for a plain button with a class string; `ui.button` is the full one.
+  - **`ui.progress`** (`js/ui/progress.js`, `css/components/progress.css`) draws the commit's bars; `flow.js` only asks `get_commit_progress()` and
+    passes the answer to `update()`. **`ui.folderCard`** (`js/ui/folder.js`, `folder.css`) is the folder box; a setting turns what its folder says
+    (`is_default`, `is_recommended`, `label`) into its options (`folderCard()` in `settings-registry.js`). The field renderers
+    (`fillFolderControl`, `fillPathControl`) stayed in the registry: they are about settings, not generic.
+  - **Unused styles removed**: about 70 rules for classes nothing names any more (the old Menu look rows, the Setup guide's step list, the clash
+    list of the old Add a mod window, ...), found by checking every class in the stylesheets against the page's HTML and scripts.
+- **The tile shell** (`js/ui/tile.js`): the tile of the character, course, vehicle and item screens was already one function, `buildTile()` in
+  `tiles-and-review.js`, that read `state.checked` and built the picture, name, badge and count by hand. It is now the page's adapter
+  (which units are ticked -> `selected` / `total`, the look of the numbers, the corner colours, the pencil for a note) over **`ui.tile`**, which
+  draws a tile from plain options and knows nothing about mods; the six hand-copied blocks that added the red "!" to a tile with a clash are
+  `ui.tile.markConflict(tile, title)`. The classes (`char-tile`, `char-badge`, `char-name`, `char-count` ...) and `tiles-and-grids.css` were kept
+  as they were: the screens style and find tiles by them. Not made into components: the cup tile (it is a different picture), and the per-screen
+  "which tile is active / the hover frame" code, which differs in where each screen keeps its selection.
+- **The rest of Phase 2** (done later):
+  - **Small notes are `ui.hint`** with a size (`md` is a little larger) and a tone (`dim`, `warn`, `error`). `cg-note`, `cl-hint`, `ve-note`, `mv-note`,
+    `pics-hint`, a setting's description (`setting-hint`) and the Setup folder error (`wiz-error`) are all made by it; what is left of those classes
+    is the margin where each one sits (`class` is passed on to the hint). A newline in a hint's text is a line break.
+  - **The badges on a row are `ui.chip`**: `packed archive only`, `code patch`, `wrong game version`, `Pack - also ...`, the GameBanana "Replaces
+    ..." tags and the "reading its description" pill, with the chip's new `size: "xs"`, `outline`, `dashed` and `cursor` options. Their old classes
+    stay only as hooks the page looks a badge up by (`row.querySelector(".packed-badge")`) and, for the row layout, one rule that stops them shrinking.
+  - **Left as they are, on purpose:** `settings-hint`, `gb-mod-error` and `gb-fetch-error` (static markup in `html/*.html` uses them too), `cc-hint`
+    (a bar with a line under it, not a note), `voice-empty` / `conflicts-empty` (empty states of their own lists), and the clickable badges
+    (`part-badge` Voice / Picture and `icon-badge`: they are buttons with a hover, and the page finds them by class).
 
 Where Phase 1 differs from the sketches below:
 
@@ -166,7 +193,7 @@ Sketches, not final signatures. They fix the *shape* so the review can happen be
 ### Foundation (`ui/core.js`, `ui/icons.js`)
 
 - `ui.el(tag, props, ...children)` - `props`: `class`, `text`, `attrs`, `on: { click: fn }`, `hidden`. Children can be elements,
-  strings, or arrays (falsy skipped). Replaces `cgEl()`. `cgEl` stays as a thin alias until its callers are migrated.
+  strings, or arrays (falsy skipped). It replaced `cgEl()`, `uisEl()` and `wizEl()` (the same call: `ui.el("div", "class", "text")`).
 - `ui.icon(name, { size })` - returns an inline SVG from one registry (folder, warning, todo-arrow, info, close, kebab, chevron,
   ...). The pasted SVG strings in `settings-registry.js` and `flow.js` move here.
 - `ui.on(el, event, fn)` / `ui.mount(parent, handle)` helpers only if repeated code shows the need. No more than that.
@@ -292,20 +319,18 @@ grid/list toggle, and the Setup/step bar's click behaviour. The step bar keeps `
 "Loading... / nothing here / couldn't load" wrapper repeated in the worklist, conflicts, guessed names, voice lists.
 Stale-reply safe (a late answer from an older `load` is ignored, as the commit progress poll already does).
 
-### FolderCard and Field (moved, not new)
+### FolderCard (built, Phase 5)
 
-`folderCard()` and the field renderers (`fillFolderControl`, `fillPathControl`) move out of `settings-registry.js` into
-`ui/` once Section exists. The registry keeps only definitions plus `renderSettingsGroup()` / `changeSetting()`.
+`ui.folderCard({ path, label, recommended, onOpen })`. The field renderers stay in `settings-registry.js` (they are about settings).
 
-### ProgressPanel (later)
+### Progress (built, Phase 5)
 
-The commit progress panel (`.cp*` in `flow.css`, `startCommitProgress()` ...) becomes `ui.progress({ phases, ... })` so another
-long job can reuse it. Low priority: only worth it when a second user appears.
+`ui.progress({ id, title, startText, note, units })` returns `{ el, update(state) }`: one bar per phase, the detail line and the elapsed time. The
+commit's polling stays in `flow.js`.
 
-### Later, only if the above prove out: Tile / Card shell
+### Tile (built, after Phase 5)
 
-The character, course, vehicle and item screens share tile / grid structure (`tiles-and-review.js`, 603 lines). A shared tile shell
-is the biggest remaining duplicate, and the riskiest. Decide after Phase 4, with the components in hand.
+`ui.tile({ key, label, badge, selected, total, count, attention, background, note, onClick })` and `ui.tile.markConflict(tile, title)`.
 
 ## Migration order
 
@@ -324,7 +349,7 @@ order. Move the existing SVGs into the registry; `cgEl` becomes an alias. No vis
 Done when: no native `confirm()` / `alert()`, no `*-modal-backdrop` open/close boilerplate for those modals, Escape closes only the
 topmost modal, and Settings looks the same.
 
-**Phase 2 - Callout, Chip, Disclosure, hints (mostly done: see "What is built" for what is left).** Commit page notes (`pgWarnEl` -> `ui.callout`), Settings warnings, error lines,
+**Phase 2 - Callout, Chip, Disclosure, hints (done; "What is built" lists what was left as it is).** Commit page notes (`pgWarnEl` -> `ui.callout`), Settings warnings, error lines,
 the `*-note` / `*-hint` classes, the badge/chip classes. Delete the superseded CSS as each goes.
 
 **Phase 3 - Menu, Tabs, AsyncBox, List/Row (done, apart from the step bar and the other hand-written "Loading..." lines).** `cl-kebab` menu, view tabs and the GameBanana toggle, loading/empty wrappers, the
@@ -335,9 +360,8 @@ worklist and conflicts lists, guessed-names rows.
 Escape, focus and z-order change. `voice.js` has a sub-dialog (`ve-sub`) whose Escape rule ("not while a sub-dialog is open") the
 stack must express naturally.
 
-**Phase 5 - Move and tidy.** `FolderCard` / Field out of the registry, `ProgressPanel`, delete `cgEl` alias and dead CSS, update
-`AGENTS.md` (code map + docs index + frontend rules), `docs/DEVELOPERS.md`, `docs/architecture.md`, and turn this page into the
-reference. Then decide on the Tile shell.
+**Phase 5 - Move and tidy (done).** `ui.folderCard`, `ui.progress`, the windows adopted onto the stack, `cgEl` gone, unused CSS gone, the docs
+(`AGENTS.md`, `docs/architecture.md`) brought up to date. The Tile shell and the Phase 2 leftovers followed.
 
 ## Testing
 
@@ -354,14 +378,14 @@ scratch harness. Same approach here:
 
 ## Risks and how we handle them
 
-- **Shared global scope.** Everything is one scope, so `ui/` loads first and exposes only `ui` (+ the temporary `cgEl` alias).
+- **Shared global scope.** Everything is one scope, so `ui/` loads first and exposes only `ui` (plus the short `button()` helper).
 - **Ids and hooks other code or tests rely on.** Specs take `id` / `attrs`; migrate a modal together with its tests and its
   callers, one at a time.
 - **Focus / Escape regressions** in dialogs that exist today (voice editor sub-dialogs, GameBanana browse's Esc-clears-search-first
   rule). The stack supports a per-modal `onEscape` that can consume the key; these keep their rule.
 - **Visual drift.** Components reuse the current look (spacing, colours, variables). Compare before/after screenshots per migrated
   screen in light and dark.
-- **Scope creep.** Phases are independent: stop after any phase and the app is consistent. The Tile shell is deliberately deferred.
+- **Scope creep.** Phases are independent: stop after any phase and the app is consistent.
 
 ## Decisions (settled in review)
 
@@ -369,4 +393,4 @@ scratch harness. Same approach here:
 2. The `html/*.html` partials of migrated modals are deleted; specs in JS replace them.
 3. The namespace is `ui`.
 4. Phase 1 (modals, sections, buttons, confirmations) came first, as the request describes.
-5. The Tile shell stays deferred until after Phase 4.
+5. The Tile shell was left until after Phase 4, then built (below).

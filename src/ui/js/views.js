@@ -174,8 +174,7 @@ function buildPackBadge(key, cardName) {
   const names = (state.packLinks.by_unit || {})[key];
   if (!names || names.length < 2) return null;
   const others = names.filter(n => n !== cardName);
-  const badge = document.createElement("span");
-  badge.className = "linked-badge";
+  const badge = ui.chip({ tone: "accent", dashed: true, bold: true, size: "xs", cursor: "pointer", class: "linked-badge" }).el;
   badge.textContent = others.length === 1 ? `Pack \u00b7 also ${refileLabel(others[0])}` : `Pack \u00b7 ${names.length} things`;
   badge.title = `This mod replaces ${names.map(refileLabel).join(", ")}. It is listed on each of their cards; selecting it turns on all of them. Click to open ${refileLabel(others[0])}.`;
   badge.addEventListener("click", (e) => {
@@ -369,14 +368,7 @@ async function renderCupGrid() {
     if (selected >= 2) {
       conflictChecks.push(
         conflictCount(checkedUnits).then(n => {
-          if (n > 0) {
-            tile.classList.add("has-conflict");
-            const conflictBadge = document.createElement("div");
-            conflictBadge.className = "char-conflict-badge";
-            conflictBadge.textContent = "!";
-            conflictBadge.title = `${n} conflicting file(s) among selected mods in this cup`;
-            tile.appendChild(conflictBadge);
-          }
+          if (n > 0) ui.tile.markConflict(tile, `${n} conflicting file(s) among selected mods in this cup`);
         })
       );
     }
@@ -455,14 +447,7 @@ async function renderCourseStrip(cupName) {
       { overlayCount: true }
     );
     if (course.name === selectedCourse) tile.classList.add("active");
-    if (checkedUnits.some(u => conflictingUnits.has(u))) {
-      tile.classList.add("has-conflict");
-      const conflictBadge = document.createElement("div");
-      conflictBadge.className = "char-conflict-badge";
-      conflictBadge.textContent = "!";
-      conflictBadge.title = "This course's selected mod conflicts with another selected mod in this cup - open a course here to see which files.";
-      tile.appendChild(conflictBadge);
-    }
+    if (checkedUnits.some(u => conflictingUnits.has(u))) ui.tile.markConflict(tile, "This course's selected mod conflicts with another selected mod in this cup - open a course here to see which files.");
     // Shows the mod's own actual course-select picture when it has one, so
     // it's obvious at a glance which courses do/don't provide one - see the
     // Help page's "select-screen icon or results-screen background is

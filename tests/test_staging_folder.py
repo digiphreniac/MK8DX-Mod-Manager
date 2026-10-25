@@ -154,10 +154,10 @@ class OpeningIt(unittest.TestCase):
 
     def test_both_folder_cards_have_the_button(self):
         js = (ROOT / "src" / "ui" / "js" / "settings-registry.js").read_text(encoding="utf-8")
-        card = js[js.index("function folderCard(dir, onOpen)"):]
-        card = card[:card.index("\n}\n")]
-        self.assertIn("wiz-folder-open", card)
+        card = (ROOT / "src" / "ui" / "js" / "ui" / "folder.js").read_text(encoding="utf-8")       # (the card is a component: ui.folderCard)
+        self.assertIn("ui-folder-open", card)
         self.assertIn("Open this folder in the file manager", card)
+        self.assertIn("ui.folderCard({", js[js.index("function folderCard(dir, onOpen)"):])      # (the setting only turns what its folder says into the card's options)
         self.assertIn("open: (dir) => pywebview.api.reveal_path(dir.path)", js)        # (the data folder)
         self.assertIn("open: () => pywebview.api.open_staging_folder()", js)           # (the staging folder)
         self.assertEqual(js.count("folderCard(dir, "), 3)        # (its definition, and the two cards that give it a way to open)

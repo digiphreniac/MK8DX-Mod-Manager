@@ -66,7 +66,7 @@ ui.button = function (spec) {
 
 // The older helper: a plain button with a class string and a click handler. New code uses ui.button.
 function button(text, cls, onclick) {
-  const b = cgEl("button", cls, text);
+  const b = ui.el("button", cls, text);
   b.addEventListener("click", onclick);
   return b;
 }

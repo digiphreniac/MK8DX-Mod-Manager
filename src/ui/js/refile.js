@@ -103,8 +103,8 @@ function buildCardNotice(name) {
   if (cardNotice && cardNotice.item !== name) cardNotice = null;   // (it was for another card)
   if (!cardNotice) return null;
   const shown = cardNotice;
-  const note = cgEl("div", "cc-notice");
-  note.appendChild(cgEl("span", null, shown.text));
+  const note = ui.el("div", "cc-notice");
+  note.appendChild(ui.el("span", null, shown.text));
   if (shown.undo) note.appendChild(button("Undo", "small", () => undoRefile(shown.undo)));
   note.appendChild(button("✕", "ghost small", () => { if (cardNotice === shown) cardNotice = null; note.remove(); }));
   return note;
@@ -115,7 +115,7 @@ function openMoveDialog({ from, modName, modId, recordType }) {
   const noun = refileNoun(from);
   const modal = ui.modal({ variant: "card", class: "mv-dialog", footer: true, destroyOnClose: true, title: `Move "${modName}" to another ${noun}` });
   const dialog = modal.body;
-  dialog.appendChild(cgEl("p", "mv-note", `It is under ${refileLabel(from)} now. Pick the ${noun} it replaces - its files, its selection and its GameBanana record all move with it.`));
+  dialog.appendChild(ui.hint(`It is under ${refileLabel(from)} now. Pick the ${noun} it replaces - its files, its selection and its GameBanana record all move with it.`, { class: "mv-note", size: "md" }));
   const select = document.createElement("select");
   select.appendChild(new Option(`Choose a ${noun}...`, ""));
   const groups = new Map();
@@ -133,7 +133,7 @@ function openMoveDialog({ from, modName, modId, recordType }) {
     parent.appendChild(new Option(t.label, t.name));
   }
   dialog.appendChild(select);
-  const err = cgEl("div", "gb-mod-error");
+  const err = ui.el("div", "gb-mod-error");
   const close = () => modal.close();
   const go = button("Move", "primary", async () => {
     if (!select.value) return;

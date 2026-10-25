@@ -106,3 +106,16 @@ const helpModal = ui.modal({
 
 // ---- Check the names we guessed (the rows are drawn into its body when it opens) ----
 const guessedNamesModal = ui.modal({ id: "guessed-names-modal", title: "Check the names we guessed", size: "narrow", body: [] });
+
+// ---- the windows whose markup is still in html/*.html: adopted, so they stack, close on Escape and on a click outside like the rest ----
+const addModModal = ui.modal({ adopt: "add-mod-modal" });
+const gbDetailModal = ui.modal({ adopt: "gb-detail-modal" });
+const iconGenModal = ui.modal({ adopt: "icon-gen-modal" });
+// The GameBanana browser stops its search when it closes, and Escape clears the search box first (the window closes on the next one).
+const gbBrowseModal = ui.modal({
+  adopt: "gb-browse-modal",
+  onClose: () => { if (gbBrowse) gbBrowse.stop(); gbBrowse = null; },
+  onEscape: () => !!(gbBrowseClearSearch && gbBrowseClearSearch()),
+});
+// The character / course / vehicle / item card as a pop-up (on a small window; on a wide one the card is docked beside the grid instead).
+const characterModal = ui.modal({ adopt: "modal", onClose: () => { openCharacter = null; markActiveTile(); } });

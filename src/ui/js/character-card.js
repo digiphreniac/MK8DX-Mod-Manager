@@ -6,8 +6,8 @@
 // data, loaded once. `onLook(look, mode)` tells the card which is showing: mode is
 // {name: "walk"|"summary", icons: "walk"|"summary"}.
 function buildCharacterLook(name, onLook) {
-  const nameWrap = cgEl("div", "cl-look");
-  const iconsWrap = cgEl("div", "cl-look");
+  const nameWrap = ui.el("div", "cl-look");
+  const iconsWrap = ui.el("div", "cl-look");
   let wrap = null;         // whichever of the two the shared drawing helpers below append into right now
   let colour = null;       // which colour of a colour-variant character is shown (0-based)
   let nameView = null;     // "walk" forces the name editor open (Edit); null: follow the data
@@ -18,29 +18,29 @@ function buildCharacterLook(name, onLook) {
   // the wait: shapes where the name plate / icon table will be (before the first answer, and again
   // from the moment a mod is ticked or unticked until the new answer is drawn)
   function buildNameSkeleton() {
-    const sk = cgEl("div", "cl-sk");
+    const sk = ui.el("div", "cl-sk");
     sk.appendChild(ui.loading("Reading the mod's menu files..."));
-    sk.appendChild(cgEl("div", "sk cl-sk-prev"));
+    sk.appendChild(ui.el("div", "sk cl-sk-prev"));
     sk.appendChild(skeleton("50%", 12));
     return sk;
   }
   function buildIconsSkeleton() {
-    const sk = cgEl("div", "cl-sk");
-    const tbl = cgEl("div", "cl-sk-table");
-    const head = cgEl("div", "cl-sk-row cl-sk-head");
-    const hc = (cls, w) => { const c = cgEl("div", cls); c.appendChild(skeleton(w, 9)); return c; };
+    const sk = ui.el("div", "cl-sk");
+    const tbl = ui.el("div", "cl-sk-table");
+    const head = ui.el("div", "cl-sk-row cl-sk-head");
+    const hc = (cls, w) => { const c = ui.el("div", cls); c.appendChild(skeleton(w, 9)); return c; };
     head.appendChild(hc("cl-sk-icwrap", 34));
     head.appendChild(hc("cl-sk-name", 40));
     head.appendChild(hc("cl-sk-desc", 70));
     tbl.appendChild(head);
     for (let i = 0; i < 3; i++) {
-      const r = cgEl("div", "cl-sk-row");
-      const icw = cgEl("div", "cl-sk-icwrap");
-      icw.appendChild(cgEl("div", "sk cl-sk-ic"));
-      const nm = cgEl("div", "cl-sk-name");
+      const r = ui.el("div", "cl-sk-row");
+      const icw = ui.el("div", "cl-sk-icwrap");
+      icw.appendChild(ui.el("div", "sk cl-sk-ic"));
+      const nm = ui.el("div", "cl-sk-name");
       nm.appendChild(skeleton(92, 13));
       nm.appendChild(skeleton(42, 14, "6px"));
-      const ds = cgEl("div", "cl-sk-desc");
+      const ds = ui.el("div", "cl-sk-desc");
       ds.appendChild(skeleton("90%", 12));
       ds.appendChild(skeleton("55%", 12));
       r.append(icw, nm, ds, skeleton(26, 26, "50%"));
@@ -148,7 +148,7 @@ function buildCharacterLook(name, onLook) {
     const r = A.look.review;
     if (!A.nm || !r.name_applicable) {
       nameMode = "summary";
-      wrap.appendChild(cgEl("div", "cg-note", `Nothing to check: nothing changes what ${name} is called.`));
+      wrap.appendChild(ui.hint(`Nothing to check: nothing changes what ${name} is called.`, { class: "cg-note" }));
       return;
     }
     const walk = nameView === "walk" || (nameView === null && !r.name_done);
@@ -162,7 +162,7 @@ function buildCharacterLook(name, onLook) {
     const r = A.look.review;
     if (!r.icons_applicable) {
       iconsMode = "summary";
-      wrap.appendChild(cgEl("div", "cg-note", "Nothing to check: the selected mods don't change how " + name + " looks in the menus."));
+      wrap.appendChild(ui.hint("Nothing to check: the selected mods don't change how " + name + " looks in the menus.", { class: "cg-note" }));
       return;
     }
     const walk = iconsView === "walk" || (iconsView === null && !r.icons_done);
@@ -173,23 +173,23 @@ function buildCharacterLook(name, onLook) {
   // ------------------------------------------------------------------ small pieces (shared by the walkthrough and summary)
   function colourStrip(A, redraw, note) {
     if (!A.multi) return;
-    const box = cgEl("div", "cl-colours");
+    const box = ui.el("div", "cl-colours");
     const have = [...Array(A.nCol).keys()].filter(A.colourHasPictures).length;
-    const hint = cgEl("div", "cl-hint", have
+    const hint = ui.hint(have
       ? `${name} has ${A.nCol} colours in the game. ${have === A.nCol ? "Your mods give every one of them its own pictures" : "Your mods give " + have + " of them their own pictures"}${note}`
-      : `${name} has ${A.nCol} colours in the game. None of them has a picture from your mods.`);
+      : `${name} has ${A.nCol} colours in the game. None of them has a picture from your mods.`, { class: "cl-hint" });
     hint.style.margin = "0";
     box.appendChild(hint);
-    const strip = cgEl("div", "cl-colour-strip");
+    const strip = ui.el("div", "cl-colour-strip");
     for (let i = 0; i < A.nCol; i++) {
       const e = A.entryOf("Chara", i);
-      const c = cgEl("button", "cl-colour");
+      const c = ui.el("button", "cl-colour");
       c.type = "button";
       const gap = A.gaps.some(g => g.i === i);
       c.title = `Colour ${i + 1}` + (A.colourHasPictures(i) ? "" : " - the game's own pictures") + (gap ? " - a picture is missing" : "");
       c.setAttribute("aria-label", c.title);
       if (e && e.preview) { const im = document.createElement("img"); im.src = e.preview; im.alt = ""; c.appendChild(im); }
-      else c.appendChild(cgEl("span", "cl-colour-n", String(i + 1)));
+      else c.appendChild(ui.el("span", "cl-colour-n", String(i + 1)));
       c.classList.toggle("is-sel", i === colour);
       c.classList.toggle("is-plain", !A.colourHasPictures(i));
       c.classList.toggle("is-gap", gap);
@@ -203,13 +203,13 @@ function buildCharacterLook(name, onLook) {
   // the icon and the name plate, as the game's select screen shows them (`input`: the plate is the name box)
   function previewBox(A, input) {
     const shown = ["Chara", "edChara", "MapChara"].map(k => A.entryOf(k, colour)).find(e => A.isModded(e) && e.preview) || A.entryOf("Chara", colour);
-    const box = cgEl("div", "cl-preview");
+    const box = ui.el("div", "cl-preview");
     if (shown && shown.preview) { const img = document.createElement("img"); img.src = shown.preview; img.alt = ""; box.appendChild(img); }
-    else box.appendChild(cgEl("div", "cl-noicon", "no icon"));
-    const plate = cgEl("div", "cl-plate");
+    else box.appendChild(ui.el("div", "cl-noicon", "no icon"));
+    const plate = ui.el("div", "cl-plate");
     if (input) {
       plate.classList.add("is-edit");
-      const base = cgEl("span", "np-base", "");
+      const base = ui.el("span", "np-base", "");
       const sync = () => {
         const t = input.value.trim();
         base.textContent = t && t !== name ? "(" + name + ")" : "";
@@ -222,7 +222,7 @@ function buildCharacterLook(name, onLook) {
     } else {
       const t = A.nm ? A.nm.text : name;
       plate.append(t);
-      if (t !== name) plate.appendChild(cgEl("span", "np-base", "(" + name + ")"));
+      if (t !== name) plate.appendChild(ui.el("span", "np-base", "(" + name + ")"));
     }
     box.appendChild(plate);
     wrap.appendChild(box);
@@ -236,8 +236,8 @@ function buildCharacterLook(name, onLook) {
   // ------------------------------------------------------------------ the Name task
   function drawNameStep(A) {
     const nm = A.nm;
-    wrap.appendChild(cgEl("div", "cl-q", `What should ${name} be called in the game?`));
-    wrap.appendChild(cgEl("div", "cl-sub",
+    wrap.appendChild(ui.el("div", "cl-q", `What should ${name} be called in the game?`));
+    wrap.appendChild(ui.el("div", "cl-sub",
       nm.state === "you" ? (nm.auto ? `We guessed this from ${nm.source || "the mod"}. Change it if you like.` : "This is the name you chose. Change it if you like.")
       : nm.state === "mod" ? `The mod (${nm.who.join(", ")}) gives it this name. Change it if you like.`
       : "The mod doesn't say. Give it a name, or keep the game's own."));
@@ -252,12 +252,12 @@ function buildCharacterLook(name, onLook) {
     const baseline = nm.state === "vanilla" ? "" : nm.text;
     const draft = nameDrafts[name] && nameDrafts[name].base === baseline ? nameDrafts[name].value : null;
     input.value = draft !== null ? draft : baseline;
-    if (draft !== null && draft !== baseline) wrap.appendChild(cgEl("div", "cl-sub", "You had started typing this name - it wasn't saved yet."));
+    if (draft !== null && draft !== baseline) wrap.appendChild(ui.el("div", "cl-sub", "You had started typing this name - it wasn't saved yet."));
     previewBox(A, input);
-    const err = cgEl("span", "gb-mod-error");
+    const err = ui.el("span", "gb-mod-error");
     wrap.appendChild(err);
 
-    const row = cgEl("div", "ml-review");
+    const row = ui.el("div", "ml-review");
     const go = button(input.value.trim() ? "Use this name" : "Keep the game's name", "primary small", async () => {
       go.disabled = true;
       const typedName = input.value.trim();
@@ -279,22 +279,22 @@ function buildCharacterLook(name, onLook) {
     });
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go.click(); } });
     row.appendChild(go);
-    row.appendChild(cgEl("span", "cg-note", "Or type a different one above."));
+    row.appendChild(ui.hint("Or type a different one above.", { tag: "span", class: "cg-note" }));
     wrap.appendChild(row);
     setTimeout(() => { if (input.isConnected) { input.focus(); const n = input.value.length; input.setSelectionRange(n, n); } }, 30);
   }
 
   function drawNameSummary(A) {
     const nm = A.nm;
-    const top = cgEl("div", "cl-sum-name");
-    const plate = cgEl("div", "cl-plate");
+    const top = ui.el("div", "cl-sum-name");
+    const plate = ui.el("div", "cl-plate");
     const t = nm ? nm.text : name;
     plate.append(t);
-    if (t !== name) plate.appendChild(cgEl("span", "np-base", "(" + name + ")"));
+    if (t !== name) plate.appendChild(ui.el("span", "np-base", "(" + name + ")"));
     top.appendChild(plate);
     if (nm) {
-      top.appendChild(cgEl("span", "cl-hint", nm.state === "you" ? (nm.auto ? "Name guessed from " + (nm.source || "the mod") : "Your name")
-        : nm.state === "mod" ? "Name from " + nm.who.join(", ") : "The game's own name"));
+      top.appendChild(ui.hint(nm.state === "you" ? (nm.auto ? "Name guessed from " + (nm.source || "the mod") : "Your name")
+        : nm.state === "mod" ? "Name from " + nm.who.join(", ") : "The game's own name", { tag: "span", class: "cl-hint" }));
     }
     wrap.appendChild(top);
   }
@@ -305,18 +305,18 @@ function buildCharacterLook(name, onLook) {
 
     // A real decision comes first: a mod ships several sets of icon pictures.
     if (A.icons && A.icons.needs_choice) {
-      wrap.appendChild(cgEl("div", "cl-q", `Which pictures should ${name} use?`));
-      wrap.appendChild(cgEl("div", "cl-sub", "A mod includes several sets of icon pictures (often one per costume). Until you pick, the game's normal icons are used."));
+      wrap.appendChild(ui.el("div", "cl-q", `Which pictures should ${name} use?`));
+      wrap.appendChild(ui.el("div", "cl-sub", "A mod includes several sets of icon pictures (often one per costume). Until you pick, the game's normal icons are used."));
       for (const m of (look.loose || []).filter(x => x.here)) {
         for (const set of m.sets.filter(x => !x.for)) wrap.appendChild(mlVersionCard(name, m, set, changed, true));
       }
-      const alt = cgEl("div", "cg-actions");
+      const alt = ui.el("div", "cg-actions");
       alt.appendChild(button("Use my own picture", "small", openPictureWindow));
       wrap.appendChild(alt);
       return;
     }
     if (!A.icons) {   // (a character the app has no icons for)
-      wrap.appendChild(cgEl("div", "cl-sub", "There are no icons to check for this character."));
+      wrap.appendChild(ui.el("div", "cl-sub", "There are no icons to check for this character."));
       finishIconsRow();
       return;
     }
@@ -332,17 +332,17 @@ function buildCharacterLook(name, onLook) {
     } else if (own.length || made.length) {
       prov = own.length ? "These are your own pictures." : "Made from the Select screen picture.";
     } else prov = "None of your mods brings icons for this character.";
-    wrap.appendChild(cgEl("div", "cl-q", "Do these icons look right?"));
-    wrap.appendChild(cgEl("div", "cl-sub", prov + " Click a picture to change it."));
+    wrap.appendChild(ui.el("div", "cl-q", "Do these icons look right?"));
+    wrap.appendChild(ui.el("div", "cl-sub", prov + " Click a picture to change it."));
 
     colourStrip(A, () => draw(look), " - pick a colour to check it.");
     iconTable(A, false);
     gapNotes(A);
     if (!A.anyModded) {
       // No mod supplies an icon: encourage a picture of the user's own.
-      const nudge = cgEl("div", "cl-nudge");
-      nudge.appendChild(cgEl("b", null, "No icon comes with this mod"));
-      nudge.appendChild(cgEl("span", null, "Add a picture so it stands out in the menus. Pick one of the mod's screenshots or a file of your own - it's resized for you."));
+      const nudge = ui.el("div", "cl-nudge");
+      nudge.appendChild(ui.el("b", null, "No icon comes with this mod"));
+      nudge.appendChild(ui.el("span", null, "Add a picture so it stands out in the menus. Pick one of the mod's screenshots or a file of your own - it's resized for you."));
       nudge.appendChild(button("Add a picture", "primary small", openPictureWindow));
       wrap.appendChild(nudge);
     }
@@ -350,7 +350,7 @@ function buildCharacterLook(name, onLook) {
   }
 
   function finishIconsRow() {
-    const row = cgEl("div", "ml-review");
+    const row = ui.el("div", "ml-review");
     row.appendChild(button("Looks right", "primary small", async () => {
       await pywebview.api.mark_icons_reviewed(name);
       iconsView = null;
@@ -363,12 +363,12 @@ function buildCharacterLook(name, onLook) {
   function gapNotes(A) {
     const { gaps, multi } = A;
     if (gaps.length > 1 || (multi && gaps.some(x => x.i !== colour))) {   // (one gap in the colour shown is already said in its row)
-      const g = cgEl("div", "cl-gap");
+      const g = ui.el("div", "cl-gap");
       const what = [...new Set(gaps.map(x => A.kindName(x.kind)))].join(" and ");
       const text = multi
         ? `${gaps.length === 1 ? "One picture is" : gaps.length + " pictures are"} missing from the mod: ${gaps.slice(0, 4).map(x => `${A.kindName(x.kind)} for colour ${x.i + 1}`).join(", ")}${gaps.length > 4 ? ", ..." : ""}. Until you fill ${gaps.length === 1 ? "it" : "them"} in, the game's own ${gaps.length === 1 ? "picture shows" : "pictures show"} there.`
         : `The mod has no ${what} picture, so the game's own would show next to its Select screen one. You can reuse the Select screen picture, scaled down.`;
-      g.appendChild(cgEl("span", "cl-gap-text", text));
+      g.appendChild(ui.el("span", "cl-gap-text", text));
       if (gaps.length > 1) {
         g.appendChild(button("Fill them all", "small", async () => { await pywebview.api.fill_missing_icons(name, null, null); changed(); }));
       }
@@ -382,7 +382,7 @@ function buildCharacterLook(name, onLook) {
     }
     for (const m of (A.look.loose || []).filter(x => x.here)) {
       for (const set of m.sets.filter(x => x.for)) {
-        wrap.appendChild(cgEl("div", "cg-note", `${m.label} also includes icon pictures named for ${set.for} - they aren't used here (choose "Change picture" on an icon to use one for ${name} anyway).`));
+        wrap.appendChild(ui.hint(`${m.label} also includes icon pictures named for ${set.for} - they aren't used here (choose "Change picture" on an icon to use one for ${name} anyway).`, { class: "cg-note" }));
       }
     }
   }
@@ -397,9 +397,9 @@ function buildCharacterLook(name, onLook) {
     const table = document.createElement("table");
     table.className = "cl-table" + (summary ? " is-summary" : "");
     const headRow = document.createElement("tr");
-    for (const h of ["Icon", "Name", summary ? "Source" : "Description"]) headRow.appendChild(cgEl("th", null, h));
+    for (const h of ["Icon", "Name", summary ? "Source" : "Description"]) headRow.appendChild(ui.el("th", null, h));
     if (!summary) {
-      const thMenu = cgEl("th", "cl-th-menu");
+      const thMenu = ui.el("th", "cl-th-menu");
       thMenu.appendChild(ui.menu({ label: "Options for all three icons", items: () => {
         const items = [{ label: "Use one picture for all three...", onClick: () => openPictureWindow() }];
         if (A.mine) items.push({ label: "Use game defaults", onClick: async () => { await pywebview.api.clear_character_icons(name); changed(); } });
@@ -419,52 +419,52 @@ function buildCharacterLook(name, onLook) {
       const change = () => openPictureWindow({ kinds: [kind], colour: colArg, label: caption + scope });
       const tr = document.createElement("tr");
 
-      const tdIcon = cgEl("td", "cl-t-icon");
-      const ic = cgEl(summary ? "div" : "button", "cl-ic" + (summary ? " is-static" : ""));
+      const tdIcon = ui.el("td", "cl-t-icon");
+      const ic = ui.el(summary ? "div" : "button", "cl-ic" + (summary ? " is-static" : ""));
       if (!summary) {
         ic.type = "button";
         ic.title = `Change the ${caption} picture${scope}`;
         ic.setAttribute("aria-label", ic.title);
       }
       if (e.preview) { const im = document.createElement("img"); im.src = e.preview; im.alt = ""; ic.appendChild(im); }
-      else { ic.classList.add("is-blank"); ic.classList.toggle("is-gap", gap && !summary); ic.appendChild(cgEl("span", "cl-ic-blank", gap && !summary ? "+" : "game default")); }
-      if (!summary) { ic.appendChild(cgEl("span", "cl-ic-ov", "✎")); ic.addEventListener("click", change); }
+      else { ic.classList.add("is-blank"); ic.classList.toggle("is-gap", gap && !summary); ic.appendChild(ui.el("span", "cl-ic-blank", gap && !summary ? "+" : "game default")); }
+      if (!summary) { ic.appendChild(ui.el("span", "cl-ic-ov", "✎")); ic.addEventListener("click", change); }
       tdIcon.appendChild(ic);
       tr.appendChild(tdIcon);
 
-      const tdName = cgEl("td", "cl-t-name");
-      tdName.appendChild(cgEl("div", null, caption));
+      const tdName = ui.el("td", "cl-t-name");
+      tdName.appendChild(ui.el("div", null, caption));
       if (!summary) {
-        if (e.filled) { const t = cgEl("span", "cl-src", "Made from Select"); t.title = "Made from the Select screen picture, scaled down"; tdName.appendChild(t); }
-        else if (e.state === "you") tdName.appendChild(cgEl("span", "cl-src you", "Yours"));
+        if (e.filled) { const t = ui.el("span", "cl-src", "Made from Select"); t.title = "Made from the Select screen picture, scaled down"; tdName.appendChild(t); }
+        else if (e.state === "you") tdName.appendChild(ui.el("span", "cl-src you", "Yours"));
         else if (e.state === "mod" || e.state === "auto" || e.state === "included") {
-          const t = cgEl("span", "cl-src", "Mod");
+          const t = ui.el("span", "cl-src", "Mod");
           t.title = e.state === "auto" ? "Picked automatically from the mod's pictures" : "From the mod";
           tdName.appendChild(t);
         }
       }
       tr.appendChild(tdName);
 
-      const tdDesc = cgEl("td", "cl-t-desc");
+      const tdDesc = ui.el("td", "cl-t-desc");
       if (summary) {
-        tdDesc.appendChild(cgEl("div", null, sourceOf(e)));
-        if (e.blocked) tdDesc.appendChild(cgEl("div", "cl-tile-tag", "Can't be applied - the game default is used"));
+        tdDesc.appendChild(ui.el("div", null, sourceOf(e)));
+        if (e.blocked) tdDesc.appendChild(ui.el("div", "cl-tile-tag", "Can't be applied - the game default is used"));
       } else {
-        tdDesc.appendChild(cgEl("div", null, hint));
+        tdDesc.appendChild(ui.el("div", null, hint));
         if (gap) {
-          const line = cgEl("div", "cl-tile-tag", "Not in the mod. ");
-          const use = cgEl("button", "cl-link", "Use the Select screen one");
+          const line = ui.el("div", "cl-tile-tag", "Not in the mod. ");
+          const use = ui.el("button", "cl-link", "Use the Select screen one");
           use.type = "button";
           use.title = "Use the Select screen picture for this one, scaled down";
           use.addEventListener("click", async () => { await pywebview.api.fill_missing_icons(name, colArg, [kind]); changed(); });
           line.appendChild(use);
           tdDesc.appendChild(line);
         } else if (e.blocked) {
-          const t = cgEl("div", "cl-tile-tag", "Can't apply");
+          const t = ui.el("div", "cl-tile-tag", "Can't apply");
           t.title = (slot && slot.blocked && slot.blocked.reason) || "";
           tdDesc.appendChild(t);
         } else if (slot && slot.resized && A.isModded(e)) {
-          const t = cgEl("div", "cl-tile-tag info", "Resized to fit");
+          const t = ui.el("div", "cl-tile-tag info", "Resized to fit");
           t.title = "The mod's picture is a different size than the game's own, so the app scales it to fit.";
           tdDesc.appendChild(t);
         }
@@ -477,14 +477,14 @@ function buildCharacterLook(name, onLook) {
         if (e.filled) extra.push({ label: "Undo", title: "Take back the picture made from the Select screen", onClick: async () => { await pywebview.api.unfill_icons(name, [kind], colArg); changed(); } });
         else if (e.state === "you") extra.push({ label: "Undo my picture", title: "Go back to the mod's picture (or the game default, when the mod has none)", onClick: async () => { await pywebview.api.clear_character_icons(name, [kind], colArg); changed(); } });
         else if (e.state === "auto") extra.push({ label: "Use game default", title: "Stop using the mod's picture here", onClick: async () => { await pywebview.api.clear_character_icons(name, [kind], colArg); changed(); } });
-        const tdMenu = cgEl("td", "cl-t-menu");
+        const tdMenu = ui.el("td", "cl-t-menu");
         if (extra.length) tdMenu.appendChild(ui.menu({ label: `More for the ${caption} icon${scope}`, items: () => [{ label: "Change picture", onClick: change }, "-", ...extra] }).el);
         tr.appendChild(tdMenu);
       }
       tbody.appendChild(tr);
     }
     table.appendChild(tbody);
-    const tableBox = cgEl("div", "cl-table-box");   // (its width decides between the columns and the stacked rows)
+    const tableBox = ui.el("div", "cl-table-box");   // (its width decides between the columns and the stacked rows)
     tableBox.appendChild(table);
     wrap.appendChild(tableBox);
   }
@@ -507,19 +507,19 @@ function buildCharacterLook(name, onLook) {
 // One row of a guided card (Name, Icons): a status dot, the title with a one-line summary, an action button, and the
 // body the walkthrough draws into. Shared by the character and the course card.
 function makeCardStep(title) {
-  const root = cgEl("div", "cc-step");
-  const row = cgEl("div", "cc-step-row");
-  const dot = cgEl("span", "cc-dot pending");
-  const text = cgEl("div", "cc-step-text");
-  const t = cgEl("b", null, title);
-  const sum = cgEl("span", null, "");
+  const root = ui.el("div", "cc-step");
+  const row = ui.el("div", "cc-step-row");
+  const dot = ui.el("span", "cc-dot pending");
+  const text = ui.el("div", "cc-step-text");
+  const t = ui.el("b", null, title);
+  const sum = ui.el("span", null, "");
   text.appendChild(t);
   text.appendChild(sum);
   const act = button("Change", "small", () => {});
   row.appendChild(dot);
   row.appendChild(text);
   row.appendChild(act);
-  const content = cgEl("div", "cc-step-body");
+  const content = ui.el("div", "cc-step-body");
   root.appendChild(row);
   root.appendChild(content);
   return { root, dot, sum, act, content };
@@ -548,12 +548,12 @@ function assembleCharacterCard(ctx) {
   // what this character is now: its (modded) name and where it stands - always in view
   if (reviewQueue.active) body.appendChild(buildReviewBar());
   const chip = ui.chip({ size: "md" });
-  const headName = cgEl("div", "cc-headname");
-  const headSub = cgEl("div", "cc-headsub");
-  const headText = cgEl("div", "cc-headtext");
+  const headName = ui.el("div", "cc-headname");
+  const headSub = ui.el("div", "cc-headsub");
+  const headText = ui.el("div", "cc-headtext");
   headText.appendChild(headName);
   headText.appendChild(headSub);
-  const head = cgEl("div", "cc-head");
+  const head = ui.el("div", "cc-head");
   head.appendChild(headText);
   head.appendChild(chip.el);
   body.appendChild(head);
@@ -561,14 +561,14 @@ function assembleCharacterCard(ctx) {
 
   // The mods: the ones in use stay on screen as rows - they are never folded into a sentence. The rest sit
   // behind "Manage", and adding another is a quiet row underneath.
-  const modPanel = cgEl("div", "cc-panel");
+  const modPanel = ui.el("div", "cc-panel");
   let manageBtn = null, modHint = null;
   if (hasMods && modsCard) {
     modsCard.classList.add("cc-mods");
     const hdr = modsCard.querySelector(".modal-card-header");
     manageBtn = button("Manage", "ghost small cc-manage", () => { manage = !manage; refresh(); });
     hdr.appendChild(manageBtn);
-    modHint = cgEl("div", "cc-hint");
+    modHint = ui.el("div", "cc-hint");
     hdr.after(modHint);
     modPanel.appendChild(mainCol);
   }
@@ -651,7 +651,7 @@ function assembleCharacterCard(ctx) {
     headName.hidden = !(ticked.length && nm && nm.text !== name);
     if (!headName.hidden) {
       headName.append(nm.text);
-      headName.appendChild(cgEl("span", "np-base", "(" + name + ")"));
+      headName.appendChild(ui.el("span", "np-base", "(" + name + ")"));
     }
     const bothDone = ns.state === "done" && is_.state === "done";
     // say exactly which of Name/Icons still needs a look, rather than the vague "appearance" -
@@ -720,7 +720,7 @@ function assembleCharacterCard(ctx) {
     if (entry.units.some(k => unitSlots[k] && unitSlots[k].twins > 1)) {
       const hdr = modsCard && modsCard.querySelector(".modal-card-header");
       if (hdr && !modsCard.querySelector(".cc-variant-note")) {
-        hdr.after(cgEl("div", "cc-variant-note", "Some of these are variants of the same files (colours or options): pick one of each."));
+        hdr.after(ui.el("div", "cc-variant-note", "Some of these are variants of the same files (colours or options): pick one of each."));
       }
     }
   });
@@ -1001,9 +1001,9 @@ function openCharacterModal(name) {
       for (const im of (iconMods || [])) {
         const row = document.createElement("div");
         row.className = "mod-row icon-only-row";
-        row.appendChild(cgEl("span", "icon-only-mark", "🖼️"));
-        row.appendChild(cgEl("span", "icon-only-label", im.mod));
-        row.appendChild(cgEl("span", "icon-only-note", im.kinds.length
+        row.appendChild(ui.el("span", "icon-only-mark", "🖼️"));
+        row.appendChild(ui.el("span", "icon-only-label", im.mod));
+        row.appendChild(ui.el("span", "icon-only-note", im.kinds.length
           ? `Icon pictures only - can't be added to the merge. Currently used for: ${im.kinds.map(k => KIND_LABEL[k] || k).join(", ")}.`
           : "Icon pictures only - can't be added to the merge. Not currently used (a better picture took over, or this was turned down)."));
         if (im.kinds.length) {
@@ -1026,7 +1026,7 @@ function openCharacterModal(name) {
         const p = unitPics[key];
         if (!p || row.querySelector(".part-badge.picture")) continue;
         const rowLabel = row.querySelector("label");
-        const tag = cgEl("button", "part-badge picture");
+        const tag = ui.el("button", "part-badge picture");
         tag.type = "button";
         tag.appendChild(pictureSvg());
         const summary = pictureSummary(p);
@@ -1046,12 +1046,12 @@ function openCharacterModal(name) {
           if (!u || row.querySelector(".part-badge")) continue;
           for (const p of (u.parts || [])) {
             const anchor = row.querySelector(".mod-more") || row.querySelector("button");
-            if (p !== "Voice") { row.insertBefore(cgEl("span", "part-badge", p), anchor); continue; }
+            if (p !== "Voice") { row.insertBefore(ui.el("span", "part-badge", p), anchor); continue; }
             // Voice: just the speaker; it opens the list of lines to listen to
             const rowLabel = row.querySelector("label");
             const modName = rowLabel ? rowLabel.textContent : key.split("/")[2];
             const what = voiceWhat(u.voice && u.voice.race, u.voice && u.voice.menu);
-            const tag = cgEl("button", "part-badge voice");
+            const tag = ui.el("button", "part-badge voice");
             tag.type = "button";
             tag.appendChild(speakerSvg());
             tag.title = `This mod includes voice files: ${what}. Click to listen to them.`;
@@ -1080,8 +1080,7 @@ function openCharacterModal(name) {
       const packed = new Set(packedKeys || []);
       for (const { key, row } of modCheckboxes) {
         if (!packed.has(key) || row.querySelector(".packed-badge")) continue;
-        const badge = document.createElement("span");
-        badge.className = "packed-badge";
+        const badge = ui.chip({ tone: "warn", caps: true, size: "xs", cursor: "help", class: "packed-badge" }).el;
         badge.textContent = "packed archive only";
         badge.title = "Every file in this mod is a packed .sarc (common/menu/message), which a commit never copies in directly - the app builds the combined menu pictures and text from it when you commit.";
         row.insertBefore(badge, row.querySelector("button"));
@@ -1096,22 +1095,19 @@ function openCharacterModal(name) {
         if (!patch || row.querySelector(".patch-badge")) continue;
         exefsKeys.add(key);
         const builds = patch.ids.map(i => i.version ? `v${i.version}` : `build ${i.id.slice(0, 8)}…`).join(" / ");
-        const badge = document.createElement("span");
-        badge.className = "patch-badge";
+        const badge = ui.chip({ tone: "accent", outline: true, caps: true, size: "xs", cursor: "help", class: "patch-badge" }).el;
         badge.textContent = "code patch" + (builds ? ` · ${builds}` : "");
         badge.title = "An exefs code patch: it patches the game's executable and only works on the exact game version (build id) it was made for. Build id(s): "
           + patch.ids.map(i => i.id).join(", ") + ". Select All skips code patches, so select each one yourself.";
         const firstButton = row.querySelector("button");
         row.insertBefore(badge, firstButton);
         if (patch.inert) {
-          const warn = document.createElement("span");
-          warn.className = "packed-badge";
+          const warn = ui.chip({ tone: "warn", caps: true, size: "xs", cursor: "help", class: "packed-badge" }).el;
           warn.textContent = "wrong game version";
           warn.title = "None of this patch's build ids match the game build id set in Settings - it would do nothing on your game.";
           row.insertBefore(warn, firstButton);
         } else if (patch.maybe) {
-          const warn = document.createElement("span");
-          warn.className = "packed-badge";
+          const warn = ui.chip({ tone: "warn", caps: true, size: "xs", cursor: "help", class: "packed-badge" }).el;
           warn.textContent = "might not match your game";
           warn.title = "This patch was made for an older game version than yours (you chose \"Not listed, probably newer\"). A game update often leaves the executable alone, so it may still work - if it does nothing, look for a newer version of the mod. Entering your exact build ID in Settings lets the app check for sure.";
           row.insertBefore(warn, firstButton);
@@ -1179,8 +1175,4 @@ function openCharacterModal(name) {
   endDetail(docked);
 }
 
-document.getElementById("btn-modal-close").addEventListener("click", closeModal);
-document.getElementById("modal-backdrop").addEventListener("click", (e) => {
-  if (e.target.id === "modal-backdrop") closeModal();
-});
 

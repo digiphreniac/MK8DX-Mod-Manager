@@ -92,9 +92,7 @@ class TheConflictsModal(unittest.TestCase):
         self.assertIn("const top = stack[stack.length - 1];", handler)       # (only the top window of the stack)
         self.assertIn("top.api.close()", handler)
         legacy = read("js", "help-and-icon-generator.js")
-        legacy = legacy[legacy.index('document.addEventListener("keydown"'):]
-        for gone in ("closeConflictsModal()", "closeSettingsModal()", "closeHelpModal()", "above-settings"):
-            self.assertNotIn(gone, legacy, gone)       # (the page's own Escape handler no longer knows these windows)
+        self.assertNotIn('"Escape"', legacy)       # (the page has no Escape handler of its own any more: every window is on the stack)
 
     def test_the_modal_stays_short(self):
         modal = conflicts_spec()
@@ -118,7 +116,7 @@ class TheConflictsModal(unittest.TestCase):
         body = js[js.index("function cgFileList(paths)"):]
         body = body[:body.index("\n}\n")]
         self.assertIn('lastIndexOf("/")', body)
-        self.assertLess(body.index('cgEl("b"'), body.index('"cg-dir"'))
+        self.assertLess(body.index('ui.el("b"'), body.index('"cg-dir"'))
 
     def test_the_summary_is_kept_up_to_date_by_the_same_code_that_draws_the_list(self):
         js = read("js", "data-and-conflicts.js")

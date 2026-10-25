@@ -54,7 +54,7 @@
   .pics-img.none { background: transparent; border: 1.5px dashed var(--panel-border); color: var(--text-dim); font-size: 11.5px; line-height: 1.35; padding: 8px; text-align: center; }
   .pics-cap { font-size: 12.5px; font-weight: 600; margin-top: 5px; }
   .pics-size { display: block; font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 1px; }
-  .pics-hint { font-size: 12.5px; color: var(--text-dim); margin: 14px 0 0 0; }
+  .pics-hint { margin: 14px 0 0 0; }
   /* the "Voice lines" window */
   .voice-card { display: flex; flex-direction: column; max-width: 520px; max-height: min(82vh, 640px); }
   .voice-card .voice-sub { font-size: 12.5px; color: var(--text-dim); margin: -4px 0 8px 0; overflow-wrap: anywhere; }
@@ -73,7 +73,7 @@
      which lines their columns up just as a table's would. */
   .ui-modal--card.voice-editor { max-width: min(1080px, 96vw); max-height: min(90vh, 860px); display: flex; flex-direction: column; }   /* (.ui-modal--card sets 480px) */
   .ve-status { font-size: 12px; font-weight: 600; color: var(--text-dim); margin: -6px 0 8px 0; }
-  .ve-note { font-size: 12.5px; line-height: 1.45; color: var(--text-dim); margin: 0 0 8px 0; }
+  .ve-note { margin: 0 0 8px 0; }
   .ve-base { font-size: 12.5px; line-height: 1.45; padding: 8px 10px; border-radius: 9px; background: var(--bg-soft); border: 1px solid var(--panel-border); margin-bottom: 8px; }
   .ve-base.warn { background: var(--warn-soft); border-color: var(--warn); color: var(--text); }
   .ve-base .ve-base-act { margin-top: 6px; }
@@ -150,7 +150,6 @@
   .ve-gain input[type=range] { flex: 1 1 auto; min-width: 80px; }
   .ve-gain-val { font-variant-numeric: tabular-nums; min-width: 4.5em; text-align: right; color: var(--text-dim); }
   .ve-gain.disabled { opacity: 0.45; }
-  .mod-row .mod-name { flex: 1 1 12em; min-width: 8em; overflow-wrap: anywhere; cursor: pointer; }
   .modal-card.gb-slim { border: 1px dashed var(--panel-border); background: transparent; margin: 8px 0 0 0; }
   .gb-slim .modal-card-header { background: transparent; border-bottom: none; cursor: pointer; padding: 9px 12px; }
   .gb-slim .modal-card-title { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text); font-weight: 600; }
@@ -190,8 +189,6 @@
   .cc-step-body .modal-card { margin-bottom: 10px; }
   /* a mod row: the folder/files/remove buttons sit behind the "..." button */
   .mod-row .mod-more { margin-left: auto; }
-  .mod-actions { display: none; flex-basis: 100%; gap: 6px; flex-wrap: wrap; padding: 2px 0 2px 24px; }
-  .mod-row.actions-open .mod-actions { display: flex; }
   .cc-variant-note { font-size: 12.5px; color: var(--text-dim); padding: 8px 14px; border-bottom: 1px solid var(--divider); }
   /* the Look step */
   .cl-look { display: flex; flex-direction: column; gap: 10px; }
@@ -205,9 +202,6 @@
   .cl-plate input.cl-plate-input { background: transparent; border: none; outline: none; box-shadow: none; color: #fff; font: inherit; padding: 2px 0; margin: 0; min-width: 4ch; max-width: 26ch; text-overflow: ellipsis; }
   .cl-plate input.cl-plate-input::placeholder { color: #fff; opacity: 1; }
   .cl-plate input.cl-plate-input:focus::placeholder { color: rgba(255, 255, 255, 0.5); }
-  .cl-preview button.cl-edit-btn { flex: none; width: 32px; height: 32px; padding: 0; margin: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; background: transparent; border: 1px solid var(--text-dim); color: var(--text); box-shadow: none; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
-  .cl-preview button.cl-edit-btn:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-  .cl-preview button.cl-edit-btn:active { transform: scale(0.94); }
   .cl-look { --cl-ic: 56px; --cl-prev: 88px; }   /* the sizes the waiting shapes copy */
   /* the guided pass through unfinished characters ("Review them") */
   .review-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px 0; padding: 8px 12px; border-radius: 10px; background: var(--accent-soft); border: 1px solid var(--accent); font-size: 13px; }
@@ -215,16 +209,6 @@
   .review-bar.is-done { background: var(--ok-soft); border-color: var(--ok); }
   /* "N characters aren't finished": asked once, when leaving Choose mods */
   .gate-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  /* the walkthrough: 1 Name, 2 Icons */
-  .cl-steps { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
-  .cl-step-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; box-shadow: none; padding: 2px 4px; font: inherit; color: inherit; cursor: default; }
-  .cl-step-btn.can { cursor: pointer; }
-  .cl-step-btn.can:hover { color: var(--text); }
-  .cl-step-n { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--panel-border); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; }
-  .cl-step-btn.on { color: var(--text); font-weight: 700; }
-  .cl-step-btn.on .cl-step-n { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .cl-step-btn.done .cl-step-n { background: var(--ok-soft); border-color: transparent; color: var(--ok); }
-  .cl-step-bar { width: 26px; height: 1px; background: var(--panel-border); }
   .cl-q { font-size: 14.5px; font-weight: 700; margin-bottom: -6px; }
   .cl-sub { font-size: 12.5px; color: var(--text-dim); }
   .cl-sum-name { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -238,7 +222,6 @@
     .cl-plate { font-size: 21px; }
     .cl-plate.is-edit { padding: 9px 22px; }
     .cl-plate .np-base { font-size: 12px; }
-    .cl-preview button.cl-edit-btn { width: 36px; height: 36px; font-size: 17px; }
     .cl-look .cl-ic { width: 64px; height: 64px; }
     .cl-look { --cl-ic: 64px; --cl-prev: 120px; }
     .cl-look .cl-table th:first-child, .cl-look .cl-table td.cl-t-icon { width: 96px; }
@@ -250,17 +233,13 @@
     .cl-plate { font-size: 25px; }
     .cl-plate.is-edit { padding: 11px 26px; }
     .cl-plate .np-base { font-size: 13px; }
-    .cl-preview button.cl-edit-btn { width: 40px; height: 40px; font-size: 19px; }
     .cl-look .cl-ic { width: 76px; height: 76px; }
     .cl-look { --cl-ic: 76px; --cl-prev: 136px; }
     .cl-look .cl-table th:first-child, .cl-look .cl-table td.cl-t-icon { width: 112px; }
     .cl-look .cl-t-name { font-size: 16px; }
     .cl-look .cl-t-desc { font-size: 14px; }
   }
-  .cl-name { display: flex; align-items: center; gap: 10px; }
-  .cl-name label { font-size: 13px; color: var(--text-dim); width: 46px; flex: none; }
-  .cl-name input { flex: 1; min-width: 0; }
-  .cl-hint { font-size: 12px; color: var(--text-dim); margin: -4px 0 0 2px; }
+  .cl-hint { margin: -4px 0 0 2px; }
   .cl-nudge { border: 1px dashed var(--panel-border); border-radius: 10px; padding: 12px 14px; }
   .cl-nudge b { display: block; font-size: 14px; }
   .cl-nudge span { display: block; font-size: 12.5px; color: var(--text-dim); margin: 2px 0 8px 0; }
@@ -358,7 +337,7 @@
   /* "Move to another ...": the small dialog over the card */
   .mv-dialog { width: 420px; max-width: calc(100vw - 40px); padding: 18px 20px; border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
   .mv-dialog h3 { margin: 0 0 6px 0; font-size: 15px; }
-  .mv-dialog .mv-note { margin: 0 0 12px 0; font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
+  .mv-dialog .mv-note { margin: 0 0 12px 0; }
   .mv-dialog select { width: 100%; }
   .mv-dialog .ui-modal-footer { margin-top: 14px; gap: 8px; }
 

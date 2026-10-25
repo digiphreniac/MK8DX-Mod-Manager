@@ -33,7 +33,7 @@ function defaultVariant(item) {
 // (variantSwitchRefresh, called from scheduleCharacterLooks).
 let variantSwitchRefresh = null;
 function buildVariantSwitch(item, current) {
-  const bar = cgEl("div", "variant-switch");
+  const bar = ui.el("div", "variant-switch");
   bar.setAttribute("role", "group");
   bar.setAttribute("aria-label", `${item.group}: which one you are working on`);
   function draw() {
@@ -45,7 +45,7 @@ function buildVariantSwitch(item, current) {
       const total = entry.units.length;
       const ticked = entry.units.filter(k => state.checked[k]).length;
       const label = groupOptionLabel(opt, item.group);
-      const btn = cgEl("button", "variant-opt" + (opt === current ? " on" : ""));
+      const btn = ui.el("button", "variant-opt" + (opt === current ? " on" : ""));
       btn.type = "button";
       btn.setAttribute("aria-pressed", opt === current ? "true" : "false");
       if (look.icon) {
@@ -55,17 +55,17 @@ function buildVariantSwitch(item, current) {
         img.alt = "";
         btn.appendChild(img);
       } else {
-        btn.appendChild(cgEl("span", "variant-thumb ph"));
+        btn.appendChild(ui.el("span", "variant-thumb ph"));
       }
-      const text = cgEl("span", "variant-text");
-      text.appendChild(cgEl("b", null, label));
+      const text = ui.el("span", "variant-text");
+      text.appendChild(ui.el("b", null, label));
       let sub = look.name || (total === 0 ? (entry.gb_attempted ? "needs attention" : "no mods yet") : `${ticked}/${total} selected`);
-      const small = cgEl("small", total === 0 && entry.gb_attempted && !look.name ? "attention" : null, sub);
+      const small = ui.el("small", total === 0 && entry.gb_attempted && !look.name ? "attention" : null, sub);
       text.appendChild(small);
       btn.appendChild(text);
       if (reviewApplicable(rev)) {
         const todo = !reviewFinished(rev);
-        const mark = cgEl("span", "variant-mark " + (todo ? "todo" : "done"), todo ? "" : "\u2713");
+        const mark = ui.el("span", "variant-mark " + (todo ? "todo" : "done"), todo ? "" : "\u2713");
         mark.title = todo ? "Mod selected - open it to finish its name and icons" : "Completed";
         btn.appendChild(mark);
       }
@@ -176,10 +176,9 @@ function closeDetail() {
 
 // Called at the start of building a card: decides pop-up vs. docked and returns where to build it.
 function beginDetail(docked, key) {
-  const backdrop = document.getElementById("modal-backdrop");
   if (docked && viewMode === "items") return beginItemDetail(key);
   if (docked) {
-    backdrop.hidden = true;   // a pop-up left open for a character gives way to the docked card
+    characterModal.close();   // a pop-up left open for a character gives way to the docked card
     openCharacter = null;
     dockedKey = key;
     if (isCharacterName(key)) lastDockedKey = key;
@@ -198,7 +197,7 @@ function endDetail(docked) {
   } else if (docked) {
     document.getElementById("char-detail-body").scrollTop = 0;
   } else {
-    document.getElementById("modal-backdrop").hidden = false;
+    characterModal.open();
   }
   markActiveTile();
 }
