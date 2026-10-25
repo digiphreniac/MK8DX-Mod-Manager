@@ -5,8 +5,9 @@ Builds the Windows release: dist/MK8DX-Mod-Manager-v<version>-windows.zip
     python tools/build_release.py --no-7zip   (skip bundling 7-Zip; .rar/.7z mods then need the user to install it)
 
 What it does: makes a private build environment (.build-venv) with the app's requirements plus
-PyInstaller, runs PyInstaller on tools/mk8dx-mod-manager.spec, adds the license and release/README.md
-(the only readme in the zip; it is not the repository's README.md) to the output folder, and zips it.
+PyInstaller, runs PyInstaller on tools/mk8dx-mod-manager.spec, adds the license, THIRD-PARTY-NOTICES.txt (written by
+tools/third_party_notices.py from the build environment's packages) and release/README.md (the only readme in the
+zip; it is not the repository's README.md) to the output folder, and zips it.
 7-Zip's command-line files are copied from this machine's 7-Zip install (or the folder in
 MK8DX_7ZIP_DIR), so install 7-Zip before building.
 
@@ -74,6 +75,8 @@ def main():
          ROOT / "tools" / "mk8dx-mod-manager.spec"], env=env, cwd=ROOT)
 
     shutil.copy2(ROOT / "LICENSE", out / "LICENSE.txt")
+    # the notices and license texts of everything in the release that is someone else's (the icon set, libraries, 7-Zip, Python ...)
+    run([vpy, ROOT / "tools" / "third_party_notices.py", out / "THIRD-PARTY-NOTICES.txt"])
     shutil.copy2(ROOT / "release" / "README.md", out / "README.md")   # the one readme users get (not the repository's)
 
     archive = shutil.make_archive(str(dist / f"MK8DX-Mod-Manager-v{VERSION}-windows"), "zip", dist, APP_NAME)

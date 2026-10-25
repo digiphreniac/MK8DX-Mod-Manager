@@ -70,10 +70,7 @@
     background: rgba(20, 22, 28, 0.78); color: #fff; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.55);
   }
   .tile-voice-mark svg, .part-badge.voice svg { width: 62%; height: 62%; display: block; }
-  .speaker-cone { fill: currentColor; }
-  .speaker-x { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
   .tile-voice-mark.muted { background: rgba(120, 30, 30, 0.88); }
-  .speaker-wave { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
   /* While a tile's select sound plays its speaker lights up and the two waves pulse, one after the other */
   .tile-voice-mark { transition: background 0.15s; }
   .tile-voice-mark.speaking { background: var(--accent); }

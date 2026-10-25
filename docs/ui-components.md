@@ -205,8 +205,11 @@ Sketches, not final signatures. They fix the *shape* so the review can happen be
 
 - `ui.el(tag, props, ...children)` - `props`: `class`, `text`, `attrs`, `on: { click: fn }`, `hidden`. Children can be elements,
   strings, or arrays (falsy skipped). It replaced `cgEl()`, `uisEl()` and `wizEl()` (the same call: `ui.el("div", "class", "text")`).
-- `ui.icon(name, { size })` - returns an inline SVG from one registry (folder, warning, todo-arrow, info, close, kebab, chevron,
-  ...). The pasted SVG strings in `settings-registry.js` and `flow.js` move here.
+- `ui.icon(name, { size, stroke, class })` - returns an inline SVG from one registry, `ui.icons` in `js/ui/icons.js`. Every icon in it is a
+  [Tabler Icons](https://tabler.io/icons) outline icon (MIT license: the notice is in `THIRD-PARTY-NOTICES.txt` in the release, and
+  Tabler is credited in the README and Help). Nothing is drawn by hand any more: to use another icon, copy its drawing from Tabler into the
+  registry. Pages written in HTML use `<span data-icon="name" data-size=".." data-stroke=".."></span>`, which `ui.fillIcons()` turns into the
+  icon when the page loads (a test fails on an `<svg>` written in the page or in a script).
 - `ui.on(el, event, fn)` / `ui.mount(parent, handle)` helpers only if repeated code shows the need. No more than that.
 
 ### Button (`ui/button.js`)

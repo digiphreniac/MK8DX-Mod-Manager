@@ -16,25 +16,12 @@ function markSpeaking() {
   }
 }
 function voiceGlyph(kind) {
-  const NS = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", "0 0 16 16");
-  svg.setAttribute("aria-hidden", "true");
-  const p = document.createElementNS(NS, "path");
-  p.setAttribute("d", kind === "stop" ? "M3.5 3.5h9v9h-9z" : "M4 2.2v11.6L13.6 8z");
-  svg.appendChild(p);
-  return svg;
+  return ui.icon(kind === "stop" ? "stop" : "play", { size: null });
 }
 // A small trash-can icon for a line's own delete/remove-edit button - a dedicated control, separate from the chip
 // that just says what's currently on the line, so "what is this" and "undo it" aren't the same clickable thing.
 function trashGlyph() {
-  const NS = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", "0 0 16 16");
-  svg.setAttribute("aria-hidden", "true");
-  svg.innerHTML = '<rect x="3" y="4" width="10" height="1.4" rx="0.7"/><rect x="6.2" y="1.6" width="3.6" height="1.4" rx="0.7"/>'
-    + '<path d="M4.2 5.6h7.6l-.6 8.2a1 1 0 01-1 .9H5.8a1 1 0 01-1-.9L4.2 5.6z"/>';
-  return svg;
+  return ui.icon("trash", { size: null });
 }
 function delButton(title, onClick) {
   const b = ui.el("button", "ve-del");

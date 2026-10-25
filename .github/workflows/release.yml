@@ -77,7 +77,7 @@ jobs:
           if (-not (Test-Path $zip)) { throw "Expected $zip was not built" }
           Expand-Archive $zip -DestinationPath check
           $app = "check\MK8DX Mod Manager"
-          foreach ($f in "MK8DX Mod Manager.exe", "LICENSE.txt", "README.md", "_internal\ui\index.html",
+          foreach ($f in "MK8DX Mod Manager.exe", "LICENSE.txt", "THIRD-PARTY-NOTICES.txt", "README.md", "_internal\ui\index.html",
                          "_internal\roster.json", "_internal\name-labels.json", "_internal\known-shared-files.json",
                          "_internal\7zip\7z.exe", "_internal\7zip\7z.dll") {
             if (-not (Test-Path "$app\$f")) { throw "Package is missing $f" }

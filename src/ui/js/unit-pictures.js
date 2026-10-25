@@ -3,20 +3,7 @@ const PIC_LABELS = { Chara: "Select screen", MapChara: "Mini map", edChara: "Res
 const PIC_ORDER = ["Chara", "MapChara", "edChara"];
 const unitPics = {};       // unit key -> what Api.get_unit_pictures() said about it
 function pictureSvg() {
-  const NS = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", "0 0 16 16");
-  svg.setAttribute("aria-hidden", "true");
-  const frame = document.createElementNS(NS, "path");
-  frame.setAttribute("class", "pic-line");
-  frame.setAttribute("d", "M3 2.5h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zM2.2 12 6 8.2l2.6 2.6 1.9-1.9 3.3 3.1");
-  const dot = document.createElementNS(NS, "circle");
-  dot.setAttribute("class", "pic-dot");
-  dot.setAttribute("cx", "10.8");
-  dot.setAttribute("cy", "5.6");
-  dot.setAttribute("r", "1.2");
-  svg.append(frame, dot);
-  return svg;
+  return ui.icon("photo", { size: null });
 }
 function pictureSummary(p) {
   const have = PIC_ORDER.filter(k => p.kinds.includes(k)).map(k => PIC_LABELS[k]);

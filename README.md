@@ -117,10 +117,26 @@ trademark of Nintendo. The app does not include or distribute any game files, an
 downloaded from GameBanana and belong to their authors. Use mods at your own risk, and only with a
 game you legally own.
 
-## Credits
+## About, license and credits
 
-Mods are by their creators on [GameBanana](https://gamebanana.com/). The app builds on
-[pywebview](https://pywebview.flowrl.com/) and [Pillow](https://python-pillow.org/), and its
-reference data draws on the MK8DX modding community's research, including the MK8DX Information
-Dump spreadsheet. The packaged build includes the 7-Zip command-line tool (GNU LGPL; its license is in
-`_internal\7zip\License.txt`).
+**AI assistance.** This app was created using [Claude Code](https://claude.com/claude-code) (Anthropic). AI wrote and debugged
+a lot of the app's code, under my direction and review. No AI was used for generating artwork or assets.
+
+**License.** MK8DX Mod Manager is free software, licensed under the GNU General Public License, version 3 or (at your option)
+any later version (see [`LICENSE`](LICENSE)). Copyright (c) 2026 digiphreniac. The release zip also contains
+`THIRD-PARTY-NOTICES.txt`, with the license texts of everything below that is someone else's.
+
+**Credits.**
+
+- Mods are by their creators on [GameBanana](https://gamebanana.com/).
+- Icons: [Tabler Icons](https://tabler.io/icons) by Paweł Kuna (MIT license).
+- Texture packing: `src/_bntx_structs.py` is from [BNTX Editor](https://github.com/aboood40091/BNTX-Editor) by AboodXD
+  (GNU GPL v3 or later), included unmodified.
+- The packaged build includes the [7-Zip](https://www.7-zip.org/) command-line tool by Igor Pavlov (GNU LGPL, with the unRAR
+  restriction; its license is in `_internal\7zip\License.txt`).
+- Built with [pywebview](https://pywebview.flowrl.com/) (BSD-3-Clause) and [Pillow](https://python-pillow.org/) (MIT-CMU); the
+  packaged build also contains Python and a few small libraries, all listed in `THIRD-PARTY-NOTICES.txt`.
+- Reference data draws on the MK8DX modding community's research: the
+  [Mario Kart 8 Deluxe Information Dump](https://docs.google.com/spreadsheets/d/1B0XM1LqJxmp5L5pD3xgSSc3nBNcBAgVHL6q9RcIO_8E)
+  spreadsheet and GameBanana's course-name tutorials ([Wave 1](https://gamebanana.com/tuts/14836),
+  [Wave 2](https://gamebanana.com/tuts/15196)).

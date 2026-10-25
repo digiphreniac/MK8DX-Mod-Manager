@@ -4,19 +4,9 @@
 // saveChecked() for why), and is refused when the page's folder isn't the backend's current one.
 const MN_SAVE_DELAY = 500;   // (ms of quiet after typing before a note is saved)
 
-// A pencil (the same line style as the other small icons; it takes its colour from the text around it).
+// A pencil (it takes its colour from the text around it).
 function pencilSvg() {
-  const NS = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", "0 0 16 16");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("class", "mn-pencil");
-  const body = document.createElementNS(NS, "path");
-  body.setAttribute("d", "M2.5 13.5l.7-3.2 7.6-7.6a1.4 1.4 0 0 1 2 0l.5.5a1.4 1.4 0 0 1 0 2l-7.6 7.6z");
-  const tip = document.createElementNS(NS, "path");
-  tip.setAttribute("d", "M9.6 3.9l2.5 2.5");
-  svg.append(body, tip);
-  return svg;
+  return ui.icon("pencil", { size: null, class: "mn-pencil" });
 }
 
 function unitNote(key) { return (state.notes && state.notes[key]) || ""; }

@@ -28,8 +28,10 @@ from pathlib import Path
 
 import app_paths
 import diag
+from version import VERSION
 
-USER_AGENT = "mk8dx-mod-manager (personal local tool)"
+# Says who is asking, so GameBanana's staff can see what the requests are and where to reach the project.
+USER_AGENT = f"MK8DX-Mod-Manager/{VERSION} (+https://github.com/digiphreniac/MK8DX-Mod-Manager)"
 API_V13 = "https://gamebanana.com/apiv13"
 API_V11 = "https://gamebanana.com/apiv11"
 

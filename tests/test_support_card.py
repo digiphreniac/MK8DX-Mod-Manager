@@ -80,15 +80,14 @@ class SupportCard(unittest.TestCase):
         self.assertIn("If you feel so inclined.", flow)
         self.assertNotIn("Optional, and it keeps the updates coming", flow)
 
-    def test_every_row_has_its_own_picture_and_none_comes_from_outside_or_is_a_brand_logo(self):
+    def test_every_row_has_its_own_icon_from_the_icon_set_and_none_is_a_brand_logo(self):
         flow = (JS / "flow.js").read_text(encoding="utf-8")
-        icons = flow[flow.index("// Plain pictures for the ways to help"):flow.index("function supportCard()")]
+        registry = (JS / "ui" / "icons.js").read_text(encoding="utf-8")
         for name in ("like", "star", "coffee", "chat"):
             self.assertIn(f'icon: "{name}"', flow)
-            self.assertIn(f"  {name}: '<svg", icons)
-        self.assertEqual(icons.count("<svg"), 4)
-        self.assertNotIn("http", icons)   # (nothing is fetched, and no namespace address either)
-        self.assertIn("not the logos", icons)
+            self.assertIn(f"  {name}: '<", registry)          # (the generic Tabler icons, not the logos of GameBanana, GitHub, Buy Me a Coffee or Discord)
+        self.assertNotIn("<svg", flow)
+        self.assertIn("ui.icon(way.icon", flow)
         self.assertIn("pg-support-icon", (JS.parent / "css" / "flow.css").read_text(encoding="utf-8"))
 
     def test_the_footer_link_still_goes_to_the_donation_page(self):
