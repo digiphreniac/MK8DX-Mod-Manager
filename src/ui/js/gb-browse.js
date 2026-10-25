@@ -48,9 +48,6 @@ function highlightFirstMatch(text, needle) {
   return frag;
 }
 
-const GRID_SVG = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="1.8" y="1.8" width="5" height="5" rx="1"/><rect x="9.2" y="1.8" width="5" height="5" rx="1"/><rect x="1.8" y="9.2" width="5" height="5" rx="1"/><rect x="9.2" y="9.2" width="5" height="5" rx="1"/></svg>';
-const LIST_SVG = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5.5 3.5h9M5.5 8h9M5.5 12.5h9"/><circle cx="2" cy="3.5" r=".6"/><circle cx="2" cy="8" r=".6"/><circle cx="2" cy="12.5" r=".6"/></svg>';
-
 // What Escape does first while the window is open: clears the search box when it has something in it (set by openGbBrowseModal).
 let gbBrowseClearSearch = null;
 
@@ -177,7 +174,7 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
   };
   const viewToggle = ui.segmented({
     el: document.getElementById("gb-browse-modal-view"), label: "Layout", value: S.view,
-    items: [{ id: "grid", title: "Grid: big pictures", icon: GRID_SVG }, { id: "list", title: "List: small pictures, more to read", icon: LIST_SVG }],
+    items: [{ id: "grid", title: "Grid: big pictures", icon: ui.icon("grid", { size: 15, stroke: 1.8 }) }, { id: "list", title: "List: small pictures, more to read", icon: ui.icon("list", { size: 15, stroke: 1.8 }) }],
     onChange: (id) => {
       S.view = id;
       saveBrowsePref("gb_browse_view", S.view);

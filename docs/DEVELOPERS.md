@@ -81,10 +81,16 @@ Contributors (and coding agents - see [AGENTS.md](../AGENTS.md)) should read the
 
 `Build Release.bat` (or `python tools/build_release.py`) makes
 `dist/MK8DX-Mod-Manager-v<version>-windows.zip`: a PyInstaller folder build (`tools/mk8dx-mod-manager.spec`,
-no console window) holding the app, its Python runtime and 7-Zip's command-line tool, plus the license and a
-short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). The version comes from
+no console window) holding the app, its Python runtime and 7-Zip's command-line tool, plus the license, a
+`THIRD-PARTY-NOTICES.txt` and a short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). The version comes from
 `src/version.py`; bump it before building.
 
+- **Licensing.** The app is GPL-3.0-or-later (`LICENSE`): `src/_bntx_structs.py` is GPL code (BNTX Editor), so everything that ships with it
+  is distributed under the GPL. Everything of someone else's that the release contains must have its notice in the zip:
+  `tools/third_party_notices.py` writes `THIRD-PARTY-NOTICES.txt` from the build environment's installed packages (a missing license text
+  fails the build) plus the texts kept in `release/licenses/` (the icon set, Apache-2.0 for OpenSSL, libffi). Add a bundled library to
+  its `PACKAGES` list; add an icon only by copying its drawing from Tabler Icons into `src/ui/js/ui/icons.js`. Credits go in the README's
+  "About, license and credits", and the AI disclosure stays in the README, `release/README.md`, Help's About section and the GameBanana page.
 - `src/app_paths.py` is the one place that knows where files are: `RESOURCE_DIR` (the read-only `ui/`,
   `roster.json`, `known-shared-files.json`, `name-labels.json`, found under PyInstaller's bundle folder when
   frozen) and `APP_ROOT` (the folder holding the `.exe`, where `app-config.json` goes). A new bundled data

@@ -50,6 +50,10 @@ notes, measurements and rules live in `docs/` (index below).
 
 ## Rules that are easy to break
 
+- **The app is GPL-3.0-or-later** (it includes GPL code, `src/_bntx_structs.py`), and the release must carry the notices of everything in it
+  (`THIRD-PARTY-NOTICES.txt`, written by `tools/third_party_notices.py`). A new bundled library or copied code needs its credit and license
+  text added; the AI-assistance disclosure stays in the README, Help's About section and the GameBanana page (`docs/DEVELOPERS.md`, "Licensing").
+
 - **Never merge `Audio/Static/BGM.bars` or packed `UI/*.sarc` archives** from a mod (`_MERGE_SKIP_RELPATHS`,
   `_is_packed_ui_archive`, `_compute_claims()`): they are game-wide tables, and one mod's copy wipes everyone else's entries.
   Loose `UI/**/*.bntx` textures are safe and are merged. The app builds one combined archive itself on every commit.
@@ -86,7 +90,7 @@ notes, measurements and rules live in `docs/` (index below).
   `js/bootstrap.js`. Top-level code may only use what an *earlier* file declared; add a new file after what it depends on.
 - CSS order in `index.html` is the cascade: add a stylesheet after whatever it must override.
 - Build windows, cards, buttons, notes, chips, folds, menus, tabs and lists with the components in `js/ui/` (`docs/ui-components.md`), not by hand: no native `confirm()` /
-  `alert()` (use `await ui.confirm(...)` / `ui.alert(...)`), no `*-backdrop` open/close/Escape wiring of your own (`ui.modal` owns the stack, z-order,
+  `alert()` (use `await ui.confirm(...)` / `ui.alert(...)`), icons only from `ui.icon()` (the registry holds Tabler Icons; never draw or paste an SVG), no `*-backdrop` open/close/Escape wiring of your own (`ui.modal` owns the stack, z-order,
   Escape and focus), no `above-settings`-style z-index tricks.
 - `js/api-coalesce.js` shares identical in-flight calls for the methods in its `SHARED` list. Only **read-only** backend calls
   may be listed there. Conflict badges go through `conflictCount()` (one batched `check_conflict_counts` per draw).

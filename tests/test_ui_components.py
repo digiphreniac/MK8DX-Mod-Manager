@@ -70,14 +70,34 @@ class WhatThePageCalls(unittest.TestCase):
                 self.assertIn(used, defined, f"{path.name} uses ui.{used}")
 
     def test_every_icon_asked_for_is_in_the_registry(self):
-        registry = set(re.findall(r"^  (\w+): '<", read("js", "ui", "icons.js"), re.M))
-        self.assertEqual(registry, {"warning", "todo", "info", "folder"})
+        registry = set(re.findall(r"^  \"?([\w-]+)\"?: '<", read("js", "ui", "icons.js"), re.M))
+        self.assertGreaterEqual(len(registry), 25)
         asked = set()
         for path in all_scripts():
-            asked.update(re.findall(r'ui\.icon\("(\w+)"', path.read_text(encoding="utf-8")))
+            asked.update(re.findall(r'ui\.icon\("([\w-]+)"', path.read_text(encoding="utf-8")))
+        for path in [UI / "index.html"] + list((UI / "html").glob("*.html")):
+            asked.update(re.findall(r'data-icon="([\w-]+)"', path.read_text(encoding="utf-8")))
         callout = read("js", "ui", "callout.js")
-        asked.update(re.findall(r': "(\w+)"', callout[callout.index("ui.icon({"):callout.index("}[tone]", callout.index("ui.icon({"))]))
-        self.assertTrue(asked and asked <= registry, asked - registry)
+        asked.update(re.findall(r': "([\w-]+)"', callout[callout.index("ui.icon({"):callout.index("}[tone]", callout.index("ui.icon({"))]))
+        asked.update(re.findall(r'"([\w-]+)"', read("js", "views.js")[read("js", "views.js").index("const MORE_ICON_NAMES"):][:260]))
+        flow = read("js", "flow.js")
+        asked.update(re.findall(r'icon: "([\w-]+)"', flow))
+        asked.update(["speaker", "speaker-muted", "play", "stop", "trash", "pencil", "photo", "grid", "list", "more"])     # (named inside helpers)
+        self.assertTrue(asked <= registry, asked - registry)
+
+    def test_the_icons_are_one_open_licensed_set_and_nothing_is_drawn_by_hand(self):
+        icons = read("js", "ui", "icons.js")
+        self.assertIn("Tabler Icons", icons)
+        self.assertIn("MIT license", icons)
+        self.assertIn("Paweł Kuna", icons)
+        for path in all_scripts():
+            text = path.read_text(encoding="utf-8")
+            if path.name == "icons.js":
+                continue
+            self.assertNotIn("createElementNS", text, f"{path.name} draws an SVG by hand: add the icon to ui/icons.js")
+            self.assertNotIn("<svg", code(text), f"{path.name} has an SVG written in it: use ui.icon")
+        for path in [UI / "index.html"] + list((UI / "html").glob("*.html")):
+            self.assertNotIn("<svg", path.read_text(encoding="utf-8"), f"{path.name}: use <span data-icon=...>")
 
     def test_markup_strings_are_only_made_in_the_two_places_that_own_them(self):
         for path in (JS / "ui").glob("*.js"):

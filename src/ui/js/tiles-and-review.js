@@ -124,27 +124,12 @@ function applyCharacterLook(ref, looks) {
 }
 
 function speakerSvg(muted) {
-  const NS = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", "0 0 16 16");
-  svg.setAttribute("aria-hidden", "true");
-  const cone = document.createElementNS(NS, "path");
-  cone.setAttribute("class", "speaker-cone");
-  cone.setAttribute("d", "M1.5 5.8h2.7L8 2.6v10.8l-3.8-3.2H1.5z");
-  const near = document.createElementNS(NS, "path");
-  near.setAttribute("class", "speaker-wave w1");
-  near.setAttribute("d", "M10.2 5.5a3.6 3.6 0 0 1 0 5");
-  const far = document.createElementNS(NS, "path");
-  far.setAttribute("class", "speaker-wave w2");
-  far.setAttribute("d", "M12.3 3.4a6.6 6.6 0 0 1 0 9.2");
-  if (muted) {   // (no waves: a cross beside the cone)
-    const x = document.createElementNS(NS, "path");
-    x.setAttribute("class", "speaker-x");
-    x.setAttribute("d", "M10.4 5.6l4 4.8M14.4 5.6l-4 4.8");
-    svg.append(cone, x);
-    return svg;
+  const svg = ui.icon(muted ? "speaker-muted" : "speaker", { size: null });
+  if (!muted) {   // (the two waves pulse one after the other while a select sound plays)
+    const [near, far] = svg.querySelectorAll("path");
+    near.classList.add("speaker-wave", "w1");
+    far.classList.add("speaker-wave", "w2");
   }
-  svg.append(cone, near, far);
   return svg;
 }
 function voiceWhat(race, menu) {

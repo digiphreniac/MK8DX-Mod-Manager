@@ -22,8 +22,6 @@
   }
   .mod-row .part-badge.voice, .mod-row .part-badge.picture { display: inline-flex; align-items: center; justify-content: center; padding: 2px 6px; }
   .mod-row .part-badge.voice svg, .mod-row .part-badge.picture svg { width: 13px; height: 13px; }
-  .pic-line { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-  .pic-dot { fill: currentColor; }
   /* the Voice tag opens the list of lines; the round button beside it plays one */
   .mod-row button.part-badge.voice, .mod-row button.part-badge.picture { appearance: none; font: inherit; cursor: pointer; background: var(--panel); border-color: var(--accent); }
   .mod-row button.part-badge.voice:hover, .mod-row button.part-badge.voice:focus-visible,
@@ -118,7 +116,7 @@
     appearance: none; flex: 0 0 auto; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center; background: var(--thumb-bg); color: var(--text-dim);
   }
-  .ve-del svg { width: 11px; height: 11px; display: block; fill: currentColor; }
+  .ve-del svg { width: 13px; height: 13px; display: block; }
   .ve-del:hover, .ve-del:focus-visible { background: var(--danger-soft); color: var(--danger); }
   .ve-row .voice-err { grid-column: 1 / -1; }
   .ve-row.busy .ve-acts { opacity: 0.5; pointer-events: none; }
