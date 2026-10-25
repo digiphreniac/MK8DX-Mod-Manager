@@ -508,7 +508,7 @@ function buildGameBananaCard(itemName, category, opts) {
   }
 
   async function loadTrackedMods() {
-    modsContainer.replaceChildren(loadingNote("Loading your mods..."));
+    modsContainer.replaceChildren(ui.loading("Loading your mods..."));
     const mods = await pywebview.api.gb_get_saved_mods(itemName);
     modsContainer.innerHTML = "";
     const target = gbJustAdded && gbJustAdded.item === itemName ? gbJustAdded : null;
@@ -534,7 +534,7 @@ async function openGbDetailModal(modId, onUseMod) {
   const useBtn = document.getElementById("btn-gb-detail-use-mod");
 
   titleEl.textContent = "Loading...";
-  bodyEl.replaceChildren(loadingNote("Getting the mod's page..."), skeleton("100%", 180, "10px"), skeleton("70%", 14), skeleton("55%", 14));
+  bodyEl.replaceChildren(ui.loading("Getting the mod's page..."), skeleton("100%", 180, "10px"), skeleton("70%", 14), skeleton("55%", 14));
   viewMoreBtn.disabled = true;
   useBtn.disabled = true;
   useBtn.textContent = "Use this mod";

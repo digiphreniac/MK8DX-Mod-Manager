@@ -129,7 +129,7 @@ function selectCharacter(name) {
 
 // The "Voice lines" window: every sound in the mod's voice files, each with its own play button.
 async function openVoiceLines(unitKey, modLabel) {
-  closeClMenus();
+  ui.menu.closeAll();
   voiceStop();
   const back = cgEl("div", "gate-backdrop");
   const card = cgEl("div", "gate-card voice-card");
@@ -138,7 +138,7 @@ async function openVoiceLines(unitKey, modLabel) {
   card.appendChild(cgEl("h3", null, "Voice lines"));
   card.appendChild(cgEl("div", "voice-sub", modLabel));
   const list = cgEl("div", "voice-list");
-  list.appendChild(loadingNote("Reading the voice files\u2026"));
+  list.appendChild(ui.loading("Reading the voice files\u2026"));
   card.appendChild(list);
   const acts = cgEl("div", "gate-actions");
   const close = () => { voiceStop(); back.remove(); document.removeEventListener("keydown", onKey, true); };
@@ -189,7 +189,7 @@ function voiceLineButton(character, key, which, what, host) {
 }
 
 async function openVoiceEditor(character, onClose) {
-  closeClMenus();
+  ui.menu.closeAll();
   voiceStop();
   let changed = false;
   const back = cgEl("div", "gate-backdrop");
@@ -225,7 +225,7 @@ async function openVoiceEditor(character, onClose) {
   thead.appendChild(cgEl("span", null, "Actions"));
   card.appendChild(thead);
   const list = cgEl("div", "ve-list");
-  list.appendChild(loadingNote("Reading the voice files\u2026"));
+  list.appendChild(ui.loading("Reading the voice files\u2026"));
   card.appendChild(list);
   const noMatch = cgEl("div", "voice-empty");
   noMatch.hidden = true;

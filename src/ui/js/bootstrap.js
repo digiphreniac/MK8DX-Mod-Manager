@@ -24,6 +24,10 @@
     "js/ui/confirm.js",
     "js/ui/callout.js",
     "js/ui/chip.js",
+    "js/ui/menu.js",
+    "js/ui/tabs.js",
+    "js/ui/asyncbox.js",
+    "js/ui/list.js",
     "js/app-modals.js",         // (Settings, Conflicts, Help and Guessed names, built from the components and left hidden)
     "js/api-coalesce.js",
     "js/state-and-helpers.js",

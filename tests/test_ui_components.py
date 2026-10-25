@@ -13,7 +13,7 @@ from pathlib import Path
 
 UI = Path(__file__).resolve().parent.parent / "src" / "ui"
 JS = UI / "js"
-COMPONENTS = ("core", "icons", "button", "disclosure", "modal", "section", "confirm", "callout", "chip")
+COMPONENTS = ("core", "icons", "button", "disclosure", "modal", "section", "confirm", "callout", "chip", "menu", "tabs", "asyncbox", "list")
 
 
 def read(*parts):
@@ -64,7 +64,7 @@ class WhatThePageCalls(unittest.TestCase):
         defined = set()
         for name in COMPONENTS:
             defined.update(re.findall(r"(?<![\w.])ui\.(\w+) = ", read("js", "ui", f"{name}.js")))
-        self.assertTrue({"el", "icon", "button", "modal", "section", "confirm", "alert", "disclosure", "callout", "hint", "chip"} <= defined)
+        self.assertTrue({"el", "icon", "button", "modal", "section", "confirm", "alert", "disclosure", "callout", "hint", "chip", "menu", "tabs", "segmented", "loading", "asyncBox", "row", "list"} <= defined)
         for path in all_scripts():
             for used in re.findall(r"(?<![\w.])ui\.(\w+)", code(path.read_text(encoding="utf-8"))):
                 self.assertIn(used, defined, f"{path.name} uses ui.{used}")
@@ -144,8 +144,63 @@ class PhaseTwoOldPatternsAreGone(unittest.TestCase):
 
     def test_the_components_and_their_styles_are_loaded(self):
         html = read("index.html")
-        for sheet in ("modal", "callout", "chip"):
+        for sheet in ("modal", "callout", "chip", "menu", "list"):
             self.assertIn(f"css/components/{sheet}.css", html)
+
+
+class PhaseThreeOldPatternsAreGone(unittest.TestCase):
+    def test_the_menu_the_waiting_line_and_the_rows_come_from_the_components(self):
+        for path in all_scripts():
+            text = path.read_text(encoding="utf-8")
+            for gone in ("clKebab", "closeClMenus", "loadingNote", "cl-menu", "cl-kebab"):
+                self.assertNotIn(gone, text, f"{path.name} still has {gone}")
+            self.assertNotRegex(text, r"(?<![\w-])cg-row(-[\w-]+)?(?![\w-])", path.name)       # (cg-rows, the list's own class, is fine)
+        for path in (UI / "css").rglob("*.css"):
+            text = path.read_text(encoding="utf-8")
+            for gone in ("cl-menu", "cl-kebab"):
+                self.assertNotIn(gone, text, f"{path.name} still has {gone}")
+            self.assertNotRegex(text, r"\.cg-row(-[\w-]+)?(?![\w-])", path.name)
+        for path in all_scripts():
+            if path.name != "menu.js":
+                self.assertNotIn(".ui-menu", code(path.read_text(encoding="utf-8")).replace(".ui-menu-btn", ""), path.name)
+
+    def test_the_menu_is_one_button_that_asks_for_its_entries_each_time_it_opens(self):
+        menu = read("js", "ui", "menu.js")
+        self.assertIn("for (const item of spec.items())", menu)
+        for entry in ("onClick", "danger", "disabled"):
+            self.assertIn(f"item.{entry}", menu)
+        for rule in (".ui-menu-btn {", ".ui-menu {", ".ui-menu-item {", ".ui-menu-sep {"):
+            self.assertIn(rule, read("css", "components", "menu.css"))
+        card = read("js", "character-card.js")
+        self.assertEqual(card.count("ui.menu({"), 3)
+        self.assertNotRegex(card, r"run: ")             # (an entry's callback is onClick, like every other component's)
+
+    def test_the_main_tabs_are_made_by_ui_tabs_and_the_counts_by_setCount(self):
+        self.assertNotIn("<button", read("index.html")[read("index.html").index('id="tabs"'):][:60])
+        views = read("js", "views.js")
+        self.assertIn("const mainTabs = ui.tabs({", views)
+        self.assertNotIn('getElementById("tab-', views)
+        self.assertIn("mainTabs.setActive(mode);", views)
+        self.assertIn("mainTabs.setCount(k, n)", read("js", "flow.js"))
+        tabs = read("js", "ui", "tabs.js")
+        self.assertIn('"tab-" + item.id', tabs)            # (the button ids other code and the stylesheet knew)
+
+    def test_the_grid_and_list_switch_is_a_segmented_control(self):
+        browse = read("js", "gb-browse.js")
+        self.assertIn("ui.segmented({", browse)
+        self.assertNotIn("viewButtons", browse)
+        self.assertIn('id="gb-browse-modal-view" class="gb-view-toggle"></div>', read("html", "gb-browse-modal.html"))       # (the buttons are made, not written)
+
+    def test_the_lists_that_load_are_async_boxes_and_the_settled_rows_are_rows(self):
+        panels = read("js", "settings-panels.js")
+        self.assertIn("ui.asyncBox({", panels)
+        self.assertIn("pywebview.api.ui_icon_worklist()", panels)
+        self.assertNotIn("innerHTML", panels[panels.index("const uiIconWorklist"):panels.index("function renderUiIconWorklist")])
+        asyncbox = read("js", "ui", "asyncbox.js")
+        self.assertIn("if (mine !== latest) return;", asyncbox)            # (an old answer arriving late is ignored)
+        conflicts = read("js", "data-and-conflicts.js")
+        self.assertIn("ui.list({", conflicts)
+        self.assertIn("ui.row(spec)", conflicts)
 
 
 class TheModalStack(unittest.TestCase):

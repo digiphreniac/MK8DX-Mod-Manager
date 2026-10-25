@@ -24,7 +24,7 @@ function buildCourseLook(name, onLook) {
 
   function skeleton_() {
     const sk = cgEl("div", "cl-sk");
-    sk.appendChild(loadingNote("Reading the mod's menu files..."));
+    sk.appendChild(ui.loading("Reading the mod's menu files..."));
     return sk;
   }
   nameWrap.appendChild(skeleton_());

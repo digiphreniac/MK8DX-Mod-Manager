@@ -34,14 +34,6 @@
   .cg-settled { margin-top: 14px; }
   .cg-settled:first-child { margin-top: 0; }
   .cg-settled > summary { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
-  .cg-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--divider); font-size: 13px; }
-  .cg-row:last-child { border-bottom: 0; }
-  .cg-row-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cg-row-ok { color: var(--ok); font-weight: 700; margin-right: 8px; }
-  .cg-row-sub { color: var(--text-dim); }
-  .cg-row-actions { display: flex; gap: 2px; }
-  .cg-row .cg-files { grid-column: 1 / -1; margin-top: 0; }
-  @media (max-width: 620px) { .cg-row { grid-template-columns: minmax(0, 1fr); } .cg-row-actions { margin-bottom: 2px; } }
   .conflicts-none { text-align: center; padding: 28px 0 16px 0; }
   .conflicts-none-mark { width: 40px; height: 40px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); display: grid; place-items: center; margin: 0 auto 10px auto; font-size: 20px; font-weight: 700; }
   .conflicts-none-title { font-size: 15px; font-weight: 600; }

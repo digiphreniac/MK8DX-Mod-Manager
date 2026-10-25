@@ -43,11 +43,7 @@ function updateTabCounts() {
     else if (c === ITEMS_CATEGORY) counts.items++;
     else counts.more++;
   }
-  for (const [k, n] of Object.entries(counts)) {
-    const b = document.getElementById("tab-" + k);
-    if (!b.dataset.base) b.dataset.base = b.textContent;
-    b.textContent = n ? `${b.dataset.base} (${n})` : b.dataset.base;
-  }
+  for (const [k, n] of Object.entries(counts)) mainTabs.setCount(k, n);
 }
 
 function renderStepBar() {
@@ -269,7 +265,7 @@ async function renderCommitPage() {
   body.replaceChildren();
   pageHead(body, "Commit your mods",
     "Committing gathers every selected mod's files into one set, ready to copy to your Switch. Nothing on the Switch changes until you copy it there yourself.");
-  const loading = loadingNote("Checking your mods...");
+  const loading = ui.loading("Checking your mods...");
   body.appendChild(loading);
   const keys = selectedKeys();
   let preview, status;

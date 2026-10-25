@@ -680,12 +680,7 @@ function switchView(mode) {
   document.getElementById("view-items").hidden = mode !== "items";
   document.getElementById("view-more").hidden = mode !== "more";
   document.getElementById("view-list").hidden = mode !== "list";
-  document.getElementById("tab-characters").classList.toggle("active", mode === "characters");
-  document.getElementById("tab-courses").classList.toggle("active", mode === "courses");
-  document.getElementById("tab-vehicles").classList.toggle("active", mode === "vehicles");
-  document.getElementById("tab-items").classList.toggle("active", mode === "items");
-  document.getElementById("tab-more").classList.toggle("active", mode === "more");
-  document.getElementById("tab-list").classList.toggle("active", mode === "list");
+  mainTabs.setActive(mode);
   applyCharacterLayout();
   drawViewIfStale(mode);   // (its redraw was still waiting for its turn)
   if (mode === "courses") fitCourseScreen();   // (it was hidden, so it hasn't been measured since the window last changed)
@@ -698,12 +693,20 @@ function switchView(mode) {
   }
   markActiveTile();
 }
-document.getElementById("tab-characters").addEventListener("click", () => switchView("characters"));
-document.getElementById("tab-courses").addEventListener("click", () => switchView("courses"));
-document.getElementById("tab-vehicles").addEventListener("click", () => { switchView("vehicles"); renderVehiclesView(); });
-document.getElementById("tab-items").addEventListener("click", () => { switchView("items"); renderItemsView(); });
-document.getElementById("tab-more").addEventListener("click", () => { switchView("more"); renderMoreList(); });
-document.getElementById("tab-list").addEventListener("click", () => switchView("list"));
+// The row of tabs under the header (Characters, Courses ...): a tab opens its screen, and some draw it fresh as well.
+const mainTabs = ui.tabs({
+  el: document.getElementById("tabs"),
+  label: "Mods",
+  items: [{ id: "characters", label: "Characters" }, { id: "courses", label: "Courses" }, { id: "vehicles", label: "Vehicles" },
+    { id: "items", label: "Items" }, { id: "more", label: "More" }, { id: "list", label: "Full List" }],
+  active: "characters",
+  onChange: (id) => {
+    switchView(id);
+    if (id === "vehicles") renderVehiclesView();
+    else if (id === "items") renderItemsView();
+    else if (id === "more") renderMoreList();
+  },
+});
 
 function openSettingsModal() {
   settingsModal.open();

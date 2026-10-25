@@ -1,44 +1,25 @@
-async function renderUiIconWorklist() {
-  const container = document.getElementById("ui-icon-worklist-body");
-  const entries = await pywebview.api.ui_icon_worklist();
-  container.innerHTML = "";
-  if (entries.length === 0) {
-    container.innerHTML = '<div class="ui-icon-worklist-empty">None downloaded yet - a GameBanana file recognized as UI art or a packed .sarc (no romfs) will show up here automatically.</div>';
-    return;
-  }
-  const byChar = new Map();
-  for (const e of entries) {
-    if (!byChar.has(e.character)) byChar.set(e.character, []);
-    byChar.get(e.character).push(e);
-  }
-  for (const [character, mods] of byChar) {
-    const group = document.createElement("div");
-    group.className = "ui-icon-worklist-group";
-    const heading = document.createElement("div");
-    heading.className = "ui-icon-worklist-char";
-    heading.textContent = character;
-    group.appendChild(heading);
-    for (const m of mods) {
-      const row = document.createElement("div");
-      row.className = "ui-icon-worklist-row";
-      const nameEl = document.createElement("div");
-      nameEl.className = "ui-icon-worklist-name";
-      nameEl.textContent = m.mod_name;
-      const pathEl = document.createElement("div");
-      pathEl.className = "ui-icon-worklist-path";
-      pathEl.textContent = m.path;
-      nameEl.appendChild(pathEl);
-      row.appendChild(nameEl);
-      const openBtn = document.createElement("button");
-      openBtn.className = "ghost small";
-      openBtn.textContent = "Open folder";
-      openBtn.addEventListener("click", () => pywebview.api.reveal_path(m.path));
-      row.appendChild(openBtn);
-      group.appendChild(row);
+// The worklist: every downloaded mod that is UI art or a packed .sarc with no romfs, grouped by character, each with a button to open its folder.
+const uiIconWorklist = ui.asyncBox({
+  el: document.getElementById("ui-icon-worklist-body"),
+  load: () => pywebview.api.ui_icon_worklist(),
+  isEmpty: (entries) => entries.length === 0,
+  emptyText: "None downloaded yet - a GameBanana file recognized as UI art or a packed .sarc (no romfs) will show up here automatically.",
+  emptyClass: "ui-icon-worklist-empty",
+  errorText: "Couldn't read the list.",
+  render: (entries) => {
+    const byChar = new Map();
+    for (const e of entries) {
+      if (!byChar.has(e.character)) byChar.set(e.character, []);
+      byChar.get(e.character).push(e);
     }
-    container.appendChild(group);
-  }
-}
+    return ui.el("div", null, [...byChar].map(([character, mods]) => ui.el("div", "ui-icon-worklist-group",
+      ui.el("div", { class: "ui-icon-worklist-char", text: character }),
+      mods.map(m => ui.el("div", "ui-icon-worklist-row",
+        ui.el("div", "ui-icon-worklist-name", m.mod_name, ui.el("div", { class: "ui-icon-worklist-path", text: m.path })),
+        ui.button({ label: "Open folder", variant: "ghost", size: "small", onClick: () => pywebview.api.reveal_path(m.path) }).el)))));
+  },
+});
+function renderUiIconWorklist() { return uiIconWorklist.reload(); }
 
 // Settings' "Game language" card: a normal commit builds these automatically (see merge() in
 // mod_manager.py), so this is language (a set-once, rarely-touched preference - not worth a card
@@ -48,7 +29,7 @@ async function renderUiIconWorklist() {
 // second copy here.
 async function renderUiSetupSettingsCard() {
   const body = document.getElementById("ui-setup-settings-body");
-  if (!uiSetup.data) body.replaceChildren(loadingNote("Reading your mods' menu files..."));
+  if (!uiSetup.data) body.replaceChildren(ui.loading("Reading your mods' menu files..."));
   let d;
   try { d = await pywebview.api.get_ui_setup(); } catch (e) { d = { error: String(e) }; }
   uiSetup.data = d;

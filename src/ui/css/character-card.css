@@ -311,13 +311,6 @@
   .cl-t-desc .cl-tile-tag { margin-top: 3px; }
   .cl-link { background: none; border: none; box-shadow: none; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .cl-link:hover { filter: brightness(1.2); }
-  .cl-kebab { width: 30px; height: 30px; padding: 0; border-radius: 50%; border: none; background: transparent; box-shadow: none; color: var(--text-dim); font-size: 18px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-transform: none; letter-spacing: 0; }
-  .cl-kebab:hover, .cl-kebab[aria-expanded="true"] { background: var(--thumb-bg); color: var(--text); }
-  .cl-menu { position: fixed; z-index: 10000; min-width: 210px; padding: 4px; text-align: left; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); text-transform: none; letter-spacing: 0; font-weight: 400; }
-  .cl-menu-item.danger { color: var(--danger); }
-  .cl-menu-item { display: block; width: 100%; text-align: left; background: transparent; border: none; box-shadow: none; padding: 7px 10px; border-radius: 6px; font-size: 13px; font-weight: 400; color: var(--text); cursor: pointer; white-space: nowrap; }
-  .cl-menu-item:hover, .cl-menu-item:focus-visible { background: var(--thumb-bg); outline: none; }
-  .cl-menu-sep { height: 1px; margin: 4px 0; background: var(--divider); }
   /* narrow card: the picture on the left; name and description stacked on the right, the row's menu at the corner */
   @container (max-width: 520px) {
     .cl-table, .cl-table thead, .cl-table tbody { display: block; }
@@ -366,7 +359,6 @@
   /* a note at the top of a card: something that was just done for the user there (a mod moved here, see js/refile.js) */
   .cc-notice { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 10px 0; padding: 9px 12px; border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 8px; font-size: 12.5px; line-height: 1.45; }
   .cc-notice span { flex: 1; }
-  .cl-menu-item:disabled { opacity: 0.45; cursor: default; }
 
   /* "Move to another ...": the small dialog over the card */
   .mv-backdrop { position: fixed; inset: 0; z-index: 45; display: flex; align-items: center; justify-content: center; background: rgba(20, 22, 28, 0.55); animation: fadeIn 0.14s ease-out; }

@@ -28,7 +28,7 @@ function pictureSummary(p) {
   return t;
 }
 async function openUnitPictures(unitKey, siblings, modLabel) {
-  closeClMenus();
+  ui.menu.closeAll();
   const back = cgEl("div", "gate-backdrop");
   const card = cgEl("div", "gate-card pics-card");
   card.setAttribute("role", "dialog");
@@ -84,55 +84,5 @@ async function openUnitPictures(unitKey, siblings, modLabel) {
     body.appendChild(box);
   }
   body.appendChild(cgEl("div", "pics-hint", "You choose which pictures to use in its Icons row."));
-}
-
-// A small popup menu opened from a "..." button (`items`: [{label, title, run} | "-"]). It closes on any click
-// elsewhere and on Escape, and opens upward when it would run off the bottom of the window.
-function closeClMenus() {
-  document.querySelectorAll(".cl-menu").forEach(m => {
-    if (m._btn) m._btn.removeAttribute("aria-expanded");
-    m.remove();
-  });
-}
-document.addEventListener("click", closeClMenus);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeClMenus(); });
-window.addEventListener("resize", closeClMenus);
-window.addEventListener("scroll", closeClMenus, true);
-function clKebab(label, getItems) {
-  const btn = cgEl("button", "cl-kebab", "\u22ef");
-  btn.type = "button";
-  btn.title = label;
-  btn.setAttribute("aria-label", label);
-  btn.setAttribute("aria-haspopup", "menu");
-  btn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const wasOpen = btn.getAttribute("aria-expanded") === "true";
-    closeClMenus();
-    if (wasOpen) return;
-    const m = cgEl("div", "cl-menu");
-    m.setAttribute("role", "menu");
-    for (const it of getItems()) {
-      if (it === "-") { m.appendChild(cgEl("div", "cl-menu-sep")); continue; }
-      const b = cgEl("button", "cl-menu-item" + (it.danger ? " danger" : ""), it.label);
-      b.type = "button";
-      b.setAttribute("role", "menuitem");
-      if (it.title) b.title = it.title;
-      if (it.disabled) b.disabled = true;
-      b.addEventListener("click", (ev) => { ev.stopPropagation(); if (it.disabled) return; closeClMenus(); it.run(); });
-      m.appendChild(b);
-    }
-    // fixed to the window, beside the button: opens downward, or upward when there is no room below
-    m._btn = btn;
-    document.body.appendChild(m);
-    const r = btn.getBoundingClientRect();
-    let top = r.bottom + 4;
-    if (top + m.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - m.offsetHeight - 4);
-    m.style.top = top + "px";
-    m.style.left = Math.max(8, Math.min(window.innerWidth - m.offsetWidth - 8, r.right - m.offsetWidth)) + "px";
-    btn.setAttribute("aria-expanded", "true");
-    const first = m.querySelector(".cl-menu-item");
-    if (first) first.focus({ preventScroll: true });
-  });
-  return btn;
 }
 

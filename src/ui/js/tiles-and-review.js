@@ -1,13 +1,4 @@
 // ---- waiting: placeholders shaped like what is coming, and a spinner for the wait itself ----
-function loadingNote(text) {
-  const n = document.createElement("div");
-  n.className = "load-note";
-  const sp = document.createElement("span");
-  sp.className = "spin";
-  n.appendChild(sp);
-  n.appendChild(document.createTextNode(text));
-  return n;
-}
 function skeleton(w, h, radius) {
   const d = document.createElement("div");
   d.className = "sk";

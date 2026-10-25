@@ -1,8 +1,8 @@
 # UI components
 
-**Status: Phases 0 and 1 are built, and most of Phase 2** (the foundation, `Button`, `Modal`, `Section`, `confirm` / `alert`; `Callout`,
-`hint`, `Chip`, `Disclosure`; Settings, Conflicts, Help, Guessed names, Clear All Mods, the Commit notes and the card status chips use
-them). The rest is still plan; "What is built" below says where the code differs from the sketches and what Phase 2 left for later.
+**Status: Phases 0, 1 and 3 are built, and most of Phase 2** (the foundation, `Button`, `Modal`, `Section`, `confirm` / `alert`; `Callout`,
+`hint`, `Chip`, `Disclosure`; `Menu`, `Tabs` / `Segmented`, `AsyncBox` / `loading`, `List` / `Row`; Settings, Conflicts, Help, Guessed
+names, Clear All Mods, the Commit notes, the card chips, the main tabs and the "..." menus use them). The rest is still plan; "What is built" below says where the code differs from the sketches and what Phase 2 left for later.
 Each phase turns its part of this page from plan into "how it works".
 
 The frontend stays plain HTML/CSS/JS with no build step and no framework. This page is about building our own small component
@@ -78,7 +78,7 @@ A component is a function that takes one options object and returns a **handle**
 Every component accepts a declarative spec. Where a screen needs something custom (a draggable grid, a canvas), a section body
 or modal body can be **any element or a function returning one**, so components never block custom content.
 
-## What is built (Phases 0, 1 and most of 2)
+## What is built (Phases 0, 1, 3 and most of 2)
 
 Code: `js/ui/core.js` (`ui.el`, `ui.append`, `ui.html`, and the older `cgEl`), `js/ui/icons.js` (`ui.icons`, `ui.icon`), `js/ui/button.js`
 (`ui.button`, and the older `button(text, cls, fn)`), `js/ui/modal.js`, `js/ui/section.js` (`ui.section`, `ui.columns`,
@@ -102,6 +102,20 @@ and `chip.css`:
   page's "Something looks wrong?", the Conflicts window and its "How this works".
 - Small looks that moved onto the components: the chips take the page's `--thumb-bg` for "neutral" (the folder label used `--divider`
   before), and the hint's sizes are the two it had (12px quiet, 12.5px boxed).
+- **Phase 3** added `js/ui/menu.js`, `tabs.js`, `asyncbox.js` and `list.js` (styles in `css/components/menu.css` and `list.css`):
+  - **`ui.menu({ label, items, class })`** is the "..." button and its popup (it was `clKebab` / `closeClMenus` in `unit-pictures.js`). `items` is
+    a function asked each time it opens; an entry is `{ label, title, onClick, danger, disabled }` or `"-"`. `ui.menu.closeAll()` closes it
+    (the voice and picture windows do that before they open). The three menus on the character card use it.
+  - **`ui.tabs({ el, items, active, onChange })`** draws the row of main tabs into the existing `#tabs` element (buttons keep the ids
+    `tab-<id>`); `setActive(id)` is what `switchView()` calls, and `setCount(id, n)` is the "Characters (49)" count (`flow.js`).
+    **`ui.segmented`** is the two-icon switch (the GameBanana window's grid / list), on only when its value changes.
+  - **`ui.loading(text)`** is the spinner line (it was `loadingNote`). **`ui.asyncBox({ el, load, render, isEmpty, emptyText, errorText })`**
+    fills a box from a promise, keeps what is showing until the new answer arrives, and ignores an answer that comes in late; the UI icon
+    worklist in Settings is the first user.
+  - **`ui.row({ mark, title, detail, actions, below })`** and **`ui.list({ renderItem, items, empty })`** are the one-line rows of the "Settled /
+    left out" section of the Conflicts window (they were `cg-row*`).
+  - Not done: the step bar (`renderStepBar` still builds its own buttons: it is drawn from `get_flow_status()` and has its own states), the
+    other places that show "Loading..." with a hand-written line, and the voice and Guessed names lists.
 - **Left for later in Phase 2:** the other hint classes (`cg-note`, `cl-hint`, `cc-hint`, `ve-note`, `settings-hint`, `setting-hint`, `mv-note`,
   `pics-hint` ...: each has its own margin and size), the file-row badges (`part-badge`, `packed-badge`, `patch-badge`, `linked-badge`,
   `icon-badge`, `gb-target-badge`) and error lines (`wiz-error`, the `gb-mod-error` family). They are close to the new tones but each needs
@@ -249,9 +263,8 @@ one component. Toggle chips (`ve-chip toggle-on`) are `ui.chip({ pressed })`.
 
 ### Menu (`ui/menu.js`)
 
-`ui.menu({ anchor, items: [{ label, onClick, danger, disabled }] })` - the popover behind the "..." button in `unit-pictures.js`
-(`cl-kebab`, `closeClMenus`) and the character mod rows. Closes on outside click / Escape / scroll, opens upward near the window
-bottom (the logic that exists today, moved once).
+Built as `ui.menu({ label, items, class })`: the button and its popup in one (see "What is built"). It closes on outside click / Escape /
+scroll and opens upward near the window bottom, as the old code did.
 
 ### Tabs / Segmented (`ui/tabs.js`)
 
@@ -300,7 +313,7 @@ topmost modal, and Settings looks the same.
 **Phase 2 - Callout, Chip, Disclosure, hints (mostly done: see "What is built" for what is left).** Commit page notes (`pgWarnEl` -> `ui.callout`), Settings warnings, error lines,
 the `*-note` / `*-hint` classes, the badge/chip classes. Delete the superseded CSS as each goes.
 
-**Phase 3 - Menu, Tabs, AsyncBox, List/Row.** `cl-kebab` menu, view tabs and the GameBanana toggle, loading/empty wrappers, the
+**Phase 3 - Menu, Tabs, AsyncBox, List/Row (done, apart from the step bar and the other hand-written "Loading..." lines).** `cl-kebab` menu, view tabs and the GameBanana toggle, loading/empty wrappers, the
 worklist and conflicts lists, guessed-names rows.
 
 **Phase 4 - The JS-built dialogs.** `gate-backdrop` / `mv-backdrop` dialogs (`refile.js` move dialog, `tiles-and-review.js` gate,

@@ -361,27 +361,15 @@ async function renderConflicts() {
     // Finished items are one line each, and the whole section is folded away while something above still needs a decision.
     const head = cgEl("summary", null, `Settled / left out (${counts.join(" \u00b7 ")})`);
     head.addEventListener("click", () => { conflictsSettledOpen = !section.open; });      // (only the user's own opening or closing counts)
-    const rows = cgEl("div", "cg-rows");
+    const rows = ui.list({ class: "cg-rows", renderItem: (spec) => ui.row(spec).el });
     const section = ui.disclosure({
       class: "cg-settled", summary: head, open: conflictsSettledOpen !== null ? conflictsSettledOpen : result.groups.length === 0,
-    }, rows);
+    }, rows.el);
 
-    const row = (title, sub, buttons, paths) => {
-      const r = cgEl("div", "cg-row");
-      const text = cgEl("div", "cg-row-text");
-      text.title = sub ? `${title} - ${sub}` : title;
-      text.appendChild(cgEl("span", "cg-row-ok", "\u2713"));
-      text.appendChild(cgEl("b", null, title));
-      if (sub) text.appendChild(cgEl("span", "cg-row-sub", " - " + sub));
-      r.appendChild(text);
-      const acts = cgEl("div", "cg-row-actions");
-      for (const b of buttons) acts.appendChild(b);
-      r.appendChild(acts);
-      if (paths) {
-        r.appendChild(ui.disclosure({ class: "cg-files", summary: `Show the ${paths.length === 1 ? "file" : paths.length + " files"}` }, cgFileList(paths)).el);
-      }
-      rows.appendChild(r);
-    };
+    const row = (title, sub, buttons, paths) => rows.add({
+      mark: "\u2713", title, detail: sub, actions: buttons,
+      below: paths ? ui.disclosure({ class: "cg-files", summary: `Show the ${paths.length === 1 ? "file" : paths.length + " files"}` }, cgFileList(paths)).el : null,
+    });
     const button = (label, onClick) => {
       const b = cgEl("button", "ghost small", label);
       b.addEventListener("click", onClick);

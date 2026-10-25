@@ -48,13 +48,15 @@ function highlightFirstMatch(text, needle) {
   return frag;
 }
 
+const GRID_SVG = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="1.8" y="1.8" width="5" height="5" rx="1"/><rect x="9.2" y="1.8" width="5" height="5" rx="1"/><rect x="1.8" y="9.2" width="5" height="5" rx="1"/><rect x="9.2" y="9.2" width="5" height="5" rx="1"/></svg>';
+const LIST_SVG = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5.5 3.5h9M5.5 8h9M5.5 12.5h9"/><circle cx="2" cy="3.5" r=".6"/><circle cx="2" cy="8" r=".6"/><circle cx="2" cy="12.5" r=".6"/></svg>';
+
 function openGbBrowseModal(itemName, category, onUseMod, opts) {
   closeGbBrowseModal();
   const backdrop = document.getElementById("gb-browse-modal-backdrop");
   const bodyEl = document.getElementById("gb-browse-modal-body");
   const resultsEl = document.getElementById("gb-browse-modal-results");
   const sortSelect = document.getElementById("gb-browse-modal-sort");
-  const viewButtons = [...document.querySelectorAll("#gb-browse-modal-view button")];
   const searchInput = document.getElementById("gb-browse-modal-search");
   const searchClear = document.getElementById("gb-browse-modal-search-clear");
 
@@ -171,22 +173,19 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
     saveBrowsePref("gb_browse_sort", S.sort);
     restart();
   };
-  function applyView() {
-    list.classList.toggle("as-list", S.view === "list");
-    for (const b of viewButtons) {
-      const on = b.dataset.view === S.view;
-      b.classList.toggle("on", on);
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-    }
-  }
-  for (const b of viewButtons) {
-    b.onclick = () => {
-      if (S.view === b.dataset.view) return;
-      S.view = b.dataset.view;
+  const viewToggle = ui.segmented({
+    el: document.getElementById("gb-browse-modal-view"), label: "Layout", value: S.view,
+    items: [{ id: "grid", title: "Grid: big pictures", icon: GRID_SVG }, { id: "list", title: "List: small pictures, more to read", icon: LIST_SVG }],
+    onChange: (id) => {
+      S.view = id;
       saveBrowsePref("gb_browse_view", S.view);
       applyView();
       checkFill();   // (a list is shorter than a grid, so more may be needed)
-    };
+    },
+  });
+  function applyView() {
+    list.classList.toggle("as-list", S.view === "list");
+    viewToggle.setValue(S.view);
   }
   applyView();
 
@@ -333,7 +332,7 @@ function openGbBrowseModal(itemName, category, onUseMod, opts) {
       foot.appendChild(cgEl("div", "gb-browse-status", `Couldn't load: ${S.error}`));
       foot.appendChild(button("Try again", "ghost small", () => { S.error = null; loadMore(); }));
     } else if (S.loading) {
-      foot.appendChild(loadingNote(S.records.length ? "Loading more mods..." : S.search || isCourse ? `Searching GameBanana for ${S.search ? `“${S.search}”` : "this course"}...` : "Loading mods from GameBanana..."));
+      foot.appendChild(ui.loading(S.records.length ? "Loading more mods..." : S.search || isCourse ? `Searching GameBanana for ${S.search ? `“${S.search}”` : "this course"}...` : "Loading mods from GameBanana..."));
     } else if (S.paused) {
       foot.appendChild(cgEl("div", "gb-browse-status", S.search
         ? `The last ${GB_SEARCH_EMPTY_RUN_LIMIT} batches of results held no ${searchNoun} mods.`

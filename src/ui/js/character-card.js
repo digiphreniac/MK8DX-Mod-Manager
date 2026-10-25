@@ -19,7 +19,7 @@ function buildCharacterLook(name, onLook) {
   // from the moment a mod is ticked or unticked until the new answer is drawn)
   function buildNameSkeleton() {
     const sk = cgEl("div", "cl-sk");
-    sk.appendChild(loadingNote("Reading the mod's menu files..."));
+    sk.appendChild(ui.loading("Reading the mod's menu files..."));
     sk.appendChild(cgEl("div", "sk cl-sk-prev"));
     sk.appendChild(skeleton("50%", 12));
     return sk;
@@ -400,11 +400,11 @@ function buildCharacterLook(name, onLook) {
     for (const h of ["Icon", "Name", summary ? "Source" : "Description"]) headRow.appendChild(cgEl("th", null, h));
     if (!summary) {
       const thMenu = cgEl("th", "cl-th-menu");
-      thMenu.appendChild(clKebab("Options for all three icons", () => {
-        const items = [{ label: "Use one picture for all three...", run: () => openPictureWindow() }];
-        if (A.mine) items.push({ label: "Use game defaults", run: async () => { await pywebview.api.clear_character_icons(name); changed(); } });
+      thMenu.appendChild(ui.menu({ label: "Options for all three icons", items: () => {
+        const items = [{ label: "Use one picture for all three...", onClick: () => openPictureWindow() }];
+        if (A.mine) items.push({ label: "Use game defaults", onClick: async () => { await pywebview.api.clear_character_icons(name); changed(); } });
         return items;
-      }));
+      } }).el);
       headRow.appendChild(thMenu);
     }
     const thead = document.createElement("thead");
@@ -474,11 +474,11 @@ function buildCharacterLook(name, onLook) {
       if (!summary) {
         // what else can be done here (nothing else: no menu - the picture itself changes it)
         const extra = [];
-        if (e.filled) extra.push({ label: "Undo", title: "Take back the picture made from the Select screen", run: async () => { await pywebview.api.unfill_icons(name, [kind], colArg); changed(); } });
-        else if (e.state === "you") extra.push({ label: "Undo my picture", title: "Go back to the mod's picture (or the game default, when the mod has none)", run: async () => { await pywebview.api.clear_character_icons(name, [kind], colArg); changed(); } });
-        else if (e.state === "auto") extra.push({ label: "Use game default", title: "Stop using the mod's picture here", run: async () => { await pywebview.api.clear_character_icons(name, [kind], colArg); changed(); } });
+        if (e.filled) extra.push({ label: "Undo", title: "Take back the picture made from the Select screen", onClick: async () => { await pywebview.api.unfill_icons(name, [kind], colArg); changed(); } });
+        else if (e.state === "you") extra.push({ label: "Undo my picture", title: "Go back to the mod's picture (or the game default, when the mod has none)", onClick: async () => { await pywebview.api.clear_character_icons(name, [kind], colArg); changed(); } });
+        else if (e.state === "auto") extra.push({ label: "Use game default", title: "Stop using the mod's picture here", onClick: async () => { await pywebview.api.clear_character_icons(name, [kind], colArg); changed(); } });
         const tdMenu = cgEl("td", "cl-t-menu");
-        if (extra.length) tdMenu.appendChild(clKebab(`More for the ${caption} icon${scope}`, () => [{ label: "Change picture", run: change }, "-", ...extra]));
+        if (extra.length) tdMenu.appendChild(ui.menu({ label: `More for the ${caption} icon${scope}`, items: () => [{ label: "Change picture", onClick: change }, "-", ...extra] }).el);
         tr.appendChild(tdMenu);
       }
       tbody.appendChild(tr);
@@ -940,27 +940,26 @@ function openCharacterModal(name) {
         // folder / files / remove sit behind the row's "..." as a small menu (the buttons themselves are never shown;
         // the menu runs them, and its files entry carries the left-out count). The mod's voice lines and menu pictures
         // are not in here: each has its own icon on the row.
-        const kb = clKebab(`More for ${label.textContent}`, () => [
-          { label: "Open folder", title: openFolderBtn.title, run: () => openFolderBtn.click() },
+        const kb = ui.menu({ label: `More for ${label.textContent}`, class: "mod-more", items: () => [
+          { label: "Open folder", title: openFolderBtn.title, onClick: () => openFolderBtn.click() },
           { label: Number(filesBtn.dataset.leftOut) ? `Edit included files \u00b7 ${filesBtn.dataset.leftOut} left out` : "Edit included files",
-            title: "Choose which of this mod's files are used - leave single files out of the merge", run: () => filesBtn.click() },
+            title: "Choose which of this mod's files are used - leave single files out of the merge", onClick: () => filesBtn.click() },
           "-",
           isPackRow ? {
             label: "Open where it's filed",
             title: `This pack is filed under ${key.split("/")[1]} and listed here because it replaces ${refileLabel(name)} too.`,
-            run: () => jumpToModKey(key),
+            onClick: () => jumpToModKey(key),
           } : (() => {
             const tracked = movableIds && movableIds[key];
             return {
               label: `Move to another ${refileNoun(name)}...`,
               title: tracked ? `This mod replaces something else than ${refileLabel(name)}? Move it there.` : "Only mods downloaded through GameBanana can be moved.",
               disabled: !tracked,
-              run: () => openMoveDialog({ from: name, modName: label.textContent, modId: tracked.mod_id, recordType: tracked.record_type }),
+              onClick: () => openMoveDialog({ from: name, modName: label.textContent, modId: tracked.mod_id, recordType: tracked.record_type }),
             };
           })(),
-          { label: "Remove", title: removeBtn.title, danger: true, run: () => removeBtn.click() },
-        ]);
-        kb.classList.add("mod-more");
+          { label: "Remove", title: removeBtn.title, danger: true, onClick: () => removeBtn.click() },
+        ] }).el;
         row.appendChild(noteBtn);
         row.appendChild(kb);
       } else {
