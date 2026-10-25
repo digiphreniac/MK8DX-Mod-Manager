@@ -1,0 +1,323 @@
+# UI components
+
+**Status: Phases 0 and 1 are built** (the foundation, `Button`, `Modal`, `Section`, `confirm` / `alert`; Settings, Conflicts, Help,
+Guessed names and Clear All Mods use them). The rest is still plan; "What is built" below says where the code differs from the sketches.
+Each phase turns its part of this page from plan into "how it works".
+
+The frontend stays plain HTML/CSS/JS with no build step and no framework. This page is about building our own small component
+layer so that screens describe *what* they show (a title, a list, a button with a callback) and the components decide *how* it is
+drawn and wired.
+
+## Why
+
+What the code does today (counts are from grep, so approximate):
+
+- **Modals.** 10 hand-written partials in `html/`, several repeating the same open / close / backdrop-click / Close-button
+  wiring (settings, conflicts, guessed names, help). Five more dialogs are built in JS on a `gate-backdrop` div (`voice.js`,
+  `refile.js`, `unit-pictures.js`, `tiles-and-review.js`), each with its own Escape handler. "Clear All Mods?" borrows the
+  character modal and stacks it with an `above-settings` class because nothing manages stacking.
+- **Confirmations.** 4 native `confirm()` and 4 `alert()` calls, unstyled and each a one-off.
+- **Cards and sections.** `.modal-card` + header is copy-pasted in `settings-modal.html` and `help-modal.html`. A header button
+  ("Reset to default") is a hard-coded `data-reset-group` hook wired by hand.
+- **Small elements.** About a dozen near-identical note / hint classes (`cg-note`, `cl-hint`, `cc-hint`, `ve-note`, `uis-note`,
+  `pics-note`, ...) and about ten chip / badge classes (`cc-chip`, `ve-chip`, `packed-badge`, `gb-target-badge`, `part-badge`,
+  `wiz-pill`, ...).
+- **Helpers in odd places.** `button()` lives in `flow.js`, `cgEl()` in `data-and-conflicts.js`; both load late, so earlier
+  files can't use them. Inline SVG strings are pasted into several files.
+
+Already good, and the model for the rest: the **settings registry** (`settings-registry.js`: one definition drawn identically in
+Settings and Setup) and the **tooltip** (one shared element). Both are declarative; the plan extends that style.
+
+## Goals and non-goals
+
+Goals
+
+- Screens build UI from a small set of components that take plain data (text, lists, callbacks) and return DOM elements.
+- One place owns each behaviour: modal open/close/Escape/stacking/focus, busy buttons, confirmations, loading/empty/error states.
+- Looks the same as today. A migration step must not change what the user sees or does (except where this page says so: the
+  native `confirm()` / `alert()` dialogs become the app's own).
+- Each step is small, testable and committed on its own.
+
+Non-goals
+
+- No React / Vue / build tooling, no virtual DOM, no templating language.
+- No automatic re-rendering. Components are built once and updated by calling a method; screens that redraw keep redrawing.
+- The large domain screens (`character-card.js`, `voice.js`, course / vehicle / item cards) are not rewritten as components. They
+  *use* components. Rewriting the voice editor would cost a lot and prove little.
+- No big-bang rewrite. Old and new code live side by side until each screen is migrated.
+
+## Conventions
+
+**Where things live**
+
+- `src/ui/js/ui/*.js` - the component layer, loaded **first** in `SCRIPTS` in `js/bootstrap.js` (before `state-and-helpers.js`),
+  because every other file may use it. Within the folder, files load in dependency order: `core.js` -> `icons.js` -> the rest.
+- `src/ui/css/components/*.css` - one stylesheet per component family, linked in `index.html` after `base.css` and **before** the
+  screen stylesheets, so a screen can still override. Components use the existing CSS variables (light and dark), never raw colours.
+- Everything hangs off one global, `ui` (e.g. `ui.modal(...)`, `ui.button(...)`). The scripts share one global scope, so a
+  single namespace avoids collisions with the ~hundreds of existing top-level names.
+
+**What a component is**
+
+A component is a function that takes one options object and returns a **handle**: `{ el, ...methods }`.
+
+- `el` is the root DOM element. The caller inserts it (`parent.append(handle.el)`) or, for overlays, calls `handle.open()`.
+- Methods are named verbs: `update(opts)`, `setBusy(bool)`, `open()`, `close()`, `destroy()`. Only add what a caller needs.
+- Options are plain data plus callbacks named `onSomething`. Text is always set with `textContent`; HTML strings are never
+  accepted from data. The only `innerHTML` is the icon registry's own trusted SVG strings.
+- A component never reads global state or calls `pywebview.api` itself. The caller passes callbacks; callbacks may be async and
+  the component handles the pending state (see Button).
+- Class names are `ui-<component>` and `ui-<component>--<variant>` (e.g. `ui-btn--danger`). Existing screen classes are untouched
+  until their screen is migrated; then the old duplicates are deleted.
+- Accessibility is part of the component, not the caller: dialogs get `role="dialog"`, `aria-modal`, `aria-labelledby`; icon-only
+  buttons require a `label`; severity is conveyed by shape and hidden text as well as colour (as the Commit notes already do).
+
+**Spec vs. imperative**
+
+Every component accepts a declarative spec. Where a screen needs something custom (a draggable grid, a canvas), a section body
+or modal body can be **any element or a function returning one**, so components never block custom content.
+
+## What is built (Phases 0 and 1)
+
+Code: `js/ui/core.js` (`ui.el`, `ui.append`, `ui.html`, and the older `cgEl`), `js/ui/icons.js` (`ui.icons`, `ui.icon`), `js/ui/button.js`
+(`ui.button`, and the older `button(text, cls, fn)`), `js/ui/modal.js`, `js/ui/section.js` (`ui.section`, `ui.columns`,
+`ui.settingsGroup`), `js/ui/confirm.js` (`ui.confirm`, `ui.alert`); styles in `css/components/modal.css`; the app's own windows as specs in
+`js/app-modals.js` (`settingsModal`, `conflictsModal`, `helpModal`, `guessedNamesModal`, `appExperienceCard`).
+
+Where it differs from the sketches below:
+
+- **A window is built when its script loads and left hidden**, not on first `open()`. Every part has the id the old markup gave it
+  (`<id>`, `<id>-backdrop`, `<id>-header`, `<id>-title`, `<id>-bar`, `<id>-body`, `btn-<id>-close`), so code can still look them up at any
+  time. The openers keep their names (`openSettingsModal()`, `openConflictsModal()`, `openHelpModal()`, `openGuessedNamesModal()`).
+- **The stack.** `open()` puts the window above everything showing: its z-index is the stack's top + 5, or one above the highest of the
+  page's own windows (the older popups and the Setup overlay), so no window has a z-index of its own. Escape closes only the top window,
+  unless one of the page's own windows is above it (its handler in `help-and-icon-generator.js` deals with that). Tab stays inside the
+  window and focus goes back to what opened it. Not done: locking the page's scroll (the page does not scroll under a window today).
+- **`ui.confirm` resolves `false` or `{ value }`** (the tick box's state when it has one), so `if (!answer) return;` works. `ui.alert`
+  resolves when closed. Both build a small `ui.modal` and take the whole stack's rules. There is no `ui.notify` yet.
+- **`ui.button`'s `confirm`** takes the options of `ui.confirm` (or a function returning them: the Maintenance card's button asks
+  `clearAllModsConfirm()`, which lives with the code that clears). A failure inside an async `onClick` goes to the log (`diag`) and shows a
+  `ui.alert`.
+- **`ui.section`** takes `title`, `id`, `actions` (button specs; `disabled` may be a function, asked again by `card.refresh()`) and `body`. The
+  `hint` and `collapsible` options in the sketch are left out until something needs them. "Reset to default" is a header action of
+  `appExperienceCard`; `updateResetButtons()` just calls its `refresh()`.
+- **`ui.html(markup)`** is for markup the source wrote itself (the Discord logo). Everything that came from data goes in as text.
+- The Help window's two buttons keep the click handlers they have always had in `help-and-icon-generator.js` (found by id); moving them
+  into the spec is a later tidy.
+- Gone: `html/help-modal.html`, `settings-modal.html`, `conflicts-modal.html`, `guessed-names-modal.html`; the per-window CSS in
+  `settings.css`, `flow.css`, `icon-generator.css`; `#modal-backdrop.above-settings`; every native `confirm()` / `alert()`; the Escape
+  branches for these windows in the page's own handler.
+
+## The component catalog
+
+Sketches, not final signatures. They fix the *shape* so the review can happen before code.
+
+### Foundation (`ui/core.js`, `ui/icons.js`)
+
+- `ui.el(tag, props, ...children)` - `props`: `class`, `text`, `attrs`, `on: { click: fn }`, `hidden`. Children can be elements,
+  strings, or arrays (falsy skipped). Replaces `cgEl()`. `cgEl` stays as a thin alias until its callers are migrated.
+- `ui.icon(name, { size })` - returns an inline SVG from one registry (folder, warning, todo-arrow, info, close, kebab, chevron,
+  ...). The pasted SVG strings in `settings-registry.js` and `flow.js` move here.
+- `ui.on(el, event, fn)` / `ui.mount(parent, handle)` helpers only if repeated code shows the need. No more than that.
+
+### Button (`ui/button.js`)
+
+```js
+ui.button({
+  label: "Reset to default",         // or icon + required `title` for an icon-only button
+  variant: "ghost",                  // primary | ghost | danger   (+ size: "small")
+  icon: "folder",                    // optional
+  onClick: async () => { ... },      // may be async
+  confirm: { title, message, confirmLabel, danger: true, extra },   // optional, see ConfirmDialog
+  busyLabel: "Clearing...",          // shown while onClick's promise is pending
+  disabled: false,
+});
+// handle: { el, setDisabled(b), setBusy(b), setLabel(s) }
+```
+
+- While an async `onClick` is pending the button is disabled and shows `busyLabel`; it re-enables on settle. A thrown error is
+  reported through `diag` and shown with `ui.notify` rather than lost.
+- `confirm` makes the click open a `ConfirmDialog` first; `onClick` runs only on confirm. This is the "button that requires a
+  confirmation, with a custom callback" case.
+- Replaces `button()` and the many `createElement("button")` blocks.
+
+### Modal (`ui/modal.js`) + the modal stack
+
+```js
+const m = ui.modal({
+  id: "settings",                    // optional; used for tests and the stack
+  title: "Settings",
+  size: "wide",                      // narrow | normal | wide
+  sections: [ ...Section specs ],    // or `body`: element | () => element
+  actions: [ ...Button specs ],      // footer buttons (right-aligned); omit for a Close-only window
+  closeOnBackdrop: true,
+  onOpen: () => {}, onClose: () => {},
+});
+m.open(); m.close(); m.setTitle(s); m.setSections([...]); m.body;   // body element for custom drawing
+```
+
+- **One modal stack** (`ui/modal.js` owns it): opening pushes, closing pops. The stack sets z-order (replaces `above-settings`,
+  `gate-backdrop` z-index 9000, `mv-backdrop` z-index 45), routes **Escape to the topmost modal only**, returns focus to the
+  element that opened it, traps Tab inside, and locks page scroll. The five hand-rolled Escape handlers go away.
+- A Close button / backdrop click / Escape all call the same `close()`, which runs `onClose` (and may be vetoed by returning
+  `false`, for "unsaved changes").
+- Modals are made from a spec, not from `html/*.html` partials (built at load, hidden until `open()`: see "What is built"). The partial
+  and its entry in `PARTIALS` are deleted when a modal migrates. Existing element ids that other code or tests rely on are kept.
+
+### Section (`ui/section.js`) - the card with a header
+
+```js
+ui.section({
+  title: "App experience",
+  actions: [                                      // header buttons, any label, any callback
+    { label: "Reset to default", variant: "ghost", size: "small", onClick: resetGroup, disabled: () => !differs() },
+  ],
+  body: element | () => element | ui.list({...}) | ui.settingsGroup("app-experience"),
+});
+// handle: { el, titleEl, body, buttons, refresh(), setTitle(s) }      (hint and collapsible: later, when something needs them)
+```
+
+- This is the replacement for `.modal-card` + `.modal-card-header` + `.settings-body`. Header actions are data, so adding a
+  button to any section is one array entry; no more per-button `data-*` hooks.
+- `ui.settingsGroup(groupKey)` wraps the existing `renderSettingsGroup()` so registry groups drop straight into a section.
+- `ui.columns([...sections])` is the balanced multi-column container from `.settings-columns`.
+
+### List and rows (`ui/list.js`)
+
+```js
+ui.list({ items, empty: "Nothing here yet", renderItem: (item) => ui.row({ title, detail, badges, actions }) });
+```
+
+- `ui.row({ icon, title, detail, badges, actions, onClick })` - one line of a list, with trailing actions or a `Menu`.
+- Handles the empty state through `AsyncBox` (below). Optional `maxHeight` gives the scroll-capped list the Commit page uses.
+
+### ConfirmDialog and notify (`ui/confirm.js`)
+
+```js
+const answer = await ui.confirm({ title, message, confirmLabel: "Delete", danger: true, extra: { label, checked, hint } });
+// answer: false when cancelled, otherwise { value } (the tick box, when `extra` is used)
+await ui.alert({ title, message });          // replaces alert(); one OK button
+ui.notify({ message, tone: "error" });        // non-blocking line/toast for failures that don't need a click
+```
+
+- Built on `ui.modal`, so it stacks above whatever is open. Replaces all `confirm()` / `alert()` calls and the hand-built
+  "Clear All Mods?" dialog (its checkbox is `extra`).
+- A busy confirm (the "Clearing..." state, an error line inside the dialog) is supported by letting `onConfirm` be async: the
+  dialog stays open and busy until it settles, and shows a returned error instead of closing.
+
+### Callout (`ui/callout.js`)
+
+```js
+ui.callout({ tone: "info" | "todo" | "warn" | "error", title, detail, action: { label, onClick }, items, itemsLabel, collapsed })
+```
+
+- One component for the Commit page notes (`pgWarnEl`), the one-line warnings in Settings, error lines (`wiz-error`,
+  `clear-all-result`) and plain hints (`tone: "plain"`). Icon, left stripe, hidden severity word and the optional
+  "Show the N mods" disclosure come with it. The many `*-note` / `*-hint` classes collapse into this and a `ui.hint()` helper.
+
+### Chip / Badge (`ui/chip.js`)
+
+`ui.chip({ text, tone: "neutral" | "good" | "warn" | "accent", icon, onClick, title })` - the ten badge/chip classes become tones of
+one component. Toggle chips (`ve-chip toggle-on`) are `ui.chip({ pressed })`.
+
+### Disclosure (`ui/disclosure.js`)
+
+`ui.disclosure({ summary, body, open, onToggle })` - the shared `details`/`summary` look and the indent rule we keep re-fixing
+(`details[open] > :not(summary)`). Section `collapsible` and Callout `items` use it.
+
+### Menu (`ui/menu.js`)
+
+`ui.menu({ anchor, items: [{ label, onClick, danger, disabled }] })` - the popover behind the "..." button in `unit-pictures.js`
+(`cl-kebab`, `closeClMenus`) and the character mod rows. Closes on outside click / Escape / scroll, opens upward near the window
+bottom (the logic that exists today, moved once).
+
+### Tabs / Segmented (`ui/tabs.js`)
+
+`ui.tabs({ items: [{ id, label, badge }], active, onChange })` and a `segmented` variant. For the main view tabs, the GameBanana
+grid/list toggle, and the Setup/step bar's click behaviour. The step bar keeps `get_flow_status()` as its only source of truth
+(`renderStepBar()` just passes data in).
+
+### AsyncBox (`ui/asyncbox.js`)
+
+`ui.asyncBox({ load: () => Promise, render: (data) => element, empty: (data) => bool, emptyText, errorText })` - the
+"Loading... / nothing here / couldn't load" wrapper repeated in the worklist, conflicts, guessed names, voice lists.
+Stale-reply safe (a late answer from an older `load` is ignored, as the commit progress poll already does).
+
+### FolderCard and Field (moved, not new)
+
+`folderCard()` and the field renderers (`fillFolderControl`, `fillPathControl`) move out of `settings-registry.js` into
+`ui/` once Section exists. The registry keeps only definitions plus `renderSettingsGroup()` / `changeSetting()`.
+
+### ProgressPanel (later)
+
+The commit progress panel (`.cp*` in `flow.css`, `startCommitProgress()` ...) becomes `ui.progress({ phases, ... })` so another
+long job can reuse it. Low priority: only worth it when a second user appears.
+
+### Later, only if the above prove out: Tile / Card shell
+
+The character, course, vehicle and item screens share tile / grid structure (`tiles-and-review.js`, 603 lines). A shared tile shell
+is the biggest remaining duplicate, and the riskiest. Decide after Phase 4, with the components in hand.
+
+## Migration order
+
+Each phase is one or more commits on `refactor/ui-modularity-improvements`; each step keeps the app working and is checked in the
+scratch harness (real UI against scratch data, `pywebview.api` stubbed) at desktop and phone-ish widths, light and dark.
+
+**Phase 0 - Foundation (done).** `ui/core.js` (`ui.el`), `ui/icons.js`, bootstrap load order, `components` CSS folder, tests for load
+order. Move the existing SVGs into the registry; `cgEl` becomes an alias. No visible change.
+
+**Phase 1 - Modal, Section, Button, ConfirmDialog (done).** The core of the request.
+1. `ui.modal` + stack, `ui.button` (busy + `confirm`), `ui.section` (header actions), `ui.confirm` / `ui.alert`.
+2. Migrate **Clear All Mods** (hand-built dialog -> `ui.confirm`, removes `above-settings`).
+3. Migrate the **Settings** modal: partial -> `ui.modal` with `ui.section`s; "Reset to default" becomes a normal section action.
+4. Migrate **Conflicts**, **Help**, **Guessed names** (the partials with copy-pasted wiring).
+5. Replace the 4 native `confirm()` and 4 `alert()` calls.
+Done when: no native `confirm()` / `alert()`, no `*-modal-backdrop` open/close boilerplate for those modals, Escape closes only the
+topmost modal, and Settings looks the same.
+
+**Phase 2 - Callout, Chip, Disclosure, hints.** Commit page notes (`pgWarnEl` -> `ui.callout`), Settings warnings, error lines,
+the `*-note` / `*-hint` classes, the badge/chip classes. Delete the superseded CSS as each goes.
+
+**Phase 3 - Menu, Tabs, AsyncBox, List/Row.** `cl-kebab` menu, view tabs and the GameBanana toggle, loading/empty wrappers, the
+worklist and conflicts lists, guessed-names rows.
+
+**Phase 4 - The JS-built dialogs.** `gate-backdrop` / `mv-backdrop` dialogs (`refile.js` move dialog, `tiles-and-review.js` gate,
+`unit-pictures.js`, the three in `voice.js`) onto `ui.modal`, so they join the stack. Their bodies stay custom; only the shell,
+Escape, focus and z-order change. `voice.js` has a sub-dialog (`ve-sub`) whose Escape rule ("not while a sub-dialog is open") the
+stack must express naturally.
+
+**Phase 5 - Move and tidy.** `FolderCard` / Field out of the registry, `ProgressPanel`, delete `cgEl` alias and dead CSS, update
+`AGENTS.md` (code map + docs index + frontend rules), `docs/DEVELOPERS.md`, `docs/architecture.md`, and turn this page into the
+reference. Then decide on the Tile shell.
+
+## Testing
+
+The repo's tests are Python (`python -m unittest discover -s tests`) and read the JS/CSS source, plus browser checks through the
+scratch harness. Same approach here:
+
+- **Static tests** (`tests/test_ui_components.py`): `ui/` files are in `SCRIPTS` before everything that uses them; every `ui.*`
+  call in the code exists; after each phase, "the old pattern is gone" checks (no `confirm(` / `alert(`, no `above-settings`, no
+  `gate-backdrop` outside `modal.js`, no new copies of removed classes). Existing tests that read markup moved into specs (e.g.
+  `test_settings_layout.py`) are updated to read the new place, as was done for the settings registry.
+- **Behaviour checks in the browser pane** (scratch harness, not committed): open Settings -> Clear All Mods -> Escape closes only
+  the top one; Tab stays inside; busy button disables and recovers on error; confirm cancel does not run the callback.
+- Real pywebview bridge, real folder picker and the packaged build are not exercised by any of this; say so in each hand-back.
+
+## Risks and how we handle them
+
+- **Shared global scope.** Everything is one scope, so `ui/` loads first and exposes only `ui` (+ the temporary `cgEl` alias).
+- **Ids and hooks other code or tests rely on.** Specs take `id` / `attrs`; migrate a modal together with its tests and its
+  callers, one at a time.
+- **Focus / Escape regressions** in dialogs that exist today (voice editor sub-dialogs, GameBanana browse's Esc-clears-search-first
+  rule). The stack supports a per-modal `onEscape` that can consume the key; these keep their rule.
+- **Visual drift.** Components reuse the current look (spacing, colours, variables). Compare before/after screenshots per migrated
+  screen in light and dark.
+- **Scope creep.** Phases are independent: stop after any phase and the app is consistent. The Tile shell is deliberately deferred.
+
+## Decisions (settled in review)
+
+1. The native `confirm()` / `alert()` are replaced by the app's own dialogs (`await ui.confirm(...)`).
+2. The `html/*.html` partials of migrated modals are deleted; specs in JS replace them.
+3. The namespace is `ui`.
+4. Phase 1 (modals, sections, buttons, confirmations) came first, as the request describes.
+5. The Tile shell stays deferred until after Phase 4.
