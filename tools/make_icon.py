@@ -2,9 +2,9 @@
 
     python tools/make_icon.py path/to/picture.png
 
-Writes tools/app-icon.png (square, transparent, 512 px: the source of the icon) and tools/app-icon.ico (16 to 256 px in one file),
-which tools/mk8dx-mod-manager.spec embeds in the exe. Windows shows that icon on the file, the taskbar, alt-tab and the window's title bar
-(pywebview takes the window's icon from the exe). The picture is cropped to what is drawn in it, with a small margin, and centred on a square
+Writes tools/app-icon.png (square, transparent, 512 px: the source of the icon), tools/app-icon.ico (16 to 256 px in one file) and
+tools/app-icon.icns (the macOS app's icon), which tools/mk8dx-mod-manager.spec embeds in the exe and the .app. Windows shows the .ico on the
+file, the taskbar, alt-tab and the window's title bar (pywebview takes the window's icon from the exe); the Linux build also ships the PNG. The picture is cropped to what is drawn in it, with a small margin, and centred on a square
 canvas, so a wide or padded picture still fills the icon.
 """
 import sys
@@ -34,7 +34,8 @@ def main(argv):
     icon = square_icon(argv[1])
     icon.save(HERE / "app-icon.png")
     icon.save(HERE / "app-icon.ico", sizes=[(s, s) for s in SIZES])
-    print(f"Wrote {HERE / 'app-icon.png'} and {HERE / 'app-icon.ico'} ({', '.join(str(s) for s in SIZES)} px)")
+    icon.save(HERE / "app-icon.icns")
+    print(f"Wrote {HERE / 'app-icon.png'}, {HERE / 'app-icon.ico'} ({', '.join(str(s) for s in SIZES)} px) and {HERE / 'app-icon.icns'}")
 
 
 if __name__ == "__main__":

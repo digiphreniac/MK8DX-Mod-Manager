@@ -11,9 +11,11 @@ import errno
 import hashlib
 import http.client
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import urllib.request
@@ -578,16 +580,98 @@ def fetch_bytes(url: str, timeout: int = 30) -> bytes:
         raise GameBananaError(f"Couldn't download that image: {e}") from e
 
 
-def find_7zip():
-    for candidate in (
-        app_paths.BUNDLED_7ZIP_DIR / "7z.exe",   # shipped inside release builds
-        r"C:\Program Files\7-Zip\7z.exe",
-        r"C:\Program Files (x86)\7-Zip\7z.exe",
-    ):
-        if Path(candidate).is_file():
-            return candidate
-    found = shutil.which("7z") or shutil.which("7zz") or shutil.which("7z.exe")
-    return found
+# Where a system install of 7-Zip is looked for, and what it is called. The bundled copy (release builds) comes first; then these
+# folders, because a macOS .app started from Finder has a minimal PATH (Homebrew's folder is not in it); then the PATH. Newest first: the
+# official `7zz` reads RAR5, the old `7z` from p7zip 16.02 does not (the bsdtar fallback in extract_archive() tries then).
+_SEVENZIP_NAMES = {"win32": ("7z.exe",), "darwin": ("7zz", "7z", "7zr"), "linux": ("7zz", "7z", "7za", "7zr")}
+_SEVENZIP_DIRS = {
+    "win32": (r"C:\Program Files\7-Zip", r"C:\Program Files (x86)\7-Zip"),
+    "darwin": ("/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin"),
+    "linux": ("/usr/bin", "/usr/local/bin", "/snap/bin"),
+}
+
+
+def _platform_key(platform=None):
+    platform = platform or sys.platform
+    return "win32" if platform == "win32" else "darwin" if platform == "darwin" else "linux"
+
+
+def find_7zip(platform=None):
+    """The path (as text) of a 7-Zip command-line tool to unpack .rar/.7z with, or None. `platform` is for the tests."""
+    key = _platform_key(platform)
+    names = _SEVENZIP_NAMES[key]
+    bundled = app_paths.BUNDLED_7ZIP_DIR / app_paths.SEVENZIP_NAME
+    if bundled.is_file():
+        _make_executable(bundled)
+        return str(bundled)
+    for folder in _SEVENZIP_DIRS[key]:
+        for name in names:
+            candidate = Path(folder) / name
+            if candidate.is_file():
+                return str(candidate)
+    for name in names:
+        found = shutil.which(name)
+        if found:
+            return found
+    return None
+
+
+def _make_executable(path):
+    """A bundled tool that lost its execute permission (a zip made on Windows, a copy that dropped it) gets it back. Never raises."""
+    if sys.platform == "win32":
+        return
+    try:
+        mode = os.stat(path).st_mode
+        if not mode & 0o111:
+            os.chmod(path, mode | 0o755)
+    except OSError:
+        pass
+
+
+def sevenzip_install_hint(platform=None):
+    """One sentence on getting 7-Zip, for the error shown when a .rar/.7z can't be unpacked."""
+    key = _platform_key(platform)
+    if key == "win32":
+        return "Install 7-Zip (7-zip.org) to extract .rar/.7z archives."
+    if key == "darwin":
+        return "Install 7-Zip with Homebrew (brew install sevenzip) to extract .rar/.7z archives."
+    return "Install 7-Zip with your package manager (for example: sudo apt install 7zip, or p7zip-full on older systems) to extract .rar/.7z archives."
+
+
+def fix_backslash_names(folder: Path) -> int:
+    """Windows tools make zips whose paths use backslashes. Windows reads them as folders; on macOS and Linux they come out as ONE
+    file called "Model\\Mario.bfres" in the top folder. This turns each such name into the folder path it meant (an existing file
+    at the target is kept). Does nothing on Windows, where a name can't hold one. Returns how many it fixed."""
+    if sys.platform == "win32":
+        return 0
+    fixed = 0
+    for dirpath, dirnames, filenames in os.walk(folder, topdown=False):
+        for name in filenames + dirnames:
+            if "\\" not in name:
+                continue
+            src = Path(dirpath) / name
+            parts = [p for p in name.split("\\") if p and p != ".."]
+            if not parts:
+                continue
+            dest = Path(dirpath).joinpath(*parts)
+            try:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                if src.is_dir() and not src.is_symlink():
+                    if dest.exists():
+                        for child in list(src.iterdir()):
+                            if not (dest / child.name).exists():
+                                shutil.move(str(child), str(dest / child.name))
+                        shutil.rmtree(src, ignore_errors=True)
+                    else:
+                        os.rename(src, dest)
+                elif not dest.exists():
+                    os.rename(src, dest)
+                else:
+                    os.remove(src)
+                fixed += 1
+            except OSError as e:
+                diag.log("extract", f"couldn't turn the backslash name {name!r} into a folder path: {type(e).__name__}: {e}")
+    return fixed
 
 
 def _extract_with_bsdtar(archive_path: Path, dest_dir: Path) -> bool:
@@ -602,7 +686,15 @@ def _extract_with_bsdtar(archive_path: Path, dest_dir: Path) -> bool:
 
 def extract_archive(archive_path: Path, dest_dir: Path):
     """Extracts archive_path into dest_dir (created if needed). Uses Python's
-    zipfile for .zip when 7-Zip isn't available; everything else needs 7-Zip."""
+    zipfile for .zip when 7-Zip isn't available; everything else needs 7-Zip.
+    On macOS and Linux a Windows-made zip's backslash paths are then turned into folders (fix_backslash_names)."""
+    _extract_archive(archive_path, dest_dir)
+    fixed = fix_backslash_names(dest_dir)
+    if fixed:
+        diag.log("extract", f"{archive_path.name}: {fixed} backslash path(s) turned into folders")
+
+
+def _extract_archive(archive_path: Path, dest_dir: Path):
     dest_dir.mkdir(parents=True, exist_ok=True)
     sevenzip = find_7zip()
 
@@ -617,7 +709,7 @@ def extract_archive(archive_path: Path, dest_dir: Path):
         except OSError as e:   # (there, but can't run: antivirus quarantined it, or a file of it is damaged)
             diag.log("extract", f"7-Zip at {sevenzip} could not be started: {type(e).__name__}: {e}")
             if archive_path.suffix.lower() != ".zip":
-                raise GameBananaError(f"7-Zip couldn't be started ({e}). Your antivirus may have blocked it.") from e
+                raise GameBananaError(f"7-Zip couldn't be started ({e})." + (" Your antivirus may have blocked it." if sys.platform == "win32" else "")) from e
             result = None
         if result is not None:
             if result.returncode == 0:
@@ -643,6 +735,5 @@ def extract_archive(archive_path: Path, dest_dir: Path):
         return
 
     raise GameBananaError(
-        f"Can't extract '{archive_path.name}' - 7-Zip isn't installed and this isn't a .zip file. "
-        "Install 7-Zip (7-zip.org) to extract .rar/.7z archives."
+        f"Can't extract '{archive_path.name}' - 7-Zip isn't installed and this isn't a .zip file. " + sevenzip_install_hint()
     )

@@ -3,24 +3,56 @@ Where the app's own files are, whether it runs from source or as a PyInstaller b
 
   RESOURCE_DIR - read-only files shipped with the app (ui/, roster.json, ...). From source that is
                  src/; in a frozen build PyInstaller unpacks them under sys._MEIPASS.
-  APP_ROOT     - the app's install root, where app-config.json lives. From source that is the
-                 folder above src/; in a frozen build it is the folder holding the .exe.
+  APP_ROOT     - the app's install root, where app-config.json, the log and the default data folder live.
+                 From source that is the folder above src/. In a Windows build it is the folder holding the
+                 .exe (the zip is portable). In a macOS or Linux build it is the user's own app-data folder
+                 (user_data_dir()): the app is a .app bundle or an extracted folder that may be read-only or
+                 replaced on update, so nothing the user made can live beside it. docs/cross-platform.md.
 """
 
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 FROZEN = bool(getattr(sys, "frozen", False))
+APP_DATA_NAME = "MK8DX Mod Manager"
+
+
+def user_data_dir(platform=None, environ=None, home=None):
+    """Where a macOS or Linux build keeps what the user made: ~/Library/Application Support/MK8DX Mod Manager, or
+    $XDG_DATA_HOME (else ~/.local/share)/mk8dx-mod-manager. Not created here. (The arguments are for the tests.)"""
+    platform = platform or sys.platform
+    environ = os.environ if environ is None else environ
+    home = Path(home) if home is not None else Path.home()
+    if platform == "darwin":
+        return home / "Library" / "Application Support" / APP_DATA_NAME
+    xdg = environ.get("XDG_DATA_HOME")
+    return (Path(xdg) if xdg and os.path.isabs(xdg) else home / ".local" / "share") / "mk8dx-mod-manager"
+
+
+def _frozen_app_root():
+    exe_folder = Path(sys.executable).resolve().parent
+    if sys.platform == "win32":
+        return exe_folder
+    folder = user_data_dir()
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return exe_folder      # (no home folder to write to: beside the app, as a last resort)
+    return folder
+
 
 if FROZEN:
     RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", None) or Path(sys.executable).parent)
-    APP_ROOT = Path(sys.executable).resolve().parent
+    APP_ROOT = _frozen_app_root()
 else:
     RESOURCE_DIR = Path(__file__).resolve().parent
     APP_ROOT = RESOURCE_DIR.parent
 
 # Folder of the bundled 7-Zip command-line tool (release builds only; see tools/build_release.py).
 BUNDLED_7ZIP_DIR = RESOURCE_DIR / "7zip"
+SEVENZIP_NAME = "7z.exe" if sys.platform == "win32" else "7zz"      # (what the bundle holds, and what a system install is called)
 
 LOG_FILENAME = "mod-manager.log"
 LOG_MAX_BYTES = 1_000_000     # when the log is bigger than this at start-up, the oldest entries are cut...
@@ -99,7 +131,7 @@ def redirect_output_to_log(tee=False):
     if _log_path is not None:
         return _log_path
     stream = None
-    for folder in (APP_ROOT, Path(os.environ.get("TEMP") or ".")):
+    for folder in (APP_ROOT, Path(tempfile.gettempdir())):
         try:
             _trim_log(folder / LOG_FILENAME)
             stream = open(folder / LOG_FILENAME, "a", encoding="utf-8", buffering=1)

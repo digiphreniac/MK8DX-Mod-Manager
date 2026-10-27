@@ -1,7 +1,7 @@
 name: Tests
 
-# Runs the unit tests on every pull request and every push to master/main, so a change that breaks them is visible
-# before it is released. (The release workflow builds the package; this one only checks the code.)
+# Runs the unit tests on every pull request and every push to master/main, on Windows, Linux and macOS, so a change that breaks them is visible
+# before it is released. (The release workflow builds the packages; this one only checks the code.)
 
 on:
   push:
@@ -14,7 +14,11 @@ permissions:
 
 jobs:
   tests:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false          # (a failure on one system must not hide the result on the others)
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -24,6 +28,9 @@ jobs:
 
       - name: Install the app's requirements
         run: pip install -r requirements.txt
+
+      - name: Install what the workflow checks in the tests read files with
+        run: pip install pyyaml
 
       - name: Run the tests
         run: python -m unittest discover -s tests

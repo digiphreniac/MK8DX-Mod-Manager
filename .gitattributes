@@ -1,2 +1,5 @@
 # Windows batch files must keep CRLF line endings
 *.bat text eol=crlf
+# Shell scripts must keep LF: a carriage return after "#!/bin/bash" stops them from starting
+*.sh text eol=lf
+*.command text eol=lf

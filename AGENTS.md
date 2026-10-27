@@ -43,6 +43,8 @@ notes, measurements and rules live in `docs/` (index below).
   is the page's side. A failure the app catches and carries on from should leave a `diag.log` line. `docs/diagnostics.md`.
 - `src/mod_notes.py` - the user's notes on mods (`mod-notes.json`); page side `src/ui/js/mod-notes.js`.
 - `src/mod_list.py` - the shareable list of mods (Export / Import, Settings); page side `src/ui/js/mod-list.js`.
+- Windows, Linux and macOS: the system-specific parts are `app_paths.py` (`APP_ROOT`, `user_data_dir()`), `gamebanana_api.py` (`find_7zip()`, `fix_backslash_names()`),
+  `mod_manager.py` (`normalize_case()`, `window_library()`, `report_startup_failure()`), the `Run Mod Manager.*` launchers and `tools/` (spec, `fetch_7zip.py`).
 - `src/gamebanana_api.py` - GameBanana client. `roster.json` - every character/course/part/item; `name-labels.json` - text ids.
 - `src/image_cache.py`, `library_cache.py`, `gb_desc_cache.py` - caches (see below).
 - `src/ui/` - `index.html` frame, `html/` the remaining modal markup, `css/`, `js/` scripts (see "Frontend rules"). `js/ui/` is the component
@@ -118,5 +120,6 @@ notes, measurements and rules live in `docs/` (index below).
 | Voice editing | `docs/voice-editing.md` |
 | The user's notes on mods | `docs/mod-notes.md` |
 | Export / Import of the mod list | `docs/mod-list.md` |
+| Linux and macOS: what differs by system, what was tested | `docs/cross-platform.md` |
 | `.ips` code patches | `docs/code-patches.md` |
 | The log, page errors, "Copy details" | `docs/diagnostics.md` |

@@ -18,13 +18,19 @@ Your mods stay on your computer. The app only talks to GameBanana to browse and 
 
 ## Requirements
 
-- **Windows 10 or 11.** Only Windows has been tested.
-- The **Microsoft Edge WebView2 runtime**. It is already included in Windows 11 and up-to-date Windows 10.
+- **Windows 10 or 11**, **Linux** (64-bit, X11 or Wayland) or **macOS 11 or newer**. Windows is the system the app was made
+  and tested on; the Linux and macOS builds are newer, so expect rough edges and please report them.
+- On Windows, the **Microsoft Edge WebView2 runtime**. It is already included in Windows 11 and up-to-date Windows 10.
 - **Your own copy of Mario Kart 8 Deluxe**, dumped from your Switch, with its RomFS extracted (see
   [First run](#first-run)). The app cannot include the game's files because they belong to Nintendo.
 - A Switch running **Atmosphere** custom firmware, to use the mods.
 
 ## Install and run
+
+Nothing else needs installing: Python and 7-Zip (for `.rar` and `.7z` mods) are included in every download. If you'd rather
+check what you're running, the full source is in this repository.
+
+**Windows**
 
 1. Download `MK8DX-Mod-Manager-v<version>-windows.zip` from the releases page.
 2. **Extract the whole zip** to a short path you want to keep it in, such as
@@ -33,22 +39,46 @@ Your mods stay on your computer. The app only talks to GameBanana to browse and 
    data next to itself.
 3. Double-click **`MK8DX Mod Manager.exe`**.
 
-Nothing else needs installing: Python and 7-Zip (for `.rar` and `.7z` mods) are included.
 Windows may show a "Windows protected your PC" notice the first time because the app isn't
-code-signed; choose **More info**, then **Run anyway**. If you'd rather check what you're running, the
-full source is in this repository.
+code-signed; choose **More info**, then **Run anyway**.
 
 To update, extract the new zip over your old folder. Your mods and settings live in the `data` folder next to the
 app (or the folder you chose in Settings), which isn't part of the zip, so they're kept.
 
+**Linux**
+
+1. Download `MK8DX-Mod-Manager-v<version>-linux-x86_64.tar.gz` and extract it (`tar -xzf <file>`).
+2. Run `./mk8dx-mod-manager` in the extracted folder.
+
+The window library (Qt WebEngine) is inside the folder. Your data, settings and the log live in
+`~/.local/share/mk8dx-mod-manager` (or under `$XDG_DATA_HOME`), so replacing the folder to update keeps them. If it doesn't start, run it
+from a terminal to see why; the folder's `README.md` lists the usual fixes.
+
+**macOS**
+
+1. Download `MK8DX-Mod-Manager-v<version>-macos-arm64.zip` (Apple Silicon) and unzip it.
+2. Open `MK8DX Mod Manager.app`. The app isn't signed with an Apple developer account, so macOS blocks it the first time: open
+   **System Settings > Privacy & Security** and click **Open Anyway** (or run
+   `xattr -dr com.apple.quarantine "MK8DX Mod Manager.app"` in Terminal).
+
+Your data, settings and the log live in `~/Library/Application Support/MK8DX Mod Manager`. Only Apple Silicon Macs have a download;
+on an Intel Mac, run from source.
+
 ### Running from source (optional)
 
 If you'd rather not use the packaged build, install
-[Python 3.9 or newer](https://www.python.org/downloads/) (tick **"Add python.exe to PATH"**) and
-[7-Zip](https://www.7-zip.org/) (needed for `.rar` and `.7z` mods), then double-click
-**`Run Mod Manager.bat`** in the repository. The first launch creates a private Python environment in a
-`.venv` folder and downloads the two libraries the app needs (`pywebview` and `Pillow`), which needs an
-internet connection. A console window stays open while it runs, so any error messages are visible.
+[Python 3.9 or newer](https://www.python.org/downloads/) (on Windows tick **"Add python.exe to PATH"**) and
+[7-Zip](https://www.7-zip.org/) (needed for `.rar` and `.7z` mods; on macOS `brew install sevenzip`, on Debian and Ubuntu
+`sudo apt install 7zip`). Then:
+
+- **Windows:** double-click **`Run Mod Manager.bat`** in the repository.
+- **Linux:** run **`./Run Mod Manager.sh`**. On Debian and Ubuntu you may first need `sudo apt install python3-venv`, and the web view
+  (Qt WebEngine) needs a few system libraries: `sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libnss3 libasound2`.
+- **macOS:** double-click **`Run Mod Manager.command`** (or run `./Run Mod Manager.sh`).
+
+The first launch creates a private Python environment in a `.venv` folder and downloads the libraries the app needs
+(`pywebview` and `Pillow`, plus Qt on Linux), which needs an internet connection. A console window stays open while it runs, so any
+error messages are visible.
 
 Design notes for contributors, including how to build the release, are in [docs/DEVELOPERS.md](docs/DEVELOPERS.md).
 
@@ -57,7 +87,8 @@ Design notes for contributors, including how to build the release, are in [docs/
 On first launch, a short setup wizard asks for:
 
 1. **A data folder**, where the app keeps your downloaded mods, settings and caches. The app suggests a
-   **`data`** folder next to itself (next to the `.exe`, or in the repository folder when run from source) and marks it
+   **`data`** folder next to itself (next to the `.exe` on Windows, in the repository folder when run from source, or
+   inside the app's own folder in your home directory on Linux and macOS) and marks it
    as recommended, so most people just click Next. You can pick a different folder here, or later under **Settings**.
    If the app is somewhere it can't write to, there is no suggestion and you choose a folder instead.
 2. **Your game version** and a few options (language, adult-content filter, advanced mode).
@@ -133,8 +164,9 @@ any later version (see [`LICENSE`](LICENSE)). Copyright (c) 2026 digiphreniac. T
 - Texture packing: `src/_bntx_structs.py` is from [BNTX Editor](https://github.com/aboood40091/BNTX-Editor) by AboodXD
   (GNU GPL v3 or later), included unmodified.
 - The packaged build includes the [7-Zip](https://www.7-zip.org/) command-line tool by Igor Pavlov (GNU LGPL, with the unRAR
-  restriction; its license is in `_internal\7zip\License.txt`).
+  restriction; its license is in the `7zip` folder next to the program's libraries).
 - Built with [pywebview](https://pywebview.flowrl.com/) (BSD-3-Clause) and [Pillow](https://python-pillow.org/) (MIT-CMU); the
+  Linux build's window is [Qt](https://www.qt.io/) 6 and Qt WebEngine through PyQt6 (LGPL-3.0 and GPL-3.0). The
   packaged build also contains Python and a few small libraries, all listed in `THIRD-PARTY-NOTICES.txt`.
 - Reference data draws on the MK8DX modding community's research: the
   [Mario Kart 8 Deluxe Information Dump](https://docs.google.com/spreadsheets/d/1B0XM1LqJxmp5L5pD3xgSSc3nBNcBAgVHL6q9RcIO_8E)

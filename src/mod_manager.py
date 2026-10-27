@@ -5,7 +5,8 @@ a single SD-card-ready romfs tree, replacing manual active-mods.txt editing
 and Mod Alchemy's per-mod enable/disable dance.
 
 Run with:  python3 mod_manager.py
-(or double-click "Run Mod Manager.bat" on Windows, which launches this via WSL)
+(or double-click "Run Mod Manager.bat" on Windows, or run "Run Mod Manager.sh" / double-click "Run Mod Manager.command" on
+Linux and macOS: each sets up its own Python environment first)
 """
 
 import base64
@@ -41,7 +42,7 @@ if app_paths.FROZEN or __name__ == "__main__":
 else:
     LOG_PATH = app_paths.current_log_path()
 diag.LOG_PATH = LOG_PATH
-if app_paths.FROZEN:   # (also before the import below: pythonnet is refused by Windows while the zip's "downloaded" mark is on it)
+if app_paths.FROZEN and sys.platform == "win32":   # (also before the import below: pythonnet is refused by Windows while the zip's "downloaded" mark is on it)
     print(f"Cleared the downloaded-file mark from {app_paths.unblock_downloaded_files()} bundled files")
 
 import webview
@@ -390,6 +391,48 @@ def find_mod_units(extracted_root: Path):
             units.append(Path(dirpath).relative_to(extracted_root))
             dirnames[:] = []  # don't recurse into this mod's own subfolders
     return sorted(units, key=lambda p: str(p).lower())
+
+
+_CANONICAL_UNIT_DIRS = {"romfs": "romfs", "exefs": "exefs"}
+
+
+def _rename_dir_case(src: Path, dest: Path) -> bool:
+    """Renames a folder to the same name in other letters. Goes through a temporary name, because on a case-insensitive file system
+    (Windows, usually macOS) "Romfs" -> "romfs" is a rename onto itself, which fails or does nothing when asked directly."""
+    if dest.exists() and not src.samefile(dest):
+        return False          # (a real "romfs" is there as well, which only a case-sensitive file system allows: leave both)
+    temp = src.with_name(f"{src.name}.case-fix-{uuid.uuid4().hex[:8]}")
+    try:
+        os.rename(src, temp)
+        os.rename(temp, dest)
+    except OSError as e:
+        diag.log("case", f"couldn't rename {src} to {dest.name}: {type(e).__name__}: {e}")
+        if temp.exists() and not src.exists():
+            try:
+                os.rename(temp, src)
+            except OSError:
+                pass
+        return False
+    return True
+
+
+def normalize_case(folder: Path) -> int:
+    """Renames every "Romfs"/"ROMFS"/"ExeFS"... folder below `folder` to lowercase "romfs"/"exefs" and returns how many it renamed.
+    The app joins those two names onto a mod's folder in many places (and the game's own files are case-sensitive). Windows and
+    usually macOS find "Romfs" anyway; Linux does not, and mods made on Windows are often spelled that way. Does not look inside a
+    romfs/ or exefs/ folder."""
+    renamed = 0
+    for dirpath, dirnames, _files in os.walk(folder):
+        keep = []
+        for d in dirnames:
+            canon = _CANONICAL_UNIT_DIRS.get(d.lower())
+            if canon is None:
+                keep.append(d)
+                continue
+            if d != canon and _rename_dir_case(Path(dirpath) / d, Path(dirpath) / canon):
+                renamed += 1
+        dirnames[:] = keep
+    return renamed
 
 
 # --- exefs code patches -----------------------------------------------------
@@ -1646,6 +1689,16 @@ def _name_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", (name or "").lower())
 
 
+def _ci_descend(base: Path, *names: str) -> Path:
+    """base / names[0] / names[1] ..., each folder found whatever its letter case ("ui/Cmn/menu"); a name that isn't there is
+    joined as written, so the result simply doesn't exist."""
+    here = base
+    for name in names:
+        found = _ci_child(here, name)
+        here = found if found is not None else here / name
+    return here
+
+
 def _ci_child(parent, name: str):
     if parent is None or not parent.is_dir():
         return None
@@ -1774,6 +1827,20 @@ class Api(VoiceEditMixin, ModNotesMixin):
         self.excluded_files_path = mod_root / EXCLUDED_FILES_FILENAME
         self.settings_path = mod_root / SETTINGS_FILENAME
         self._migrate_flat_mod_folders()
+        self._normalize_library_case()
+
+    @mutates_library
+    def _normalize_library_case(self):
+        """On macOS and Linux (never needed on Windows, where a download is normalized as it is unpacked): a data folder that came from
+        Windows can hold mods whose romfs folder is spelled "Romfs". Renames them once per start (see normalize_case). Never raises."""
+        if sys.platform == "win32":
+            return
+        try:
+            renamed = normalize_case(self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME)
+            if renamed:
+                diag.log("case", f"{renamed} mod folder(s) renamed to lowercase romfs/exefs")
+        except OSError as e:
+            diag.log("case", f"checking the mods' folder names failed: {type(e).__name__}: {e}")
 
     @mutates_library
     def _migrate_flat_mod_folders(self):
@@ -3981,7 +4048,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         and _mod_folder() would stop one level too early for those."""
         category, unit_rel = unit_key.split("/", 1)
         mod_romfs = self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME / category / unit_rel / "romfs"
-        pict_dir = mod_romfs / "UI" / "cmn" / "menu"
+        pict_dir = _ci_descend(mod_romfs, "UI", "cmn", "menu")
         if not pict_dir.is_dir():
             return None
         return next(pict_dir.glob("ym_CoursePict_*.bntx"), None)
@@ -5050,6 +5117,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         trace["dest"] = dest_folder
         fixers = []   # (which repairs below changed this mod's folders: a mod that "does nothing" is often one of these guessing wrong)
         gamebanana_api.extract_archive(archive_path, dest_folder)
+        normalize_case(dest_folder)       # ("Romfs" -> "romfs": nothing the user needs to hear about, and every later join assumes it)
 
         # Collapse a pre-packaged "atmosphere/contents/<TITLE_ID>/" wrapper
         # (see fix_atmosphere_wrapper) before find_mod_units() ever runs, so
@@ -6097,7 +6165,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
             "=== Commit FAILED - the staging folder is incomplete ===",
             f"The copy stopped at: {getattr(error, 'filename', None) or 'an unknown file'}",
             f"Reason: {type(error).__name__}: {error}",
-            "Common causes: not enough free disk space, a file open in another program (Explorer, your antivirus, OneDrive), or a path that "
+            "Common causes: not enough free disk space, a file open in another program (your file manager, antivirus, a cloud-sync folder), or a path that "
             "is too long. Fix that and commit again. Until then, don't copy the staging folder to your SD card.",
         ])
         self._log_commit(lines)
@@ -7834,20 +7902,73 @@ def default_window_size():
 
 def report_startup_failure(log_path):
     """Last resort for a packaged build: there is no console to show the traceback in, so say
-    where it was written."""
+    where it was written - in a message box on Windows, an alert on macOS (osascript), and on Linux a
+    zenity / kdialog / notify-send message when one of them is installed (else the log alone). Never raises."""
     import traceback
     traceback.print_exc()
-    if sys.platform == "win32":
-        import ctypes
-        ctypes.windll.user32.MessageBoxW(
-            None,
-            "The Mod Manager hit an error and has to close.\n\n"
+    text = ("The Mod Manager hit an error and has to close.\n\n"
             f"Details were saved to:\n{log_path}\n\n"
-            "Attach that file when you report the problem.",
-            "Mod Manager", 0x10)
+            "Attach that file when you report the problem.")
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, text, "Mod Manager", 0x10)
+        else:
+            command = startup_failure_command(text, sys.platform, shutil.which)
+            if command:
+                subprocess.run(command, check=False, timeout=120, stdin=subprocess.DEVNULL, capture_output=True)
+    except Exception:   # noqa: BLE001 - the report is best effort; the traceback and the log already have it
+        pass
+
+
+def startup_failure_command(text, platform, which):
+    """The command that shows `text` in a window on macOS or Linux, or None when nothing to show it with is installed.
+    (Split out so it can be checked without a screen.)"""
+    if platform == "darwin":
+        escaped = text.replace("\\", "\\\\").replace('"', '\\"')       # (AppleScript takes a string with line breaks in it as it is)
+        return ["osascript", "-e", f'display alert "Mod Manager" message "{escaped}" as critical']
+    if which("zenity"):
+        return ["zenity", "--error", "--title=Mod Manager", f"--text={text}", "--no-markup"]
+    if which("kdialog"):
+        return ["kdialog", "--error", text, "--title", "Mod Manager"]
+    if which("notify-send"):
+        return ["notify-send", "Mod Manager", text]
+    return None
+
+
+def window_library():
+    """Which pywebview window library to ask for: Qt on Linux (the build bundles it; from source requirements.txt installs it - so
+    the app never depends on GTK and WebKit packages from the system), the platform's own elsewhere (WebView2 on Windows, Cocoa
+    on macOS). MK8DX_GUI overrides it (for example "gtk")."""
+    chosen = os.environ.get("MK8DX_GUI", "").strip().lower()
+    if chosen:
+        return chosen
+    return "qt" if sys.platform.startswith("linux") else None
+
+
+def window_icon():
+    """The picture for the window's title bar and taskbar on Linux (Windows takes it from the .exe, macOS from the .app), or None."""
+    if not sys.platform.startswith("linux"):
+        return None
+    for candidate in (SCRIPT_DIR / "app-icon.png", SCRIPT_DIR.parent / "tools" / "app-icon.png"):
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def choose_window_library():
+    """Tells pywebview which window library to use BEFORE anything asks it for the screens (webview.screens picks one on its own,
+    and on Linux would look for Qt 5 and GTK instead of the Qt 6 that requirements.txt installs). Returns the choice."""
+    gui = window_library()
+    if gui:
+        os.environ.setdefault("PYWEBVIEW_GUI", gui)
+    if gui == "qt":
+        os.environ.setdefault("QT_API", "pyqt6")
+    return gui
 
 
 def main():
+    choose_window_library()
     api = Api(load_master_dir_pointer() or default_master_dir())
     diag.log("startup", "\n".join(api._diag_lines_safe()))
     window_w, window_h = default_window_size()
@@ -7865,7 +7986,11 @@ def main():
     # tree ("maximum recursion depth exceeded" spam in the console) badly
     # enough to hang the whole window. Not worth it just for Inspect Element,
     # so it stays off unless explicitly requested via MK8DX_DEBUG=1.
-    webview.start(debug=os.environ.get("MK8DX_DEBUG") == "1")
+    options = {}
+    icon = window_icon()
+    if icon:
+        options["icon"] = icon
+    webview.start(debug=os.environ.get("MK8DX_DEBUG") == "1", gui=window_library(), **options)
 
 
 def self_check():
@@ -7910,7 +8035,7 @@ def self_check():
     def sevenzip():
         path = gamebanana_api.find_7zip()
         if not path:
-            raise FileNotFoundError("no 7z.exe found" + (" (a release build bundles one)" if app_paths.FROZEN else ""))
+            raise FileNotFoundError(f"no {app_paths.SEVENZIP_NAME} found" + (" (a release build bundles one)" if app_paths.FROZEN else ""))
         done = subprocess.run([str(path), "i"], capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL,
                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if done.returncode != 0:

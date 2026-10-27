@@ -1,42 +1,57 @@
 name: Release
 
-# Builds the Windows package and publishes it as a GitHub Release, but only when
+# Builds the Windows, Linux and macOS packages and publishes them as one GitHub Release, but only when
 # src/version.py names a version that has no release yet (i.e. the version was bumped).
-# The package is never stored in the repository; it is built here and attached to the release.
+# The packages are never stored in the repository; they are built here and attached to the release.
 #
-# Run it by hand (Actions > Release > Run workflow) to test the build: that builds the zip and
-# attaches it to the run as a downloadable artifact, without creating a release.
+# The Windows package decides the release: it must build and pass its checks. On a push, the Linux and macOS packages are built in jobs that
+# may fail without stopping the release (continue-on-error): the release then carries whichever packages were built.
+#
+# A pull request that touches what a package is made of (the build tools, the requirements, the readmes, the workflows ...) builds all three
+# packages too, so a broken build is seen before it is merged. There a failure in any job is a failure, and nothing is published. (A pull
+# request that changes only the app's code is covered by the unit tests, which run on all three systems: tests.yml.)
+#
+# Run it by hand (Actions > Release > Run workflow) to test the builds: that builds the packages and
+# attaches them to the run as downloadable artifacts, without creating a release.
 
 on:
   push:
     branches: [master, main]
+  pull_request:
+    paths:
+      - "tools/**"
+      - "requirements.txt"
+      - "release/**"
+      - "src/app_paths.py"
+      - "src/version.py"
+      - ".gitattributes"
+      - ".github/workflows/release.yml"
   workflow_dispatch:
 
 permissions:
-  contents: write   # create the release and its tag
+  contents: read    # (the publish job asks for more, for itself only)
 
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}     # (a newer push to the pull request replaces its older build)
 
 jobs:
-  release:
-    runs-on: windows-latest
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build: ${{ steps.gate.outputs.build }}
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Read version
         id: version
         shell: bash
         run: |
-          v=$(python -c "import sys; sys.path.insert(0, 'src'); from version import VERSION; print(VERSION)")
+          v=$(python3 -c "import sys; sys.path.insert(0, 'src'); from version import VERSION; print(VERSION)")
           if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::src/version.py has VERSION '$v', expected MAJOR.MINOR.PATCH (e.g. 0.2.0)"
             exit 1
@@ -55,8 +70,18 @@ jobs:
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
+  windows:
+    needs: gate
+    if: needs.gate.outputs.build == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Make sure 7-Zip is available to bundle
-        if: steps.gate.outputs.build == 'true'
         shell: pwsh
         run: |
           $dir = Join-Path $env:ProgramFiles "7-Zip"
@@ -65,15 +90,13 @@ jobs:
           }
 
       - name: Build the package
-        if: steps.gate.outputs.build == 'true'
         shell: pwsh
         run: python tools/build_release.py
 
       - name: Check the package contents
-        if: steps.gate.outputs.build == 'true'
         shell: pwsh
         run: |
-          $zip = "dist\MK8DX-Mod-Manager-v${{ steps.version.outputs.version }}-windows.zip"
+          $zip = "dist\MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-windows.zip"
           if (-not (Test-Path $zip)) { throw "Expected $zip was not built" }
           Expand-Archive $zip -DestinationPath check
           $app = "check\MK8DX Mod Manager"
@@ -90,7 +113,6 @@ jobs:
         # Opens no window: the app checks its own pieces (page files, data files, Pillow with WebP, 7-Zip, the backend) and
         # exits non-zero if one is missing from the package. Not blocking yet, because it has not run on a runner before: once
         # it has passed, delete the next line so a broken package stops the release.
-        if: steps.gate.outputs.build == 'true'
         continue-on-error: true
         shell: pwsh
         run: |
@@ -102,7 +124,6 @@ jobs:
 
       - name: Start the packaged app once
         # Not blocking: a runner has no real desktop, so a failure here is a warning, not a stop.
-        if: steps.gate.outputs.build == 'true'
         continue-on-error: true
         shell: pwsh
         run: |
@@ -119,21 +140,155 @@ jobs:
           if (Select-String -Path "$app\mod-manager.log" -Pattern "Traceback") { throw "Traceback in mod-manager.log" }
 
       - name: Keep the package with this run
-        if: steps.gate.outputs.build == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: MK8DX-Mod-Manager-v${{ steps.version.outputs.version }}-windows
+          name: MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-windows
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || 0 }}      # (0: the repository's default)
           path: |
             dist/*.zip
             dist/*.sha256
           if-no-files-found: error
 
+  linux:
+    # Built on Ubuntu 22.04 so the program runs on anything with a glibc as new as that one (2.35).
+    needs: gate
+    if: needs.gate.outputs.build == 'true'
+    runs-on: ubuntu-22.04
+    continue-on-error: ${{ github.event_name == 'push' }}      # (on a pull request a failure must show)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the system libraries Qt WebEngine needs
+        # PyInstaller copies the ones it finds here into the package, which is what lets the package run without them installed.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libnspr4 libasound2 libegl1 libgl1 libfontconfig1 libdbus-1-3 libxkbfile1 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 \
+            libxkbcommon-x11-0 xvfb
+
+      - name: Build the package
+        run: python tools/build_release.py
+
+      - name: Check the package contents
+        run: |
+          set -e
+          pkg="dist/MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-linux-x86_64.tar.gz"
+          test -f "$pkg" || { echo "Expected $pkg was not built"; exit 1; }
+          mkdir check && tar -xzf "$pkg" -C check
+          app="check/MK8DX Mod Manager"
+          for f in mk8dx-mod-manager LICENSE.txt THIRD-PARTY-NOTICES.txt README.md _internal/ui/index.html _internal/roster.json \
+                   _internal/name-labels.json _internal/known-shared-files.json _internal/7zip/7zz _internal/7zip/License.txt; do
+            test -e "$app/$f" || { echo "Package is missing $f"; exit 1; }
+          done
+          test -x "$app/mk8dx-mod-manager" && test -x "$app/_internal/7zip/7zz" || { echo "A program in the package is not executable"; exit 1; }
+          readmes=$(find "$app" -maxdepth 1 -type f -iname '*read*me*' | wc -l)
+          test "$readmes" -eq 1 || { echo "Expected exactly one readme in the package, found $readmes"; exit 1; }
+          (cd dist && sha256sum "$(basename "$pkg")" > "$(basename "$pkg").sha256")
+
+      - name: Self-check the packaged app
+        # Opens no window; see the Windows job.
+        run: |
+          app="check/MK8DX Mod Manager"
+          QT_QPA_PLATFORM=offscreen timeout 120 "$app/mk8dx-mod-manager" --self-check || { cat "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log" || true; exit 1; }
+          cat "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log" || true
+
+      - name: Start the packaged app once
+        # Not blocking: it runs on a virtual screen, so a failure here is a warning.
+        continue-on-error: true
+        run: |
+          app="check/MK8DX Mod Manager"
+          rm -f "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log"
+          QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox --disable-gpu" timeout 20 xvfb-run -a "$app/mk8dx-mod-manager" || code=$?
+          cat "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log" || true
+          test "${code:-0}" -eq 124 || { echo "The packaged app exited within 20 seconds (code ${code:-0})"; exit 1; }
+          if grep -q Traceback "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log"; then echo "Traceback in mod-manager.log"; exit 1; fi
+
+      - name: Keep the package with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-linux
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || 0 }}      # (0: the repository's default)
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+
+  macos:
+    # Apple Silicon (the macos-latest runner). The app is not signed or notarized; see docs/cross-platform.md.
+    needs: gate
+    if: needs.gate.outputs.build == 'true'
+    runs-on: macos-latest
+    continue-on-error: ${{ github.event_name == 'push' }}      # (on a pull request a failure must show)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the package
+        run: python tools/build_release.py
+
+      - name: Check the package contents
+        run: |
+          set -e
+          pkg="dist/MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-macos-arm64.zip"
+          test -f "$pkg" || { echo "Expected $pkg was not built"; exit 1; }
+          mkdir check && ditto -x -k "$pkg" check
+          app="check/MK8DX Mod Manager"
+          for f in "MK8DX Mod Manager.app/Contents/MacOS/MK8DX Mod Manager" LICENSE.txt THIRD-PARTY-NOTICES.txt README.md; do
+            test -e "$app/$f" || { echo "Package is missing $f"; exit 1; }
+          done
+          for name in index.html roster.json 7zz License.txt; do
+            find "$app/MK8DX Mod Manager.app" -name "$name" | grep -q . || { echo "Package is missing $name"; exit 1; }
+          done
+          (cd dist && shasum -a 256 "$(basename "$pkg")" > "$(basename "$pkg").sha256")
+
+      - name: Self-check the packaged app
+        run: |
+          app="check/MK8DX Mod Manager"
+          "$app/MK8DX Mod Manager.app/Contents/MacOS/MK8DX Mod Manager" --self-check || { cat "$HOME/Library/Application Support/MK8DX Mod Manager/mod-manager.log" || true; exit 1; }
+          cat "$HOME/Library/Application Support/MK8DX Mod Manager/mod-manager.log" || true
+
+      - name: Keep the package with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-macos
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || 0 }}      # (0: the repository's default)
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+
+  publish:
+    needs: [gate, windows, linux, macos]
+    permissions:
+      contents: write   # create the release and its tag
+    # The Windows package decides; Linux and macOS are attached when they were built.
+    if: always() && github.event_name == 'push' && needs.gate.outputs.build == 'true' && needs.windows.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-*
+          merge-multiple: true
+          path: dist
+
       - name: Publish the release
-        if: steps.gate.outputs.build == 'true' && github.event_name == 'push'
         shell: bash
         run: |
-          tag="v${{ steps.version.outputs.version }}"
-          gh release create "$tag" dist/*.zip dist/*.sha256 \
+          tag="v${{ needs.gate.outputs.version }}"
+          ls -l dist
+          shopt -s nullglob          # (a package that was not built simply isn't in the list)
+          files=(dist/*.zip dist/*.tar.gz dist/*.sha256)
+          gh release create "$tag" "${files[@]}" \
             --target "$GITHUB_SHA" \
             --title "Mod Manager $tag" \
             --generate-notes

@@ -205,6 +205,17 @@ function wizFolderLink(text, path) {
 const GAME_DATA_TOOLS = [["ryujinx", "Ryujinx"], ["eden", "Eden"], ["hactool", "hactool"]];
 let gameDataTool = "ryujinx";
 
+// Which system this page is on, for example paths in the guide that differ by system.
+function hostSystem() {
+  const ua = navigator.userAgent || "";
+  return /Windows/i.test(ua) ? "windows" : /Mac/i.test(ua) ? "mac" : "linux";
+}
+
+// One of the example paths, the one for this system ({ windows, mac, linux }; a missing mac one is the linux one).
+function examplePath(paths) {
+  return paths[hostSystem()] || paths.linux;
+}
+
 // Steps 2 and 3 of the guide for one tool: how to extract the RomFS, and what the folder to select looks like.
 function gameDataToolSteps(tool) {
   const tree = ui.el("pre", null, "romfs\n├─ Audio\n├─ Course\n├─ UI\n│  └─ cmn\n│     └─ common.sarc\n└─ ...");
@@ -213,24 +224,29 @@ function gameDataToolSteps(tool) {
     return [
       ui.el("li", null, "Extract the game data's RomFS in ", wizExtLink("Eden", "https://eden-emu.dev"),
         ": right click the game > Dump RomFS, and choose the Full dump mode when asked. Eden puts the result in ",
-        ui.el("code", null, "%APPDATA%\\eden\\dump\\<title id>\\romfs"), "."),
+        ui.el("code", null, examplePath({
+          windows: "%APPDATA%\\eden\\dump\\<title id>\\romfs", mac: "~/Library/Application Support/eden/dump/<title id>/romfs",
+          linux: "~/.local/share/eden/dump/<title id>/romfs" })), "."),
       ui.el("li", null, "Select the extracted folder. With Eden it might look something like ",
-        ui.el("code", null, "C:\\Users\\<you>\\AppData\\Roaming\\eden\\dump\\0100152000022000\\romfs"), ". " + holds, tree),
+        ui.el("code", null, examplePath({
+          windows: "C:\\Users\\<you>\\AppData\\Roaming\\eden\\dump\\0100152000022000\\romfs",
+          mac: "~/Library/Application Support/eden/dump/0100152000022000/romfs", linux: "~/.local/share/eden/dump/0100152000022000/romfs" })),
+        ". " + holds, tree),
     ];
   }
   if (tool === "hactool") {
     return [
       ui.el("li", null, "Extract the game data's RomFS with ", wizExtLink("hactool", "https://github.com/SciresM/hactool"),
-        " (it needs your Switch's keys file): ", ui.el("code", null, "hactool -k prod.keys -t nca --romfsdir=C:\\mk8d\\romfs <the game's .nca file>"),
+        " (it needs your Switch's keys file): ", ui.el("code", null, "hactool -k prod.keys -t nca --romfsdir=" + examplePath({ windows: "C:\\mk8d\\romfs", linux: "~/mk8d/romfs" }) + " <the game's .nca file>"),
         ". If the game has an update, extract the update's .nca file instead and add ", ui.el("code", null, "--basenca=<the base game's .nca file>"), "."),
       ui.el("li", null, "Select the extracted folder. With hactool, it is the folder you gave to ", ui.el("code", null, "--romfsdir"),
-        ", for example ", ui.el("code", null, "C:\\mk8d\\romfs"), ". " + holds, tree),
+        ", for example ", ui.el("code", null, examplePath({ windows: "C:\\mk8d\\romfs", linux: "~/mk8d/romfs" })), ". " + holds, tree),
     ];
   }
   return [
     ui.el("li", null, "Extract the game data's RomFS in ", wizExtLink("Ryujinx", "https://ryujinx.app"), ": right click the game > Extract Data > RomFS."),
     ui.el("li", null, "Select the extracted folder. With Ryujinx, that is the folder you chose to extract into, for example ",
-      ui.el("code", null, "C:\\Users\\<you>\\Documents\\MK8D\\romfs"), ". " + holds, tree),
+      ui.el("code", null, examplePath({ windows: "C:\\Users\\<you>\\Documents\\MK8D\\romfs", linux: "~/Documents/MK8D/romfs" })), ". " + holds, tree),
   ];
 }
 

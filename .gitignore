@@ -19,3 +19,6 @@ mod-manager.log
 # Default data folder and staging output when run from source
 /data/
 /sd-card-staging/
+
+# Release build helpers (downloaded 7-Zip, ...)
+.build-cache/

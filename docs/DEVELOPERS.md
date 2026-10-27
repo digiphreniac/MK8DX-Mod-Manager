@@ -26,16 +26,19 @@ Given a character or a course, it can:
 
 ## Running it from source
 
-Python 3 with the two dependencies in `requirements.txt` (`pywebview`, `Pillow`):
+Python 3.9+ with the dependencies in `requirements.txt` (`pywebview`, `Pillow`; on Linux `pywebview[qt]`, which brings PyQt6 and
+Qt WebEngine):
 
 ```
 pip install -r requirements.txt
 python src/mod_manager.py
 ```
 
-On Windows you can double-click `Run Mod Manager.bat` instead: it creates a private `.venv`, installs the requirements
-and starts the app (`Run Mod Manager (Dev).bat` also turns on the browser dev tools). Packaged releases are built
-with PyInstaller - see "Building a release" below.
+Or use a launcher: on Windows double-click `Run Mod Manager.bat`; on Linux run `./Run Mod Manager.sh`; on macOS double-click
+`Run Mod Manager.command`. Each creates a private `.venv`, installs the requirements (again when `requirements.txt` changes)
+and starts the app (the `(Dev)` variants also turn on the web view's dev tools). On Linux the web view needs a few system
+libraries (`libxcb-cursor0 libxkbcommon-x11-0 libnss3 libasound2 ...`, see [Linux and macOS](cross-platform.md)). Packaged
+releases are built with PyInstaller - see "Building a release" below.
 
 The first launch asks for a **master folder** (where downloads, extracted mods and the app's own data are kept), then walks
 you through a short setup, including pointing the app at the game files you extracted from **your own copy** of the game.
@@ -79,11 +82,15 @@ Contributors (and coding agents - see [AGENTS.md](../AGENTS.md)) should read the
 
 ## Building a release
 
-`Build Release.bat` (or `python tools/build_release.py`) makes
-`dist/MK8DX-Mod-Manager-v<version>-windows.zip`: a PyInstaller folder build (`tools/mk8dx-mod-manager.spec`,
-no console window) holding the app, its Python runtime and 7-Zip's command-line tool, plus the license, a
-`THIRD-PARTY-NOTICES.txt` and a short readme. Install 7-Zip on the build machine first (or pass `--no-7zip`). The version comes from
-`src/version.py`; bump it before building.
+`Build Release.bat` (or `python tools/build_release.py`) makes the package for the system it runs on - a PyInstaller build cannot be
+made for another one: `dist/MK8DX-Mod-Manager-v<version>-windows.zip` (a PyInstaller folder build, `tools/mk8dx-mod-manager.spec`, no console
+window), `...-linux-<x86_64|aarch64>.tar.gz` (Qt WebEngine inside) or `...-macos-<arm64|x86_64>.zip` (an unsigned `.app`). Each holds the app,
+its Python runtime and 7-Zip's command-line tool, plus the license, a `THIRD-PARTY-NOTICES.txt` and a short readme. On Windows install
+7-Zip on the build machine first (or pass `--no-7zip`); on Linux and macOS `tools/fetch_7zip.py` downloads the official `7zz` (pinned
+version and SHA-256). On Linux install the system libraries Qt WebEngine needs first, so PyInstaller copies them into the package
+(Debian/Ubuntu: `libnss3 libnspr4 libasound2 libegl1 libgl1 libfontconfig1 libdbus-1-3 libxkbfile1 libxcb-cursor0 libxcb-icccm4 libxcb-image0
+libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 libxkbcommon-x11-0`). The version comes from
+`src/version.py`; bump it before building. What differs by system, and what was and was not tested: [Linux and macOS](cross-platform.md).
 
 - **Licensing.** The app is GPL-3.0-or-later (`LICENSE`): `src/_bntx_structs.py` is GPL code (BNTX Editor), so everything that ships with it
   is distributed under the GPL. Everything of someone else's that the release contains must have its notice in the zip:
@@ -93,15 +100,16 @@ no console window) holding the app, its Python runtime and 7-Zip's command-line 
   "About, license and credits", and the AI disclosure stays in the README, `release/README.md`, Help's About section and the GameBanana page.
 - `src/app_paths.py` is the one place that knows where files are: `RESOURCE_DIR` (the read-only `ui/`,
   `roster.json`, `known-shared-files.json`, `name-labels.json`, found under PyInstaller's bundle folder when
-  frozen) and `APP_ROOT` (the folder holding the `.exe`, where `app-config.json` goes). A new bundled data
+  frozen) and `APP_ROOT` (where `app-config.json`, the log and the default `data` folder go: the folder holding the `.exe` on
+  Windows, the user's app-data folder in a Linux or macOS build, `user_data_dir()`). A new bundled data
   file needs adding to the spec's `datas` and to be read through `app_paths.RESOURCE_DIR`.
 - Files extracted from a downloaded zip carry Windows' "from the Internet" mark, and .NET refuses to load a marked DLL, so
   pythonnet (the window library) fails. `app_paths.unblock_downloaded_files()` clears the mark from the bundled files at
   startup, before `webview` is imported. Test a build by marking its files (see the CI smoke test), not just by extracting a
   local zip, which leaves no mark.
-- The zip holds exactly one readme: `release/README.md` (copied in as `README.md`). It is written separately from the
-  repository's `README.md` and is the only place to edit the text users see in the download; CI fails if the package ends up
-  with more than one.
+- Each package holds exactly one readme, copied in as `README.md`: `release/README.md` (Windows), `release/README-linux.md` or
+  `release/README-macos.md`. They are written separately from the repository's `README.md` and are the only place to edit the text
+  users see in the download; CI fails if a package ends up with more than one.
 - First run: with no `app-config.json`, the master folder is `data` next to the app (`default_master_dir()` in
   `mod_manager.py`; `sd-card-staging` is then inside it - see `_staging_dir()`). The wizard's first step, "Data folder" (a setting of `settings-registry.js`, drawn the same in Settings), shows
   it marked Recommended (`get_master_dir_status()["is_default"]`); Next keeps it, "Change folder..." picks another (written to
@@ -119,26 +127,32 @@ no console window) holding the app, its Python runtime and 7-Zip's command-line 
 ### The app's icon
 
 The exe carries `tools/app-icon.ico` (the spec's `icon=`): Windows shows it on the file, the taskbar, alt-tab and the window's title bar, because
-pywebview takes the window's icon from the exe. From source the window shows Python's icon instead. To change it, run
-`python tools/make_icon.py path/to/picture.png`: it crops the picture to what is drawn, centres it on a square, and rewrites `tools/app-icon.png`
-(512 px) and `tools/app-icon.ico` (16 to 256 px).
+pywebview takes the window's icon from the exe. The macOS `.app` carries `tools/app-icon.icns`; on Linux the window's icon is
+`app-icon.png` (`window_icon()` in `mod_manager.py`; it is bundled in the package). From source on Windows the window shows Python's icon instead.
+To change it, run `python tools/make_icon.py path/to/picture.png`: it crops the picture to what is drawn, centres it on a square, and rewrites
+`tools/app-icon.png` (512 px), `tools/app-icon.ico` (16 to 256 px) and `tools/app-icon.icns`.
 
 ### Publishing a release (GitHub Actions)
 
-`.github/workflows/release.yml` builds the package on GitHub and publishes it as a Release - the zip is never
+`.github/workflows/release.yml` builds the packages on GitHub and publishes them as one Release - they are never
 committed (`dist/` is ignored). It runs on every push to `master`/`main`, but only builds when `src/version.py`
 names a version that has no release yet:
 
 1. Bump `VERSION` in `src/version.py` (MAJOR.MINOR.PATCH) in the change you merge.
-2. When it lands on `master`, the workflow builds the zip, checks its contents, and creates release `v<version>`
-   (tag at that commit, auto-generated notes, the zip plus a `.sha256` file attached).
+2. When it lands on `master`, the workflow builds the Windows zip, the Linux tarball (Ubuntu 22.04) and the macOS zip (Apple Silicon),
+   checks their contents, and creates release `v<version>` (tag at that commit, auto-generated notes, every package that was built plus a
+   `.sha256` file for each). The Windows package decides: the Linux and macOS jobs are `continue-on-error`, so if one fails the release
+   still goes out with the others, and the failed job's log says why.
 3. A push that doesn't change the version finds `v<version>` already released and does nothing.
+4. A pull request that touches what a package is made of (`tools/`, `requirements.txt`, `release/`, `src/app_paths.py`, `src/version.py`, the
+   workflow) builds all three packages too, with nothing published and read-only permissions. There a failed Linux or macOS job fails the
+   check (`continue-on-error` is only for pushes), so a broken build is seen before merging. Its artifacts are kept for 3 days.
 
 The workflow also runs the packaged app with `--self-check` (no window; `mod_manager.self_check()`): it checks the page files, the data files,
 Pillow with WebP, 7-Zip and the backend, and exits non-zero if one is missing from the package. That step is `continue-on-error` until it has
 passed on a runner once - then delete that line in `release.yml` so a broken package stops the release. `.github/workflows/tests.yml` runs the
-unit tests on every pull request and push to `master`.
+unit tests on Windows, Linux and macOS on every pull request and push to `master`.
 
 To test the build without releasing, run the workflow by hand (Actions > Release > Run workflow): it builds and
-attaches the zip to the run as an artifact only. To redo a release, delete the release and its tag on GitHub,
+attaches the packages to the run as artifacts only. To redo a release, delete the release and its tag on GitHub,
 then re-run the workflow on that commit (or bump the patch version instead).

@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -94,11 +95,8 @@ class Tee(unittest.TestCase):
         temp = Path(tempfile.mkdtemp(prefix="mk8dx-tee-temp-"))
         self.addCleanup(shutil.rmtree, temp, True)
         (temp / app_paths.LOG_FILENAME).mkdir()                 # (and in the temp folder too)
-        import os
-        saved = os.environ.get("TEMP")
-        os.environ["TEMP"] = str(temp)
-        self.addCleanup(lambda: os.environ.__setitem__("TEMP", saved) if saved is not None else os.environ.pop("TEMP", None))
-        self.assertIsNone(app_paths.redirect_output_to_log(tee=True))
+        with mock.patch.object(app_paths.tempfile, "gettempdir", return_value=str(temp)):       # (the temp folder is the second place tried)
+            self.assertIsNone(app_paths.redirect_output_to_log(tee=True))
         self.assertIs(sys.stderr, console)
 
 

@@ -23,4 +23,4 @@ No AI was used for generating artwork or assets.
 
 It is free software under the GNU General Public License, version 3 or later (LICENSE.txt); its source code is at
 https://github.com/digiphreniac/MK8DX-Mod-Manager. The icons are Tabler Icons (MIT). THIRD-PARTY-NOTICES.txt lists everything else in this folder that
-is someone else's (BNTX Editor, 7-Zip, pywebview, Pillow, Python and more) with its license. Full credits: https://github.com/digiphreniac/MK8DX-Mod-Manager#credits
+is someone else's (BNTX Editor, 7-Zip, pywebview, Pillow, Python and more) with its license. Full credits: https://github.com/digiphreniac/MK8DX-Mod-Manager#about-license-and-credits

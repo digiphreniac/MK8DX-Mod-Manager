@@ -31,7 +31,7 @@ class TheAppsOwnLicense(unittest.TestCase):
         self.assertIn("GNU GPL v3", header)
 
     def test_the_readmes_say_so_and_say_who_made_what(self):
-        for name in (("README.md",), ("release", "README.md")):
+        for name in (("README.md",), ("release", "README.md"), ("release", "README-linux.md"), ("release", "README-macos.md")):
             text = read(*name)
             self.assertIn("GNU General Public License", text, name)
             self.assertIn("Claude Code", text, name)
@@ -46,8 +46,9 @@ class TheAppsOwnLicense(unittest.TestCase):
 class TheNoticesInTheRelease(unittest.TestCase):
     def test_the_build_copies_the_license_and_writes_the_notices_into_the_release(self):
         build = read("tools", "build_release.py")
-        self.assertIn('shutil.copy2(ROOT / "LICENSE", out / "LICENSE.txt")', build)
-        self.assertIn('"third_party_notices.py", out / "THIRD-PARTY-NOTICES.txt"', build)
+        self.assertIn('shutil.copy2(ROOT / "LICENSE", folder / "LICENSE.txt")', build)
+        self.assertIn('"third_party_notices.py", folder / "THIRD-PARTY-NOTICES.txt"', build)
+        self.assertIn("add_documents(", build)
         self.assertIn('"License.txt"', read("tools", "mk8dx-mod-manager.spec"))            # (7-Zip's own license goes in as well)
 
     def test_the_texts_that_do_not_come_from_a_package_are_kept_in_the_repository(self):
@@ -56,7 +57,7 @@ class TheNoticesInTheRelease(unittest.TestCase):
         self.assertIn("MIT License", read("release", "licenses", "tabler-icons.txt"))
 
     def test_the_notices_name_what_is_in_the_release_and_carry_the_texts_that_ask_for_them(self):
-        text = third_party_notices.build(strict=False)
+        text = third_party_notices.build(strict=False, system="windows")      # (the other systems' notices: tests/test_cross_platform.py)
         for heading in ("Tabler Icons", "BNTX Editor", "7-Zip", "pywebview", "pillow", "bottle", "proxy_tools", "pythonnet", "clr_loader",
                         "cffi", "pycparser", "typing_extensions", "setuptools", "Python - the interpreter", "OpenSSL", "libffi"):
             self.assertIn(heading, text, heading)
