@@ -288,7 +288,18 @@ jobs:
           ls -l dist
           shopt -s nullglob          # (a package that was not built simply isn't in the list)
           files=(dist/*.zip dist/*.tar.gz dist/*.sha256)
+
+          # The release notes are the message of the commit that last changed src/version.py (the version bump), minus its first
+          # line (the subject, e.g. "Bump version to 0.4.2") and any Co-Authored-By / "Generated with" trailers. GitHub's own list of
+          # merged pull requests is added below it (--generate-notes). A bump commit with no message body gives that list alone.
+          gh api "repos/$GH_REPO/commits?path=src/version.py&sha=$GITHUB_SHA&per_page=1" --jq '.[0].commit.message' \
+            | sed '1,/^$/d' \
+            | grep -viE '^(Co-Authored-By:|.*Generated with)' > notes.md || true
+          notes=()
+          if grep -q '[^[:space:]]' notes.md; then notes=(--notes-file notes.md); fi
+
           gh release create "$tag" "${files[@]}" \
             --target "$GITHUB_SHA" \
             --title "Mod Manager $tag" \
+            "${notes[@]}" \
             --generate-notes

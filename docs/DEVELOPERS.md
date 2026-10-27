@@ -92,6 +92,12 @@ version and SHA-256). On Linux install the system libraries Qt WebEngine needs f
 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 libxkbcommon-x11-0`). The version comes from
 `src/version.py`; bump it before building. What differs by system, and what was and was not tested: [Linux and macOS](cross-platform.md).
 
+- **Publishing and release notes.** Bumping `VERSION` on `master` publishes a GitHub Release (`.github/workflows/release.yml`). Its notes are the body
+  of the commit message that last changed `src/version.py` (everything after the first line, so write the subject as "Bump version to
+  X.Y.Z" and the notes under it; `Co-Authored-By` and "Generated with" lines are dropped), followed by GitHub's generated list of
+  merged pull requests. When you squash-merge, GitHub builds that message from the pull request's title and description, so the
+  description is the notes. A bump with no message body gets the generated list only.
+
 - **Licensing.** The app is GPL-3.0-or-later (`LICENSE`): `src/_bntx_structs.py` is GPL code (BNTX Editor), so everything that ships with it
   is distributed under the GPL. Everything of someone else's that the release contains must have its notice in the zip:
   `tools/third_party_notices.py` writes `THIRD-PARTY-NOTICES.txt` from the build environment's installed packages (a missing license text
