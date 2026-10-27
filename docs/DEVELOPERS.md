@@ -26,7 +26,7 @@ Given a character or a course, it can:
 
 ## Running it from source
 
-Python 3.9+ with the dependencies in `requirements.txt` (`pywebview`, `Pillow`; on Linux `pywebview[qt]`, which brings PyQt6 and
+Python 3.9+ with the dependencies in `requirements.txt` (`pywebview`, `Pillow`, `certifi`; on Linux `pywebview[qt]`, which brings PyQt6 and
 Qt WebEngine):
 
 ```

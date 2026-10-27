@@ -77,7 +77,7 @@ If you'd rather not use the packaged build, install
 - **macOS:** double-click **`Run Mod Manager.command`** (or run `./Run Mod Manager.sh`).
 
 The first launch creates a private Python environment in a `.venv` folder and downloads the libraries the app needs
-(`pywebview` and `Pillow`, plus Qt on Linux), which needs an internet connection. A console window stays open while it runs, so any
+(`pywebview`, `Pillow` and `certifi`, plus Qt on Linux), which needs an internet connection. A console window stays open while it runs, so any
 error messages are visible.
 
 Design notes for contributors, including how to build the release, are in [docs/DEVELOPERS.md](docs/DEVELOPERS.md).

@@ -3,7 +3,9 @@ Thin wrapper around GameBanana's public API - browsing categories/mods and
 downloading+extracting files. No pywebview dependency here; mod_manager.py's
 Api class calls into this and handles persistence/state.
 
-Uses only the standard library (urllib) so no new pip dependency is needed.
+Networking is the standard library (urllib); the only non-stdlib dependency is certifi, for a CA bundle to verify HTTPS with (see
+_ssl_context() below - a packaged macOS build has no system trust store to fall back on, and urlopen() failed there with
+CERTIFICATE_VERIFY_FAILED until every request passed one explicitly).
 """
 
 import copy
@@ -14,6 +16,7 @@ import json
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import sys
 import threading
@@ -54,10 +57,23 @@ class GameBananaError(Exception):
     pass
 
 
+_SSL_CONTEXT = None
+
+
+def _ssl_context():
+    """A TLS context using certifi's CA bundle. ssl.create_default_context() with no cafile falls back to OpenSSL's compiled-in
+    default verify path, which a packaged macOS build doesn't have (it points to a location on whatever machine built it)."""
+    global _SSL_CONTEXT
+    if _SSL_CONTEXT is None:
+        import certifi
+        _SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+    return _SSL_CONTEXT
+
+
 def _get_json(url: str):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with urllib.request.urlopen(req, timeout=20, context=_ssl_context()) as resp:
             return json.loads(resp.read())
     except urllib.error.URLError as e:
         raise GameBananaError(f"Couldn't reach GameBanana: {e}") from e
@@ -527,7 +543,7 @@ def _download_direct(url: str, dest_path: Path, expected_size=None, expected_md5
     status = content_type = None
     try:
         req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})   # (raises ValueError for an empty or odd address)
-        with urllib.request.urlopen(req, timeout=60) as resp, open(tmp_path, "wb") as out:
+        with urllib.request.urlopen(req, timeout=60, context=_ssl_context()) as resp, open(tmp_path, "wb") as out:
             status, content_type = getattr(resp, "status", None), resp.headers.get("Content-Type")
             shutil.copyfileobj(resp, out)
     except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError) as e:
@@ -574,7 +590,7 @@ def fetch_bytes(url: str, timeout: int = 30) -> bytes:
         raise GameBananaError("Refusing to fetch an untrusted image URL.")
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_context()) as resp:
             return resp.read()
     except (urllib.error.URLError, OSError) as e:
         raise GameBananaError(f"Couldn't download that image: {e}") from e

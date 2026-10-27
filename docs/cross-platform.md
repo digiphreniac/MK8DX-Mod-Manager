@@ -17,6 +17,7 @@ has not been tested. (User-facing install steps are in the `README.md`; building
 | Packages | Windows: PyInstaller folder, zipped. Linux: PyInstaller folder with Qt WebEngine and the system libraries it needs copied in (they are installed on the build machine), `tar.gz`, built on Ubuntu 22.04 for glibc 2.35. macOS: PyInstaller `.app`, ad-hoc signed by PyInstaller, zipped with `ditto` (keeps symlinks and permissions), Apple Silicon only. | `tools/mk8dx-mod-manager.spec`, `tools/build_release.py`, `.github/workflows/release.yml` |
 | Fonts, example paths | The font stacks name a system font for each system. The game-data guide shows the example paths of the system the page is on (`examplePath()` in `menu-icons-text.js`). | `base.css`, `menu-icons-text.js` |
 | Notices | The notices file lists the packages of one system (pythonnet on Windows, Qt on Linux, pyobjc on macOS) - `third_party_notices.build(system=...)`. The Linux one also names the system libraries copied into the package. | `tools/third_party_notices.py` |
+| HTTPS to GameBanana | Every request passes an explicit `ssl.SSLContext` built from certifi's CA bundle. Without it, a packaged **macOS** build failed every request with `CERTIFICATE_VERIFY_FAILED`: its Python has no system trust store, and OpenSSL's compiled-in default verify path is a folder on whatever machine built it, which doesn't exist on the end user's Mac. Windows (schannel) and Linux (`/etc/ssl/certs`, present on the systems the package targets) didn't show this, but the explicit context is used everywhere for one code path. | `gamebanana_api._ssl_context()`, `requirements.txt` (`certifi`) |
 
 ## Not signed on macOS
 
@@ -45,7 +46,21 @@ Written and tested on Windows. On Linux it was also exercised in **WSL2 (Ubuntu 
 - `tools/build_release.py` built the Linux package; unpacked on its own it passes `--self-check`, starts, keeps its files in
   `~/.local/share/mk8dx-mod-manager`, and its bundled Qt libraries resolve every system library from inside the package.
 
-**Not tested**: macOS at all (the launcher, the window, the `.app` build, the Gatekeeper steps, Homebrew's 7-Zip); an actual Linux desktop
-window (X11 or Wayland) and how the page looks in Qt WebEngine or macOS' WebKit compared with WebView2; the release workflow's new jobs
-(they have never run on GitHub); `.rar` extraction with `7zz` (no RAR file could be made here); running the Linux package on other
-distributions than Ubuntu; the Chromium sandbox on a stock Ubuntu 24.04 desktop; the Eden/Ryujinx example paths shown on Linux and macOS.
+On an Apple Silicon Mac (Homebrew Python 3.12, `/opt/homebrew/bin/7zz` already on the PATH):
+
+- the whole unit-test suite passes there;
+- `Run Mod Manager.command`/running from source starts the app, finds the existing `7zz`, and loads the page in the system WebKit view;
+- `tools/build_release.py` built the macOS package; the unpacked `.app` passes `--self-check`, and `hook-certifi.py` bundles
+  `certifi`'s `cacert.pem` into `Contents/Resources/certifi/` as expected;
+- the HTTPS fix (`gamebanana_api._ssl_context()`) was checked against the real GameBanana API with the default trust store
+  deliberately broken (`SSL_CERT_FILE`/`SSL_CERT_DIR` pointed at nonexistent paths): without a context the handshake fails with
+  `CERTIFICATE_VERIFY_FAILED`, exactly the error a user hit running a GitHub Actions-built package; with `_ssl_context()` it succeeds.
+
+**Not tested on macOS**: the Gatekeeper/quarantine steps on a package actually downloaded with a browser; the real window's look
+compared with WebView2; a full browse-and-download-a-mod run through the packaged `.app` (only the HTTPS handshake itself, not the
+whole GameBanana flow, was exercised against the packaged build's bundled `certifi` data); the release workflow's GitHub-hosted
+`macos-latest` runner itself (its Python is a different build than Homebrew's, which is what produced the original bug - see above).
+
+**Not tested at all**: an actual Linux desktop window (X11 or Wayland) and how the page looks in Qt WebEngine compared with WebView2
+or macOS' WebKit; `.rar` extraction with `7zz` (no RAR file could be made here); running the Linux package on other distributions
+than Ubuntu; the Chromium sandbox on a stock Ubuntu 24.04 desktop; the Eden/Ryujinx example paths shown on Linux and macOS.
