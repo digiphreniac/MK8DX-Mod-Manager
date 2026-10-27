@@ -88,8 +88,8 @@ window), `...-linux-<x86_64|aarch64>.tar.gz` (Qt WebEngine inside) or `...-macos
 its Python runtime and 7-Zip's command-line tool, plus the license, a `THIRD-PARTY-NOTICES.txt` and a short readme. On Windows install
 7-Zip on the build machine first (or pass `--no-7zip`); on Linux and macOS `tools/fetch_7zip.py` downloads the official `7zz` (pinned
 version and SHA-256). On Linux install the system libraries Qt WebEngine needs first, so PyInstaller copies them into the package
-(Debian/Ubuntu: `libnss3 libnspr4 libasound2 libegl1 libgl1 libfontconfig1 libdbus-1-3 libxkbfile1 libxcb-cursor0 libxcb-icccm4 libxcb-image0
-libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 libxkbcommon-x11-0`). The version comes from
+(Debian/Ubuntu: `libnss3 libnspr4 libasound2 libegl1 libgl1 libfontconfig1 libdbus-1-3 libxkbfile1 libxdamage1 libxcb-cursor0 libxcb-icccm4
+libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 libxkbcommon-x11-0`). The version comes from
 `src/version.py`; bump it before building. What differs by system, and what was and was not tested: [Linux and macOS](cross-platform.md).
 
 - **Licensing.** The app is GPL-3.0-or-later (`LICENSE`): `src/_bntx_structs.py` is GPL code (BNTX Editor), so everything that ships with it

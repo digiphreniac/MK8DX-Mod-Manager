@@ -31,7 +31,7 @@ runner label is not relied on): they run from source.
 
 - The package does not need system packages beyond what every desktop has (glibc, libGL/EGL, X11 or Wayland): the NSS, NSPR, xcb and xkb
   libraries are copied into it at build time. Running from source needs them installed (`sudo apt install libxcb-cursor0
-  libxkbcommon-x11-0 libnss3 libasound2 ...`).
+  libxkbcommon-x11-0 libnss3 libasound2 libxdamage1 ...`).
 - Qt WebEngine's sandbox can refuse to start on Ubuntu 24.04+ when AppArmor restricts unprivileged user namespaces ("No usable sandbox").
   The README tells the user the `QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox` workaround; the app does not turn the sandbox off by itself.
 - The Linux package is x86_64 only (an arm64 build needs an arm64 runner).
@@ -45,6 +45,19 @@ Written and tested on Windows. On Linux it was also exercised in **WSL2 (Ubuntu 
 - the real `7zz` unpacking a `.7z`, a zip with backslash paths and a zip with no 7-Zip, and the "no 7-Zip" message;
 - `tools/build_release.py` built the Linux package; unpacked on its own it passes `--self-check`, starts, keeps its files in
   `~/.local/share/mk8dx-mod-manager`, and its bundled Qt libraries resolve every system library from inside the package.
+
+It was also built and run in a **real Ubuntu 22.04 x86_64 container** (Docker on an Apple Silicon Mac, the x86_64 image run under QEMU
+emulation, matching the release workflow's own `ubuntu-22.04` runner and library list) - this caught a real bug: `libXdamage.so.1`
+was missing from the Linux job's `apt-get install` list (and from the three places documenting it, above). Outside of `--self-check`'s
+`QT_QPA_PLATFORM=offscreen` mode, that made the packaged app crash on startup with `ImportError: libXdamage.so.1: cannot open shared
+object file` - CI's own "Start the packaged app once" step would have shown this as a warning (it's `continue-on-error`, so it never
+failed the build or blocked the release). Installing `libxdamage1` on the build machine makes PyInstaller bundle it automatically, the
+same way it already bundles the rest of the Qt library list, so end users need nothing extra. After the fix: all 483 tests pass, build
+and `--self-check` both pass, and the packaged app starts and stays running (no more `ImportError`) with Qt WebEngine's zygote and
+renderer processes alive under Xvfb. What this container test could **not** confirm is a fully painted window: QEMU's user-mode
+emulation of x86_64 on this arm64 Mac doesn't implement the `inotify_init()` syscall, which Chromium's renderer process depends on, so
+no page ever painted and no screenshot could be taken - that is specific to this emulation layer (real x86_64 hardware, including the
+GitHub-hosted `ubuntu-22.04` runner, implements it natively), not a problem in the package itself.
 
 On an Apple Silicon Mac (Homebrew Python 3.12, `/opt/homebrew/bin/7zz` already on the PATH):
 
@@ -61,6 +74,7 @@ compared with WebView2; a full browse-and-download-a-mod run through the package
 whole GameBanana flow, was exercised against the packaged build's bundled `certifi` data); the release workflow's GitHub-hosted
 `macos-latest` runner itself (its Python is a different build than Homebrew's, which is what produced the original bug - see above).
 
-**Not tested at all**: an actual Linux desktop window (X11 or Wayland) and how the page looks in Qt WebEngine compared with WebView2
-or macOS' WebKit; `.rar` extraction with `7zz` (no RAR file could be made here); running the Linux package on other distributions
-than Ubuntu; the Chromium sandbox on a stock Ubuntu 24.04 desktop; the Eden/Ryujinx example paths shown on Linux and macOS.
+**Not tested at all**: an actual Linux desktop window with a real display (X11 or Wayland, not Xvfb) and how the page looks in Qt
+WebEngine, painted, compared with WebView2 or macOS' WebKit (blocked by the QEMU/`inotify` limitation above); `.rar` extraction with
+`7zz` (no RAR file could be made here); running the Linux package on other distributions than Ubuntu; the Chromium sandbox on a stock
+Ubuntu 24.04 desktop; the Eden/Ryujinx example paths shown on Linux and macOS.
