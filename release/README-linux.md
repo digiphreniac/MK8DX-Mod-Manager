@@ -12,7 +12,7 @@ It needs a 64-bit desktop (X11 or Wayland) and a reasonably recent distribution 
 (Qt WebEngine) and the helper libraries it needs are inside the folder; nothing else needs installing. If the window doesn't open, start it from
 a terminal to see why. A missing system library is named there; on Debian and Ubuntu these are the usual ones:
 
-    sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libnss3 libasound2
+    sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libnss3 libasound2 libxdamage1
 
 On a few systems (Ubuntu 24.04 and newer with AppArmor's restriction on user namespaces) the web view stops with "No usable sandbox". Starting the
 app once with `QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox ./mk8dx-mod-manager` works around it (that turns off the web view's own sandbox, which

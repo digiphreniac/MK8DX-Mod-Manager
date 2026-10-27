@@ -31,6 +31,7 @@ PACKAGES = [
     ("cffi", "used by pywebview's dependencies", "MIT", None),
     ("pycparser", "used by cffi", "BSD-3-Clause", None),
     ("typing_extensions", "used by pywebview", "PSF-2.0", None),
+    ("certifi", "a root-certificate bundle, used to verify HTTPS connections to GameBanana", "MPL-2.0", None),
     ("setuptools", "used by the packaged app; it carries the licenses of its own bundled parts in its folder", "MIT", None),
     # Linux: the window is Qt (PyQt6 and QtWebEngine - the GPL-3.0 bindings; the Qt libraries themselves are LGPL-3.0)
     ("PyQt6", "the Linux window: Python bindings for Qt 6", "GPL-3.0-only", None),

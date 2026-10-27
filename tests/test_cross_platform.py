@@ -351,6 +351,9 @@ class TheLaunchers(unittest.TestCase):
         for needle in ('".venv"', "-m venv", "requirements.txt", "pip install", "src/mod_manager.py", "7zz"):
             self.assertIn(needle, text)
 
+    # (Not on Windows: there `bash` can be the WSL launcher in System32, which fails when no distribution is installed - as on the CI
+    # runner - and the launchers are for macOS and Linux anyway. The Linux and macOS test runs check them.)
+    @unittest.skipIf(sys.platform == "win32", "the launchers are for macOS and Linux; Windows' bash may be only the WSL launcher")
     @unittest.skipUnless(shutil.which("bash"), "needs bash")
     def test_they_have_no_syntax_errors(self):
         for name in self.NAMES:
