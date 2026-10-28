@@ -59,7 +59,10 @@
   .flow-body button.ghost:hover:not(:disabled) { background: var(--hover-bg); border-color: var(--hover-border); }
   .flow-body .modal-card button.ghost, .flow-body details button.ghost { background: var(--panel); }
   .pg-status { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--panel-border); background: var(--panel); }
-  .pg-status .big { font-size: 26px; line-height: 1; }
+  .pg-status .big { display: flex; flex-shrink: 0; }   /* (a ui.icon, coloured by the kind of card) */
+  .pg-status.ok .big { color: var(--ok); }
+  .pg-status.bad .big { color: var(--danger); }
+  .pg-status.wait .big { color: var(--warn); }
   .pg-status .t { font-size: 15px; font-weight: 700; }
   .pg-status .s { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
   .pg-status.ok { border-color: var(--ok); background: var(--ok-soft); }
@@ -124,5 +127,6 @@
   .pg-support-left { display: flex; align-items: center; gap: 12px; }
   .pg-support-icon { flex: 0 0 auto; width: 26px; height: 26px; display: flex; color: var(--accent); }
   .pg-support-icon svg { width: 100%; height: 100%; }
+  .pg-support-icon img { width: 100%; height: 100%; object-fit: contain; }
   .pg-support-label { font-size: 13px; font-weight: 600; }
   .pg-support-why { font-size: 12.5px; color: var(--text-dim); margin-top: 1px; }

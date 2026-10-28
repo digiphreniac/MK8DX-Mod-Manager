@@ -5,7 +5,6 @@ function closeHelpModal() {
   helpModal.close();
 }
 document.getElementById("help-link").addEventListener("click", openHelpModal);
-document.getElementById("support-link").addEventListener("click", openSupportPage);
 document.getElementById("btn-open-discord").addEventListener("click", () => openExternal(DISCORD_URL));
 document.getElementById("btn-show-log").addEventListener("click", async () => {
   const note = document.getElementById("help-log-note");

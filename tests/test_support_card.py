@@ -80,26 +80,38 @@ class SupportCard(unittest.TestCase):
         self.assertIn("If you feel so inclined.", flow)
         self.assertNotIn("Optional, and it keeps the updates coming", flow)
 
-    def test_every_row_has_its_own_icon_from_the_icon_set_and_none_is_a_brand_logo(self):
+    def test_each_row_has_its_icon_and_the_brands_with_a_logo_show_it(self):
         flow = (JS / "flow.js").read_text(encoding="utf-8")
         registry = (JS / "ui" / "icons.js").read_text(encoding="utf-8")
-        for name in ("like", "star", "coffee", "chat"):
+        for name in ("like", "star"):
             self.assertIn(f'icon: "{name}"', flow)
-            self.assertIn(f"  {name}: '<", registry)          # (the generic Tabler icons, not the logos of GameBanana, GitHub, Buy Me a Coffee or Discord)
+            self.assertIn(f"  {name}: '<", registry)          # (generic Tabler icons for GameBanana and GitHub)
+        self.assertIn('logo: "buy-me-a-coffee", label: "Buy me a coffee"', flow)
+        self.assertIn('logo: "discord", label: "Join the Discord"', flow)
         self.assertNotIn("<svg", flow)
-        self.assertIn("ui.icon(way.icon", flow)
+        self.assertIn("ui.logo(way.logo", flow)
         self.assertIn("pg-support-icon", (JS.parent / "css" / "flow.css").read_text(encoding="utf-8"))
 
-    def test_the_footer_link_still_goes_to_the_donation_page(self):
-        self.assertIn("openSupportPage", (JS / "help-and-icon-generator.js").read_text(encoding="utf-8"))
+    def test_help_s_discord_button_shows_the_discord_logo(self):
+        modals = (JS / "app-modals.js").read_text(encoding="utf-8")
+        button = modals[modals.index('id: "btn-open-discord"'):]
+        self.assertIn('icon: ui.logo("discord"', button[:200])
 
-    def test_the_footer_link_says_donate_and_says_where_it_goes(self):
+    def test_the_logos_are_the_brands_own_files_and_carry_nothing_but_drawing(self):
+        registry = (JS / "ui" / "icons.js").read_text(encoding="utf-8")
+        for name, file in (("discord", "discord.svg"), ("buy-me-a-coffee", "buy-me-a-coffee.svg")):
+            self.assertIn(f'img/{file}', registry)
+            svg = (JS.parent / "img" / file).read_text(encoding="utf-8")
+            self.assertTrue(svg.lstrip().startswith(("<svg", "<?xml")), file)
+            for unsafe in ("<script", "href", "<image", "url(", "onload", "foreignObject"):
+                self.assertNotIn(unsafe, svg, f"{file}: {unsafe}")
+
+    def test_the_footer_no_longer_asks_for_a_donation(self):
         html = (JS.parent / "index.html").read_text(encoding="utf-8")
-        link = html[html.index('<a id="support-link"'):html.index("</a>", html.index('<a id="support-link"'))]
-        self.assertIn(">Donate", link)
-        self.assertRegex(link, r'title="[^"]*Buy Me a Coffee[^"]*"')   # (the tooltip names where it goes)
-        self.assertNotIn("Support creator", html)
-
+        footer = html[html.index('<footer id="stats-footer">'):html.index("</footer>")]
+        self.assertNotIn("support-link", footer)
+        self.assertNotIn("Donate", footer)
+        self.assertNotIn("support-link", (JS / "help-and-icon-generator.js").read_text(encoding="utf-8"))
 
 if __name__ == "__main__":
     unittest.main()

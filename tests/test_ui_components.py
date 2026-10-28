@@ -477,11 +477,18 @@ class Buttons(unittest.TestCase):
         button = read("js", "ui", "button.js")
         self.assertLess(button.index("await ui.confirm("), button.index("spec.onClick(event, value)"))
 
+    def test_the_footer_stats_follow_every_change_behind_a_card(self):
+        # (downloads, ticks and removals all end in refreshBehindModal(); the footer used to be redrawn only by renderAll())
+        layout = read("js", "character-select-layout.js")
+        redraw = layout[layout.index("function runBehindRedraw()"):]
+        redraw = redraw[:redraw.index("\n}\n")]
+        self.assertIn("refreshStats()", redraw)
+
     def test_clear_all_mods_is_a_confirm_with_a_tick_box_and_a_job(self):
         panels = read("js", "settings-panels.js")
         ask = panels[panels.index("function clearAllModsConfirm()"):]
         ask = ask[:ask.index("\n}\n")]
-        for needed in ('title: "Clear All Mods?"', "extra: {", "Also delete mod download files", "danger: true", "pywebview.api.clear_all_mods(deleteFiles)",
+        for needed in ('title: "Clear All Mods?"', "extra: {", "Also delete the mods themselves", "danger: true", "pywebview.api.clear_all_mods(deleteFiles)",
                        "return { error:", "return { message: msg"):
             self.assertIn(needed, ask, needed)
         modals = read("js", "app-modals.js")

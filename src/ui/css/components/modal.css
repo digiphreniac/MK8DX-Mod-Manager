@@ -71,3 +71,10 @@
   /* ui.button with an icon: the icon keeps its size, and the label sits a little way from it */
   .ui-btn > svg { flex: none; vertical-align: -3px; }
   .ui-btn > svg + .ui-btn-label { margin-left: 8px; }
+  .ui-btn > .ui-logo { flex: none; vertical-align: -3px; }   /* (ui.logo: a brand's own picture, in place of an icon) */
+  .ui-btn > .ui-logo + .ui-btn-label { margin-left: 8px; }
+  /* A logo whose own outline is dark (Buy Me a Coffee's) sits on a light plate (its `plate` colour) on the dark theme -
+     its file is never recoloured. */
+  @media (prefers-color-scheme: dark) {
+    .ui-logo-plate { background: var(--logo-plate); border-radius: 22%; padding: 12%; box-sizing: border-box; }
+  }

@@ -49,7 +49,7 @@ const settingsModal = ui.modal({
         ui.el("div", "conflicts-card-row",
           ui.button({ id: "btn-export-mod-list", label: "Export…", size: "small", onClick: () => exportModList() }).el,
           ui.button({ id: "btn-import-mod-list", label: "Import…", size: "small", onClick: () => openImportModList() }).el),
-        ui.el("div", { class: "settings-hint", text: "Export saves your selected mods and their GameBanana links to a file you can share. Import downloads and selects the mods in such a file. Custom icons, voices and your notes are not included." }),
+        ui.el("div", { class: "settings-hint", text: "Export saves your selected mods and their GameBanana links to a file you can share. Import downloads and selects the mods in such a file, with their names and the icons the other person approved, then shows them in Choose mods. Custom icons, voices and your notes are not included." }),
       ],
     }),
     ui.section({
@@ -104,7 +104,7 @@ const helpModal = ui.modal({
         ui.el("div", "help-diag-row",
           ui.button({
             id: "btn-open-discord", label: "Join the Discord",
-            icon: "chat",
+            icon: ui.logo("discord", { size: 16 }),
           }).el,
           ui.button({ id: "btn-show-log", label: "Show log file" }).el),
         ui.el("div", { class: "help-status-def", id: "help-log-note", hidden: true }),

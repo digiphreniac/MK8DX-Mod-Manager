@@ -102,7 +102,8 @@ libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-util1 lib
   is distributed under the GPL. Everything of someone else's that the release contains must have its notice in the zip:
   `tools/third_party_notices.py` writes `THIRD-PARTY-NOTICES.txt` from the build environment's installed packages (a missing license text
   fails the build) plus the texts kept in `release/licenses/` (the icon set, Apache-2.0 for OpenSSL, libffi). Add a bundled library to
-  its `PACKAGES` list; add an icon only by copying its drawing from Tabler Icons into `src/ui/js/ui/icons.js`. Credits go in the README's
+  its `PACKAGES` list; add an icon only by copying its drawing from Tabler Icons into `src/ui/js/ui/icons.js`
+  (a brand's own logo is a file in `src/ui/img/` shown with `ui.logo()`, credited as a trademark in the notices and README). Credits go in the README's
   "About, license and credits", and the AI disclosure stays in the README, `release/README.md`, Help's About section and the GameBanana page.
 - `src/app_paths.py` is the one place that knows where files are: `RESOURCE_DIR` (the read-only `ui/`,
   `roster.json`, `known-shared-files.json`, `name-labels.json`, found under PyInstaller's bundle folder when

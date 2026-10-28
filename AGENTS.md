@@ -93,7 +93,7 @@ notes, measurements and rules live in `docs/` (index below).
   `js/bootstrap.js`. Top-level code may only use what an *earlier* file declared; add a new file after what it depends on.
 - CSS order in `index.html` is the cascade: add a stylesheet after whatever it must override.
 - Build windows, cards, buttons, notes, chips, folds, menus, tabs and lists with the components in `js/ui/` (`docs/ui-components.md`), not by hand: no native `confirm()` /
-  `alert()` (use `await ui.confirm(...)` / `ui.alert(...)`), icons only from `ui.icon()` (the registry holds Tabler Icons; never draw or paste an SVG), no `*-backdrop` open/close/Escape wiring of your own (`ui.modal` owns the stack, z-order,
+  `alert()` (use `await ui.confirm(...)` / `ui.alert(...)`), icons only from `ui.icon()` (the registry holds Tabler Icons; never draw or paste an SVG) and brand logos only from `ui.logo()` (the brands' own files in `ui/img/`), no `*-backdrop` open/close/Escape wiring of your own (`ui.modal` owns the stack, z-order,
   Escape and focus), no `above-settings`-style z-index tricks.
 - `js/api-coalesce.js` shares identical in-flight calls for the methods in its `SHARED` list. Only **read-only** backend calls
   may be listed there. Conflict badges go through `conflictCount()` (one batched `check_conflict_counts` per draw).

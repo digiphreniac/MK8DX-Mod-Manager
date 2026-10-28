@@ -66,7 +66,7 @@ The backend modules, every file the app keeps in the master folder, how the fron
   (`staging_folder`: "" = the default, `@data` = inside the data folder whatever else exists, or a path; `Api._staging_dir()`) chooses another. Nothing is moved when it changes, and
   the last commit stops counting (its files are not in the new place). It is not asked in Setup.
 - `ui-icons-backups/` - a timestamped copy of any file in `ui-icons/` that a
-  build replaced or removed (never deleted automatically)
+  build replaced or removed (never deleted automatically; only **Clear All Mods** empties it)
 - `excluded-files.json` - files each mod must NOT contribute to a commit (how
   clashes are settled, and per-file choices from a mod's "Files" button - **Edit included files** in a character mod's **...** menu) - see
   [Conflicts: leaving files out](merge-rules.md#conflicts-leaving-files-out)

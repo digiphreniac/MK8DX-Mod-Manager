@@ -34,12 +34,13 @@ class TheSupportSection(unittest.TestCase):
         self.assertIn("asked for your log file", text)
         self.assertIn("button below", text)
 
-    def test_it_has_a_discord_button_with_a_plain_chat_icon_and_a_show_log_button(self):
+    def test_it_has_a_discord_button_with_the_discord_logo_and_a_show_log_button(self):
         section = self.section()
         discord = section[section.index('id: "btn-open-discord"'):section.index('id: "btn-show-log"')]
-        self.assertIn('icon: "chat"', discord)               # (an icon from the icon set: Discord's own logo has rules about who may show it, and how)
+        # (Discord's own file, unmodified, beside a link to the app's server - as Discord's brand guidelines allow; see ui.logo())
+        self.assertIn('icon: ui.logo("discord"', discord)
         self.assertNotIn("<svg", discord)
-        self.assertNotIn("5865F2", discord)
+        self.assertNotIn("5865F2", discord)                  # (the logo's colour is in its file, never copied into the page)
         self.assertIn("Join the Discord", discord)
         self.assertIn("Show log file", section)
 

@@ -1,7 +1,8 @@
 // ===== Sharing the list of mods (Settings → "Share your mod list"; docs/mod-list.md) =====
 // Export saves the selected GameBanana mods to one file. Import reads such a file, then the page asks the backend for ONE mod at a time
 // (import_mod_list_item), so it can show where it is, stop between mods, and say at the end what could not be installed. Import only ever
-// adds mods and selections; nothing already selected is changed.
+// adds mods and selections; nothing already selected is changed. Once every mod is in, the names in the list are given and marked approved,
+// and so are icons the sharer approved as the mods ship them (import_mod_list_looks). Closing the window then goes to Choose mods.
 
 const MOD_LIST_NOT_INCLUDED = "Custom icons, voices and your notes are not included.";
 
@@ -39,8 +40,8 @@ async function openImportModList() {
     class: "ui-confirm-message",
     text: `This list has ${mods.length} mod${mods.length === 1 ? "" : "s"}` +
       (read.already ? ` (${read.already} already here)` : "") +
-      `. ${toGet ? `${toGet} will be downloaded from GameBanana, which can take a few minutes. ` : ""}They are then selected for you; ` +
-      "nothing you have selected is changed.",
+      `. ${toGet ? `${toGet} will be downloaded from GameBanana, which can take a few minutes. ` : ""}They are then selected for you, ` +
+      "with the names they have in the list and the icons the other person approved; nothing you have selected is changed.",
   });
   const note = ui.hint(MOD_LIST_NOT_INCLUDED + " Mods the other person added by hand aren't in the list.", { class: "mod-list-note" });
   const progress = ui.progress({ title: "Adding mods...", startText: "Starting...", units: { mods: "mods" } });
@@ -48,11 +49,12 @@ async function openImportModList() {
   const current = ui.el("div", { class: "settings-hint", hidden: true });
   const report = ui.el("div", { class: "mod-list-report", hidden: true });
 
-  let running = false, stop = false;
+  let running = false, stop = false, ran = false;
   const modal = ui.modal({
     id: "import-mod-list-modal", title: "Import a mod list", size: "narrow", destroyOnClose: true,
     body: [summary, note, progress.el, current, report],
     beforeClose: () => !running,
+    onClose: () => { if (ran) showImportedMods(); },
     actions: [
       { label: "Cancel", variant: "ghost", size: "small", onClick: () => {
         if (!running) { modal.close(); return; }
@@ -60,7 +62,7 @@ async function openImportModList() {
         modal.actions[0].setLabel("Stopping after this mod...");
         modal.actions[0].setDisabled(true);
       } },
-      { label: "Download and select", variant: "primary", size: "small", onClick: () => run() },
+      { label: "Import", variant: "primary", size: "small", onClick: () => run() },
     ],
   });
   modal.open();
@@ -68,6 +70,7 @@ async function openImportModList() {
   async function run() {
     const [cancel, go] = modal.actions;
     running = true;
+    ran = true;
     go.el.hidden = true;
     cancel.setLabel("Stop");
     progress.el.hidden = false;
@@ -91,6 +94,10 @@ async function openImportModList() {
     }
     progress.update({ active: true, phases: [{ id: "mods", label: "Adding mods" }], phase: "mods", done, total: mods.length, elapsed: (Date.now() - started) / 1000 });
     current.hidden = true;
+    if (added.length) {
+      try { await pywebview.api.import_mod_list_looks(mods, read.looks || []); }
+      catch (e) { /* (the mods are in; their names and icons are just left for the user to approve) */ }
+    }
     try { await loadMods(); await refreshFlow(); } catch (e) { /* (the page redraws on the next look; the mods are already added) */ }
     running = false;
     cancel.setDisabled(false);
@@ -105,4 +112,18 @@ async function openImportModList() {
       ...[...failed, ...partly, ...read.unusable.map(u => `${u.name}: ${u.reason}`)].map(line => ui.el("div", { class: "settings-hint", text: "• " + line })),
     );
   }
+}
+
+// After an import the user looks over what came in, on Choose mods - whether it was started from Settings or from Setup's closing page
+// (where it finishes Setup, as that page's "Start choosing mods" button does).
+async function showImportedMods() {
+  if (!document.getElementById("setup-overlay").hidden) {
+    const done = await diag.attempt(() => pywebview.api.complete_setup());
+    if (done && done.success === false) { diag.banner("setup", "Setup couldn't be finished. " + done.error); return; }
+    closeSetupWizard();
+    await loadSettings();
+  }
+  if (settingsModal.isOpen) closeSettingsModal();
+  await goStep("mods", { skipGate: true });
+  refreshFlow();
 }

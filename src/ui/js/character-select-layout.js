@@ -228,6 +228,7 @@ function runBehindRedraw() {
   behindRedraw.timer = null;
   behindRedraw.ifChanged = true;
   redrawViews(["characters", "courses", "vehicles", "items", "more"], { ifChanged });
+  refreshStats().catch(() => {});   // (the footer: a download, a tick or a removal changes what it counts; only renderAll() used to redraw it)
 }
 
 function refreshBehindModal(opts) {

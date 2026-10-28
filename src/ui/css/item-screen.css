@@ -29,8 +29,9 @@
     border-radius: calc(var(--it) * 0.16); overflow: visible; border: 2px solid rgba(160, 165, 175, 0.8);
   }
   #view-items .char-tile:hover { transform: none; }
-  /* the white frame that follows the mouse is the hover mark: no accent border on top of it (a ticked item or a clash keeps its own) */
-  #item-grid .char-tile:not(.has-selected):not(.has-conflict):hover { border-color: rgba(160, 165, 175, 0.8); }
+  /* the white frame that follows the mouse is the hover mark: the tile's border stays as it is under it - no accent, and no grey box
+     drawn around a picture that has none (a ticked item or a clash keeps its own) */
+  #item-grid .char-tile:not(.has-selected):not(.has-conflict):not(.has-art):hover { border-color: rgba(160, 165, 175, 0.8); }
   #item-grid .char-tile.has-conflict { border-color: var(--danger); }
   #item-grid .char-tile.no-mods:hover, #item-grid .char-tile.no-mods.active { opacity: 1; }
   #item-grid .char-tile.has-art { border-color: transparent; background: transparent; box-shadow: none; }

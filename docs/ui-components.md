@@ -210,6 +210,12 @@ Sketches, not final signatures. They fix the *shape* so the review can happen be
   Tabler is credited in the README and Help). Nothing is drawn by hand any more: to use another icon, copy its drawing from Tabler into the
   registry. Pages written in HTML use `<span data-icon="name" data-size=".." data-stroke=".."></span>`, which `ui.fillIcons()` turns into the
   icon when the page loads (a test fails on an `<svg>` written in the page or in a script).
+- `ui.logo(name, { size, class })` - a brand's own logo, for a button or row that leads to that brand (Discord, Buy Me a Coffee): an
+  `<img>` of the brand's unmodified file in `ui/img/`, from the registry `ui.logos` (`{src, ratio}`), sized to fit a `size` square like an
+  icon. Usable wherever an icon node is (`ui.button({ icon: ui.logo("discord", { size: 16 }) })`). A logo drawn with a dark outline names a `plate` (a light
+  colour: white for Buy Me a Coffee) and sits on it on the dark theme (`.ui-logo-plate` in `components/modal.css`) - Buy Me a Coffee's cup would otherwise
+  vanish there; the file itself is never recoloured. Logos are trademarks, not Tabler
+  icons: each needs its line in `tools/third_party_notices.py` and the README's credits.
 - `ui.on(el, event, fn)` / `ui.mount(parent, handle)` helpers only if repeated code shows the need. No more than that.
 
 ### Button (`ui/button.js`)

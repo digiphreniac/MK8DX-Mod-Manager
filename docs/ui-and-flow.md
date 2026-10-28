@@ -70,6 +70,15 @@ and a slanted left side (bottom-left sticks out further than top-left), like the
    button, same as a genuine first run) whenever `setup.done` is false.
 2. **Choose mods** - the Character / Course / Vehicles / More / Full List tabs,
    with per-tab tick counts.
+   The step bar and "Next: Commit N mods" count only ticked mods whose folders are there (`get_flow_status()` leaves out
+   `res.missing`); a tick for a mod that is gone is kept, in case it comes back, and the Commit page lists it under "missing".
+   **Clear All Mods** (Settings > Maintenance, `Api.clear_all_mods()`) starts over as if no mod had ever been added: the ticks, every
+   record about mods (`gamebanana-mods.json`, notes, left-out files, settled clashes, looks reviewed, voice edits, menu looks, part and
+   course pictures, `ui-icons/` and its backups; each with its `.bak`), the last commit, UI build and Switch confirmation, and what the
+   last commit put in the staging folder (only `atmosphere/contents/<title id>/` and the app's own `mk8dxmm_` patch folders - the
+   staging folder may be one the user chose). With "Also delete the mods themselves" (the default) everything under `mods/` goes too,
+   hand-added mods included; without it the mod folders stay, none ticked. Settings, `setup_done`, `game-files/` and the caches stay.
+   The page then empties what it remembered about pictures and looks.
 3. **Commit** (was "Merge & Stage"). The notes under it (`_commit_summary()`, `pgWarnEl()`) are split by what they ask: **Needs your attention**
    (`warn` and `todo`: open, each with an icon, a left stripe and, where there is one, a button) and **Notes (N)** (`info`: behind one line).
    A note marked `log_only` (e.g. the shared music file, saved choices) is left off the page and kept in the commit log. Titles are a few words
@@ -121,5 +130,6 @@ The **All done** page (Copy to Switch, once the user has said it worked) ends wi
 `flow.js`): like the page on GameBanana (the more likes it has, the more people see it), star the repository on GitHub, buy a coffee, join the Discord
 (`DISCORD_URL`; Help has the same link as a button). Each
 row opens its address in the browser (`open_external_url`). The addresses are constants in `state-and-helpers.js` (`GAMEBANANA_PAGE_URL`,
-`GITHUB_URL`, `SUPPORT_URL`); an empty `GAMEBANANA_PAGE_URL` hides the GameBanana row. The footer's "Donate" link (its tooltip says it opens Buy Me a Coffee) still goes to
-the donation page.
+`GITHUB_URL`, `SUPPORT_URL`); an empty `GAMEBANANA_PAGE_URL` hides the GameBanana row. The Buy Me a Coffee and Discord rows show those
+brands' own logos (`ui.logo()`), the other two Tabler icons. This card is the only place the app asks for a donation: the footer has
+no "Donate" link (it was removed - asking once, after the mods work, is enough).
