@@ -146,24 +146,38 @@ async function runMasterDirSetup() {
 }
 document.getElementById("btn-setup-choose-folder").addEventListener("click", runMasterDirSetup);
 
-// The "Clear All Mods" question (the Maintenance card's button in app-modals.js asks it): a tick box for the downloaded files, and the
-// clearing itself runs inside the dialog, which then says what it did.
+// The "Clear All Mods" question (the Maintenance card's button in app-modals.js asks it): a tick box for the mod files, and the
+// clearing itself runs inside the dialog, which then says what it did. Afterwards the page forgets everything it remembered about
+// mods too (pictures, looks, the menu-look answers), so it looks as it did before the first mod was added.
 function clearAllModsConfirm() {
   return {
     title: "Clear All Mods?",
-    message: "This forgets every GameBanana mod link and file status tracked for every character. This can't be undone.",
+    message: "This starts over as if you had never added a mod: every selection, note, menu look, voice edit and settled clash is forgotten, " +
+      "and what your last commit built is removed from the staging folder. Your settings and setup are kept. This can't be undone.",
     extra: {
-      label: "Also delete mod download files", checked: true,
-      hint: "Deletes the extracted mod folders (and their downloaded archives) that this app downloaded from GameBanana. Mods you added manually, outside the app, are never touched.",
+      label: "Also delete the mods themselves", checked: true,
+      hint: "Deletes every mod folder and downloaded archive in the app's mods folder, including mods you added there yourself. " +
+        "Untick to keep them on your computer, none of them selected. Nothing on your Switch changes until you commit and copy again.",
     },
     confirmLabel: "Clear All Mods", busyLabel: "Clearing...", danger: true,
     onConfirm: async (deleteFiles) => {
       const result = await pywebview.api.clear_all_mods(deleteFiles);
       if (!result.success) return { error: result.error || "Something went wrong." };
+      characterLooks = {}; characterLooksFor = {}; characterReview = {}; courseReview = {}; partReview = {}; characterVoice = {};
+      resetPictureCaches();
+      invalidateMenuLook();
+      // The open character / item card was built from the mods that are gone, and a grid redraw leaves it as it is: drop it, and
+      // build a fresh one for the same character once the mods are reloaded (the screen not in view builds its own when opened).
+      if (dockedKey !== null) closeDetail();
+      if (itemDockedKey !== null) closeItemDetail();
+      if (openCharacter !== null) characterModal.close();
       await loadMods();
+      await loadSettings();
+      if (viewMode === "characters") ensureDockedSelection();
+      if (viewMode === "items") showItemsView();
       let msg = result.deleted > 0
-        ? `Done \u2014 forgot every tracked mod and deleted ${result.deleted} file${result.deleted === 1 ? "" : "s"}/folder${result.deleted === 1 ? "" : "s"}.`
-        : "Done \u2014 there was nothing tracked to clear.";
+        ? `Done \u2014 every mod record is cleared and ${result.deleted} mod${result.deleted === 1 ? " was" : "s were"} deleted.`
+        : "Done \u2014 every mod record is cleared.";
       const failed = result.errors && result.errors.length > 0;
       if (failed) msg += ` ${result.errors.length} item(s) couldn't be deleted: ${result.errors.join("; ")}`;
       return { message: msg, tone: failed ? "err" : "ok" };

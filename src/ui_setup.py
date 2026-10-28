@@ -1019,6 +1019,15 @@ def store_icon_picture(master_root: Path, png_bytes: bytes, square: bool = True)
     square (a crop from a screenshot); a small picture - a mod's own 64x64 map
     icon - is kept exactly as it is, since blowing it up and shrinking it back
     would only blur it."""
+    rel, data = icon_picture(png_bytes, square)
+    (master_root / OVERRIDES_DIRNAME).mkdir(parents=True, exist_ok=True)
+    (master_root / rel).write_bytes(data)
+    return rel
+
+
+def icon_picture(png_bytes: bytes, square: bool = True):
+    """(path relative to the master folder, PNG bytes) that store_icon_picture() saves for a picture - the name is the picture's
+    hash, so it also tells which file a stored picture was made from (Api._chosen_icon_set)."""
     from PIL import Image
     import hashlib
     import io
@@ -1032,10 +1041,7 @@ def store_icon_picture(master_root: Path, png_bytes: bytes, square: bool = True)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     data = buf.getvalue()
-    rel = f"{OVERRIDES_DIRNAME}/{hashlib.sha1(data).hexdigest()[:12]}.png"
-    (master_root / OVERRIDES_DIRNAME).mkdir(parents=True, exist_ok=True)
-    (master_root / rel).write_bytes(data)
-    return rel
+    return f"{OVERRIDES_DIRNAME}/{hashlib.sha1(data).hexdigest()[:12]}.png", data
 
 
 def _fit_picture(img, w: int, h: int):

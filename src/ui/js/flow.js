@@ -163,9 +163,12 @@ function pageHead(body, title, lead) {
   body.appendChild(ui.el("p", "pg-lead", lead));
 }
 
-function statusCard(kind, big, title, sub) {
+// The card at the top of the Commit and Copy pages: `icon` is a ui.icon() name, coloured by `kind` ("ok", "wait" or "bad").
+function statusCard(kind, icon, title, sub) {
   const c = ui.el("div", "pg-status " + kind);
-  c.appendChild(ui.el("div", "big", big));
+  const big = ui.el("div", "big");
+  big.appendChild(ui.icon(icon, { size: 26 }));
+  c.appendChild(big);
   const t = ui.el("div");
   t.appendChild(ui.el("div", "t", title));
   if (sub) t.appendChild(ui.el("div", "s", sub));
@@ -236,7 +239,7 @@ async function renderCommitPage() {
     [preview, status] = await Promise.all([pywebview.api.preview_commit(keys), pywebview.api.get_flow_status()]);
   } catch (e) {   // (without this the page said "Checking your mods..." for ever)
     const failed = ui.el("div");
-    failed.appendChild(statusCard("bad", "!", "Couldn't check your mods", diag.describe(e)));
+    failed.appendChild(statusCard("bad", "error", "Couldn't check your mods", diag.describe(e)));
     failed.appendChild(button("Try again", "ghost", renderCommitPage));
     loading.replaceWith(failed);
     return;
@@ -272,7 +275,7 @@ function drawCommitPage() {
   pageHead(body, "Commit your mods",
     "Committing gathers every selected mod's files into one set, ready to copy to your Switch. Nothing on the Switch changes until you copy it there yourself.");
   if (!pv || pv.empty) {
-    body.appendChild(statusCard("wait", "☐", "No mods are selected yet", "Pick the characters, courses and vehicles you want, then come back here."));
+    body.appendChild(statusCard("wait", "next", "No mods are selected yet", "Pick the characters, courses and vehicles you want, then come back here."));
     body.appendChild(button("Choose mods", "primary", () => goStep("mods")));
     return;
   }
@@ -288,17 +291,17 @@ function drawCommitPage() {
   const checks = attention.length ? ` - ${attention.length} thing${attention.length === 1 ? "" : "s"} to check` : "";
 
   if (pv.groups.length) {
-    body.appendChild(statusCard("bad", "!", `${pv.groups.length} thing${pv.groups.length === 1 ? "" : "s"} need${pv.groups.length === 1 ? "s" : ""} your attention`,
+    body.appendChild(statusCard("bad", "error", `${pv.groups.length} thing${pv.groups.length === 1 ? "" : "s"} need${pv.groups.length === 1 ? "s" : ""} your attention`,
       "Some mods change the same files. Settle each one below - it takes one click - and then you can commit."));
   } else if (committedNow) {
-    body.appendChild(statusCard(attention.length ? "wait" : "ok", "✓", "Committed" + checks,
+    body.appendChild(statusCard(attention.length ? "wait" : "ok", "done", "Committed" + checks,
       `${c.mods} mods, ${c.files} files` + (c.code_patches ? `, ${c.code_patches} code patch${c.code_patches === 1 ? "" : "es"}` : "")
       + (c.left_out ? ` · ${c.left_out} file${c.left_out === 1 ? "" : "s"} left out on purpose` : "") + ` · ${formatWhen(res.at)}`));
   } else if (pv.already) {
-    body.appendChild(statusCard(attention.length ? "wait" : "ok", "✓", "Already committed - nothing has changed since" + checks,
+    body.appendChild(statusCard(attention.length ? "wait" : "ok", "done", "Already committed - nothing has changed since" + checks,
       `${c.mods} mods, ${c.files} files. Commit again only if you change your mods.`));
   } else {
-    body.appendChild(statusCard("wait", "→", `Ready to commit ${c.mods} mod${c.mods === 1 ? "" : "s"}`,
+    body.appendChild(statusCard("wait", "next", `Ready to commit ${c.mods} mod${c.mods === 1 ? "" : "s"}`,
       `${c.files} files will be put together` + (c.code_patches ? `, plus ${c.code_patches} code patch${c.code_patches === 1 ? "" : "es"}` : "") + "."));
   }
 
@@ -337,7 +340,7 @@ function drawCommitPage() {
   }
 
   if (res && res.conflict === false && !res.staged) {
-    body.appendChild(statusCard("bad", "!", "Nothing was committed", (res.lines || []).join(" ")));
+    body.appendChild(statusCard("bad", "error", "Nothing was committed", (res.lines || []).join(" ")));
   }
 
   if (attention.length) {
@@ -443,19 +446,19 @@ async function renderSwitchPage() {
   body.replaceChildren();
   pageHead(body, "Copy to your Switch", "The last step: put the committed files on your SD card and start the game.");
   if (!st.commit.done) {
-    body.appendChild(statusCard("wait", "→", "Nothing is ready to copy yet", "Commit your mods first."));
+    body.appendChild(statusCard("wait", "next", "Nothing is ready to copy yet", "Commit your mods first."));
     body.appendChild(button("Go to Commit", "primary", () => goStep("commit")));
     return;
   }
   if (st.commit.stale || st.mods.conflicts) {
-    body.appendChild(statusCard("wait", "!", "You've changed your mods since the last commit", "Commit again so what you copy matches what you picked."));
+    body.appendChild(statusCard("wait", "warning", "You've changed your mods since the last commit", "Commit again so what you copy matches what you picked."));
     body.appendChild(button("Go to Commit", "primary", () => goStep("commit")));
     return;
   }
   if (st.switch.done) {
     // All done: no checklist any more (it's finished). Back goes to the previous step, then the ways to support the app (like, star,
     // donate), and the troubleshooting tips stay here for anyone who finds it isn't working after all.
-    body.appendChild(statusCard("ok", "🎉", "All done - your mods work on your Switch",
+    body.appendChild(statusCard("ok", "celebrate", "All done - your mods work on your Switch",
       "If you change your mods later, the steps above will light up again and you can come back here."));
     const row = ui.el("div", "pg-cta pg-done-actions");
     row.appendChild(button("Back", "ghost", () => goStep("commit")));
@@ -464,7 +467,7 @@ async function renderSwitchPage() {
     body.appendChild(buildTroubleshooting());
     return;
   } else {
-    body.appendChild(statusCard("ok", "✓", "Everything is ready to copy",
+    body.appendChild(statusCard("ok", "done", "Everything is ready to copy",
       `${st.commit.summary ? st.commit.summary.mods + " mods, " + st.commit.summary.files + " files" : ""}` + (st.ui.needed ? " · menu pictures & names included" : "")));
   }
 

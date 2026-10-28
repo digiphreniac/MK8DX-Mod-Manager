@@ -10,6 +10,8 @@ import re
 FORMAT = "mk8dx-mod-list"
 VERSION = 1
 NOT_INCLUDED = "Custom icons, voices and your notes are not included."
+LOOK_KINDS = ("characters", "courses", "vehicles", "wheels", "gliders")   # what a "looks" entry can be about (names: ui_setup's kinds)
+_MAX_LOOKS = 1000
 
 _RECORD_TYPES = ("Mod", "Sound")
 _MAX_MODS = 2000
@@ -21,12 +23,15 @@ def _norm(path):
     return str(path).replace("\\", "/").strip("/").lower()
 
 
-def build_mod_list(gb_mods, ticked_keys, excluded, folder_of, app_version, now):
+def build_mod_list(gb_mods, ticked_keys, excluded, folder_of, app_version, now, looks=None):
     """The document to write, for the ticked units `ticked_keys` (their keys are "<category>/<item>/<mod>[/<inner folders>]").
 
     gb_mods     the GameBanana records, {item: [record]} (gamebanana-mods.json)
     excluded    the files left out, {unit key: {normalized path: {"path", "reason", "kept_from"}}} (excluded-files.json)
     folder_of   function(file entry) -> the downloaded folder of that file as a key prefix ("characters/Birdo/Wii Remotes"), or None
+    looks       (optional) [{"kind", "item", "name", "icons_confirmed", "icon_set"?}]: the name each character, course or part has, and
+                whether its icons were approved as the mods ship them, or as one version of a mod's own pictures ("icon_set": that mod's
+                {"mod_id", "record_type"} and the version) - see Api._mod_list_looks - so an import can do the same
     A ticked unit with no GameBanana record (added by hand, or a record that was cleared) goes to "not_shared" with the reason."""
     index = []        # (folder prefix, item, record, file entry) for every downloaded file
     for item, records in (gb_mods or {}).items():
@@ -66,7 +71,7 @@ def build_mod_list(gb_mods, ticked_keys, excluded, folder_of, app_version, now):
     listed.sort(key=lambda m: (m["category"], m["item"].lower(), m["name"].lower()))
     return {
         "format": FORMAT, "version": VERSION, "app_version": app_version, "exported_at": now, "note": NOT_INCLUDED,
-        "mods": listed, "not_shared": not_shared,
+        "mods": listed, "not_shared": not_shared, "looks": list(looks or []),
     }
 
 
@@ -130,6 +135,32 @@ def clean_entry(entry, categories):
     }, None
 
 
+def clean_looks(raw):
+    """The "looks" of a list, checked and rebuilt: [{"kind", "item", "name" (text, or None for no name of its own), "icons_confirmed"}].
+    An entry that can't be used is dropped (they only save the importer some checking; the mods don't depend on them)."""
+    out = []
+    for look in (raw if isinstance(raw, list) else [])[:_MAX_LOOKS]:
+        if not isinstance(look, dict) or look.get("kind") not in LOOK_KINDS:
+            continue
+        item, name = look.get("item"), look.get("name")
+        if not _text(item, 200) or "/" in item or "\\" in item:
+            continue
+        if name is not None and not (_text(name, 40) and name.strip()):
+            continue
+        clean = {"kind": look["kind"], "item": item, "name": name.strip() if name else None,
+                 "icons_confirmed": look.get("icons_confirmed") is True}
+        chosen = look.get("icon_set")
+        if isinstance(chosen, dict):   # (one version of a mod's own loose pictures - see Api._chosen_icon_set)
+            mod_id, record_type, set_id = chosen.get("mod_id"), chosen.get("record_type"), chosen.get("set")
+            if (isinstance(mod_id, int) and not isinstance(mod_id, bool) and mod_id > 0 and record_type in _RECORD_TYPES
+                    and isinstance(set_id, str) and (set_id == "" or _text(set_id, 100))):
+                clean["icon_set"] = {"mod_id": mod_id, "record_type": record_type, "set": set_id}
+            else:
+                clean["icons_confirmed"] = False
+        out.append(clean)
+    return out
+
+
 def parse_mod_list(text, categories):
     """(document, None) for the text of a list file, or (None, why not). Entries that can't be used are returned in
     "unusable" with the reason instead of failing the whole file."""
@@ -156,5 +187,6 @@ def parse_mod_list(text, categories):
     return {
         "mods": mods, "unusable": unusable, "app_version": str(doc.get("app_version") or "")[:20],
         "exported_at": str(doc.get("exported_at") or "")[:30],
+        "looks": clean_looks(doc.get("looks")),
         "not_shared": [n for n in (s.get("key") for s in doc.get("not_shared") or [] if isinstance(s, dict)) if isinstance(n, str)][:500],
     }, None

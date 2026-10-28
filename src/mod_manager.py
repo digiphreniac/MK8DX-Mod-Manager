@@ -3214,33 +3214,70 @@ class Api(VoiceEditMixin, ModNotesMixin):
             safe_io.write_json_atomic(self.settings_path, merged, keep_backup=True)
         return merged
 
+    # What "Clear All Mods" wipes besides the mods themselves: every record the app keeps about mods and the user's choices for them
+    # (with each file's .bak copy, so nothing can bring them back), and what was built from them. Settings, the setup steps, the
+    # game's files and the caches of GameBanana and of the game's own pictures stay.
+    _CLEAR_ALL_FILES = [GB_MODS_FILENAME, CONFLICT_RESOLUTIONS_FILENAME, EXCLUDED_FILES_FILENAME, NOTES_FILENAME,
+                        LOOK_REVIEWS_FILENAME, VOICE_EDITS_FILENAME, ui_setup.OVERRIDES_FILENAME, "ui-setup-cache.json"]
+    _CLEAR_ALL_DIRS = [VOICE_CUSTOM_DIRNAME, ui_setup.OVERRIDES_DIRNAME, PART_ICONS_DIRNAME, COURSE_ICONS_DIRNAME, "ui-icons",
+                       "ui-icons-backups"]
+    _CLEAR_ALL_SETTINGS = {"last_commit": None, "last_ui_build": None, "switch_done": None, "ui_setup_choices": {}}
+
+    @mutates_library
     def clear_all_mods(self, delete_files=True):
-        """Forgets every tracked GameBanana mod (across all characters), and
-        optionally deletes the files that were downloaded through this flow.
-        Mods placed manually outside the app are never touched, since only
-        paths this app itself recorded in gamebanana-mods.json are removed."""
-        gb_mods = self._load_gb_mods()
-        deleted = 0
+        """Settings > Clear All Mods: leaves the app as if no mod had ever been added. Every tick, note, left-out file, settled
+        clash, menu look, voice edit and "Looks right" is forgotten, the last commit with it (the staging folder loses what the
+        app built there; the step bar goes back to "Choose mods"). With `delete_files`, every mod folder and downloaded archive
+        under mods/ goes too, the ones added by hand included; without it they stay, none ticked. Settings and the setup (with
+        the game's files) are kept. {"success", "deleted": mods removed, "errors"}."""
         errors = []
+
+        def remove(path):
+            try:
+                if path.is_dir() and not path.is_symlink():
+                    shutil.rmtree(path)
+                elif path.exists() or path.is_symlink():
+                    path.unlink()
+            except OSError as e:
+                errors.append(f"{path}: {e}")
+                diag.log("clear-all", f"couldn't delete {path}: {e}")
+
+        deleted = 0
         if delete_files:
-            for char_mods in gb_mods.values():
-                for mod in char_mods:
-                    for file_entry in mod.get("files", []):
-                        for key in ("downloaded_to", "archive_path"):
-                            path_str = file_entry.get(key)
-                            if not path_str:
-                                continue
-                            path = Path(path_str)
-                            try:
-                                if path.is_dir():
-                                    shutil.rmtree(path)
-                                    deleted += 1
-                                elif path.is_file():
-                                    path.unlink()
-                                    deleted += 1
-                            except OSError as e:
-                                errors.append(f"{path}: {e}")
-        self._save_gb_mods({})
+            mods_dir = self.mod_root / MODS_DIRNAME
+            extracted = mods_dir / EXTRACTED_DIRNAME
+            deleted = sum(1 for category in (extracted.iterdir() if extracted.is_dir() else []) if category.is_dir()
+                          for item in category.iterdir() if item.is_dir() for mod in item.iterdir() if mod.is_dir())
+            for child in (mods_dir.iterdir() if mods_dir.is_dir() else []):
+                remove(child)
+
+        with self._state_lock:   # (the one place the ticks are emptied on purpose: the user asked for everything to go)
+            remove(self.state_path)
+            remove(self.state_path.with_name(self.state_path.name + ".bak"))
+        with self._notes_lock:
+            for name in self._CLEAR_ALL_FILES:
+                remove(self.mod_root / name)
+                remove(self.mod_root / (name + ".bak"))
+        for name in self._CLEAR_ALL_DIRS:
+            remove(self.mod_root / name)
+
+        # The staging folder may be one the user chose (holding other things), so only what a commit itself writes there goes.
+        staging = self._staging_dir()
+        remove(staging / "atmosphere" / "contents" / TITLE_ID)
+        patches = staging / "atmosphere" / EXEFS_PATCHES_DIRNAME
+        for old in (patches.iterdir() if patches.is_dir() else []):
+            if old.is_dir() and old.name.startswith(EXEFS_STAGING_PREFIX):
+                remove(old)
+        for folder in (patches, staging / "atmosphere" / "contents", staging / "atmosphere"):
+            try:
+                folder.rmdir()   # (only if that left it empty)
+            except OSError:
+                pass
+
+        self.save_settings(dict(self._CLEAR_ALL_SETTINGS))
+        self._ui_plan_cache = None
+        self.sync_voice_edits()
+        diag.log("clear-all", f"cleared every mod record ({deleted} mod folder(s) deleted, {len(errors)} couldn't be)")
         return {"success": True, "deleted": deleted, "errors": errors}
 
     def _extracted_token(self):
@@ -3311,7 +3348,164 @@ class Api(VoiceEditMixin, ModNotesMixin):
         ticked = [k for k, v in self._load_state().items() if v]
         doc = mod_list.build_mod_list(self._load_gb_mods(), ticked, self._load_excluded_files(), self._folder_prefix,
                                       APP_VERSION, datetime.now().isoformat(timespec="seconds"))
+        unshared = {n["key"] for n in doc["not_shared"]}
+        doc["looks"] = self._mod_list_looks(set(ticked) - unshared)
         return {"success": True, "list": doc}
+
+    # --- names and approved icons in a mod list ---------------------------------------------------------------------
+    # A list carries, for each character, course and part with ticked mods, the name the menus give it and whether its icons were
+    # approved as the mods ship them - so whoever imports it doesn't have to approve again what the sharer already looked at.
+    # Icons the sharer changed (a picture of their own, one taken from a mod's loose files or the Select screen picture, or
+    # pictures turned down) are not in the list, so those are never marked approved: the importer sees something else.
+
+    def _look_groups(self):
+        """[(kind, item, ticked keys, names bucket, icons bucket)] for everything with ticked mods (see _review_data's buckets)."""
+        out = [("characters", c, keys, "names", "characters") for c, keys in self._ticked_by_char().items()]
+        out += [("courses", c, keys, "course_names", "course_icons") for c, keys in self._ticked_by_course().items()]
+        for part, keys in self._ticked_by_part().items():
+            section, _item = self._vehicle_item(part)
+            if section:
+                out.append((section, part, keys, "part_names", "part_icons"))
+        return out
+
+    def _own_icons(self, kind, item, ov):
+        """True when this character / course / part shows icons of the user's own choosing, not just what its mods ship."""
+        if kind == "characters":
+            code = ui_setup.code_for_character(item)
+            if not code:
+                return True
+            ids = [i for k, _a, _e, _l in ui_setup.CHARACTER_SLOTS for i in ui_setup.slot_items(k, code)]
+        elif kind == "courses":
+            made = self._generated_course_pict_path(item)
+            return made is not None and made.is_file()
+        else:
+            _section, entry = self._vehicle_item(item)
+            iid = ui_setup.part_item(kind, entry.get("internal")) if entry else None
+            if iid is None:
+                return True
+            ids = [iid]
+        return any(i in ov["textures"] or i in ov["declined"] for i in ids)
+
+    def _chosen_icon_set(self, item, ov, keys):
+        """(mod folder key "characters/<item>/<mod>", set id) when every icon of this character the user changed is one version of a
+        ticked mod's own loose pictures, chosen with use_loose_icon_set() - else None. A choice made before the set was remembered
+        ("set") is recognised by its pictures: each is stored under its picture's hash (ui_setup.icon_picture)."""
+        code = ui_setup.code_for_character(item)
+        if not code:
+            return None
+        ids = [i for k, _a, _e, _l in ui_setup.CHARACTER_SLOTS for i in ui_setup.slot_items(k, code)]
+        mine = {i: ov["textures"][i] for i in ids if i in ov["textures"]}
+        if not mine or any(i in ov["declined"] for i in ids):
+            return None
+        froms = {e.get("from") for e in mine.values()}
+        prefix = next(("/".join(k.split("/")[:3]) for k in keys if k.split("/")[2] in froms), None) if len(froms) == 1 else None
+        if prefix is None:
+            return None
+        folder = self.mod_root / MODS_DIRNAME / EXTRACTED_DIRNAME / Path(*prefix.split("/"))
+        stored = {i: e.get("png") for i, e in mine.items()}
+        for chosen in self._loose_icon_sets(folder, prefix.split("/")[1]):
+            remembered = {e.get("set") for e in mine.values()}
+            if remembered != {None}:
+                if remembered == {chosen["suffix"]}:
+                    return prefix, chosen["suffix"]
+                continue
+            targets, _other = ui_setup.resolve_pictures(chosen["pictures"], code, explicit=True)
+            try:
+                made = {i: ui_setup.icon_picture(path.read_bytes())[0] for i, path in targets.items()}
+            except Exception:   # noqa: BLE001 - a picture that can't be read just isn't this set
+                continue
+            if made == stored:
+                return prefix, chosen["suffix"]
+        return None
+
+    def _mod_of_folder(self, prefix):
+        """(GameBanana mod id, record type) of the download whose folder is `prefix` ("characters/<item>/<mod>"), or None."""
+        for records in self._load_gb_mods().values():
+            for record in records:
+                if any(f.get("downloaded_to") and self._folder_prefix(f) == prefix for f in record.get("files", [])):
+                    return record["mod_id"], record.get("record_type", "Mod")
+        return None
+
+    def _mod_list_looks(self, shared):
+        """The "looks" Export writes, for each item whose ticked mods are all in the list (`shared`) - for one that also has mods
+        added by hand, the sharer approved a set of mods the importer won't have."""
+        data, ov = self._review_data(), ui_setup.load_overrides(self.mod_root)
+        out = []
+        for kind, item, keys, _names, icons in self._look_groups():
+            if not set(keys) <= shared:
+                continue
+            name = (ov["names"].get(f"{kind}|{item}") or {}).get("text")
+            approved = self._review_sig(keys) in data[icons].get(item, [])
+            look = {"kind": kind, "item": item, "name": name or None, "icons_confirmed": approved and not self._own_icons(kind, item, ov)}
+            # One version of a mod's own pictures, chosen from several: the importer has the same files, so the list says which.
+            chosen = self._chosen_icon_set(item, ov, keys) if approved and kind == "characters" and not look["icons_confirmed"] else None
+            mod = self._mod_of_folder(chosen[0]) if chosen else None
+            if mod:
+                look["icons_confirmed"] = True
+                look["icon_set"] = {"mod_id": mod[0], "record_type": mod[1], "set": chosen[1]}
+            out.append(look)
+        return out
+
+    def import_mod_list_looks(self, mods, looks):
+        """Run by the page once every mod of a list is in: gives each character, course and part the name it has in the list and
+        marks that name approved, and marks its icons approved where the sharer approved them as the mods ship them. Only for an
+        item whose ticked mods ALL came from this list (one with mods of the importer's own too is a set nobody has looked at).
+        {"success", "names", "icons"}: how many of each were marked."""
+        if self.mod_root is None:
+            return {"success": False, "error": "Choose a data folder first."}
+        from_list = set()
+        have = self._load_gb_mods()
+        for raw in mods if isinstance(mods, list) else []:
+            entry, _why = mod_list.clean_entry(raw, self._mod_list_categories())
+            if entry is None:
+                continue
+            record = next((r for r in have.get(entry["item"], []) if r["mod_id"] == entry["mod_id"]
+                           and r.get("record_type", "Mod") == entry["record_type"]), None)
+            if record:
+                from_list.update(k for k in self._mod_list_keys(entry, record).values() if k)
+        wanted = {(look["kind"], look["item"]): look for look in mod_list.clean_looks(looks)}
+        names = icons = 0
+        for kind, item, keys, names_bucket, icons_bucket in self._look_groups():
+            look = wanted.get((kind, item))
+            if look is None or not set(keys) <= from_list:
+                continue
+            ov = ui_setup.load_overrides(self.mod_root)
+            current = ov["names"].get(f"{kind}|{item}") or {}
+            if look["name"] and current.get("text") != look["name"]:
+                self.set_item_name(item, kind, look["name"], mark_reviewed=False)
+            elif not look["name"] and current.get("auto"):
+                self.clear_item_name(item, kind, mark_reviewed=False)   # (the sharer turned that guess down)
+            self._store_signature(names_bucket, item, keys)
+            names += 1
+            if look["icons_confirmed"] and self._apply_list_icons(kind, item, keys, look.get("icon_set"), mods):
+                self._store_signature(icons_bucket, item, keys)
+                icons += 1
+        diag.log("mod-list", f"imported looks: {names} name(s) and {icons} icon set(s) marked approved")
+        return {"success": True, "names": names, "icons": icons}
+
+    def _apply_list_icons(self, kind, item, keys, icon_set, mods):
+        """True when this item's icons now are what the sharer approved: the mods' own (and the importer hasn't changed them), or
+        the version of a mod's loose pictures the list names (`icon_set`), chosen here too - never over pictures of the importer's own."""
+        ov = ui_setup.load_overrides(self.mod_root)
+        if not icon_set:
+            return not self._own_icons(kind, item, ov)
+        have = self._load_gb_mods()
+        prefix = None
+        for raw in mods if isinstance(mods, list) else []:
+            entry, _why = mod_list.clean_entry(raw, self._mod_list_categories())
+            if not entry or (entry["mod_id"], entry["record_type"]) != (icon_set["mod_id"], icon_set["record_type"]):
+                continue
+            record = next((r for r in have.get(entry["item"], []) if r["mod_id"] == entry["mod_id"]
+                           and r.get("record_type", "Mod") == entry["record_type"]), None)
+            found = [k for k in (self._mod_list_keys(entry, record) if record else {}).values() if k]
+            prefix = next(("/".join(k.split("/")[:3]) for k in found if "/".join(k.split("/")[:3]) in
+                           {"/".join(t.split("/")[:3]) for t in keys}), None)
+            break
+        if prefix is None:
+            return False
+        if self._own_icons(kind, item, ov):
+            return self._chosen_icon_set(item, ov, keys) == (prefix, icon_set["set"])   # (already that set; else the importer's own stay)
+        return bool(self.use_loose_icon_set(item, prefix, icon_set["set"]).get("success"))
 
     @staticmethod
     def _dialog_path(result):
@@ -6589,6 +6783,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         conflicts = 0
         if res:
             conflicts = len(self._conflict_groups(res, exefs_conflicts)) if (res.conflicts or exefs_conflicts) else 0
+        # Ticks are kept for a mod whose folder is gone (it may come back), but the step bar counts only mods that are here: four
+        # ticked-but-deleted mods must not read "Next: Commit 4 mods". The Commit page still lists the missing ones.
+        present = len(checked) - (len(res.missing) if res else 0)
 
         # Menu icons & text are built automatically as part of a commit (see merge()), so a commit
         # only counts as current when BOTH what was copied and what was built still match right now.
@@ -6623,7 +6820,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
         if not setup_done:
             recommended = "setup"
-        elif not checked:
+        elif not present:
             recommended = "mods"
         elif not commit["done"] or commit["stale"] or conflicts:
             recommended = "commit"
@@ -6632,7 +6829,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
         else:
             recommended = "done"
         return {
-            "setup": {"done": setup_done, "base_files": base}, "mods": {"ticked": len(checked), "conflicts": conflicts},
+            "setup": {"done": setup_done, "base_files": base}, "mods": {"ticked": present, "conflicts": conflicts},
             "commit": commit, "ui": ui, "switch": switch, "recommended": recommended,
             "game_version": settings.get("game_version") or "",
         }
@@ -7773,7 +7970,7 @@ class Api(VoiceEditMixin, ModNotesMixin):
                     stored[path] = ui_setup.store_icon_picture(self.mod_root, path.read_bytes())
             except Exception as e:
                 return {"success": False, "error": f"Couldn't use {path.name}: {e}"}
-            ov["textures"][item] = {"png": stored[path], "who": item_name, "from": mod.split("/")[2]}
+            ov["textures"][item] = {"png": stored[path], "who": item_name, "from": mod.split("/")[2], "set": set_id}
             if item in ov["declined"]:
                 ov["declined"].remove(item)
         ui_setup.save_overrides(self.mod_root, ov)
