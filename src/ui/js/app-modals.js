@@ -104,7 +104,7 @@ const helpModal = ui.modal({
         ui.el("div", "help-diag-row",
           ui.button({
             id: "btn-open-discord", label: "Join the Discord",
-            icon: "chat",
+            icon: ui.logo("discord", { size: 16 }),
           }).el,
           ui.button({ id: "btn-show-log", label: "Show log file" }).el),
         ui.el("div", { class: "help-status-def", id: "help-log-note", hidden: true }),

@@ -109,6 +109,11 @@ def build(strict=True, system=None):
     out.append("Tabler Icons (https://tabler.io/icons), outline icons, version 3.49.0. Used under the MIT license:\n\n"
                + (LICENSES / "tabler-icons.txt").read_text(encoding="utf-8"))
 
+    out.append(rule("Discord and Buy Me a Coffee logos (ui/img/)"))
+    out.append("The Discord logo is a trademark of Discord Inc., and the Buy Me a Coffee logo a trademark of Buy Me a Coffee. Each is\n"
+               "included unmodified, only beside a link to that service, as their brand guidelines describe. They are not covered\n"
+               "by this program's license, and their use does not mean either company endorses this app.\n")
+
     out.append(rule("BNTX Editor - Nintendo .bntx texture packing (src/_bntx_structs.py)"))
     out.append("src/_bntx_structs.py is taken, unmodified, from BNTX Editor by AboodXD (https://github.com/aboood40091/BNTX-Editor),\n"
                "Copyright (c) 2018 AboodXD, licensed under the GNU General Public License, version 3 or later. This program is\n"

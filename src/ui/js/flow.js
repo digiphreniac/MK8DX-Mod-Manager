@@ -418,14 +418,14 @@ function supportCard() {
   const ways = [
     GAMEBANANA_PAGE_URL && { icon: "like", label: "Like it on GameBanana", why: "The more likes the page has, the more people find it.", open: "Open GameBanana", url: GAMEBANANA_PAGE_URL },
     { icon: "star", label: "Star it on GitHub", why: "It helps other modders find the project.", open: "Open GitHub", url: GITHUB_URL },
-    { icon: "coffee", label: "Buy me a coffee", why: "If you feel so inclined.", open: "Open Buy Me a Coffee", url: SUPPORT_URL },
-    { icon: "chat", label: "Join the Discord", why: "Get help, share ideas, or work on mods together.", open: "Open Discord", url: DISCORD_URL },
+    { logo: "buy-me-a-coffee", label: "Buy me a coffee", why: "If you feel so inclined.", open: "Open Buy Me a Coffee", url: SUPPORT_URL },
+    { logo: "discord", label: "Join the Discord", why: "Get help, share ideas, or work on mods together.", open: "Open Discord", url: DISCORD_URL },
   ].filter(Boolean);
   for (const way of ways) {
     const row = ui.el("div", "pg-support-way");
     const left = ui.el("div", "pg-support-left");
     const icon = ui.el("span", "pg-support-icon");
-    icon.appendChild(ui.icon(way.icon, { size: null }));
+    icon.appendChild(way.logo ? ui.logo(way.logo, { size: null }) : ui.icon(way.icon, { size: null }));   // (a brand's own logo where it has one)
     left.appendChild(icon);
     const text = ui.el("div", "pg-support-text");
     text.appendChild(ui.el("div", "pg-support-label", way.label));

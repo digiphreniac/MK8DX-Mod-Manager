@@ -62,9 +62,8 @@ const SIMPLE_CATEGORIES = [
 // Items (mirrors mod_manager.py's ITEMS_*) have their own screen and a per-item roster, loaded from Api.get_items_view() into
 // state.items as [{name, internal, units, gb_attempted, catch_all?, label?}]. The last one is the catch-all ("Items", the folder
 // everything filed before items had a roster is in), shown as "Other items".
-// Where the footer's "Donate" link and the All done page's "Buy me a coffee" row lead.
+// Where the All done page's "Buy me a coffee" row leads (the only place the app asks for a donation).
 const SUPPORT_URL = "https://buymeacoffee.com/digiphreniac";
-function openSupportPage() { pywebview.api.open_external_url(SUPPORT_URL); }
 // The other two ways to help, shown on the All done page (see supportCard() in flow.js). The more likes the GameBanana page has, the
 // more people see it. An empty address hides that row, so a missing one never sends anybody anywhere.
 const GAMEBANANA_PAGE_URL = "https://gamebanana.com/tools/24624";

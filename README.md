@@ -160,7 +160,8 @@ any later version (see [`LICENSE`](LICENSE)). Copyright (c) 2026 digiphreniac. T
 **Credits.**
 
 - Mods are by their creators on [GameBanana](https://gamebanana.com/).
-- Icons: [Tabler Icons](https://tabler.io/icons) by Paweł Kuna (MIT license).
+- Icons: [Tabler Icons](https://tabler.io/icons) by Paweł Kuna (MIT license). The Discord and Buy Me a Coffee logos are
+  trademarks of their owners, shown only beside links to those services.
 - Texture packing: `src/_bntx_structs.py` is from [BNTX Editor](https://github.com/aboood40091/BNTX-Editor) by AboodXD
   (GNU GPL v3 or later), included unmodified.
 - The packaged build includes the [7-Zip](https://www.7-zip.org/) command-line tool by Igor Pavlov (GNU LGPL, with the unRAR
