@@ -38,6 +38,13 @@ The page makes about 200 `pywebview.api.<method>(...)` calls. None of them chang
 - **pictures already travel as data.** Local pictures are `data:image/png;base64,...` strings returned by the API, and remote
   ones are GameBanana URLs. Nothing is loaded from a `file://` path, so nothing had to be re-pointed at the server.
 
+One thing the page server is stricter about than an in-process bridge: the answer has to be **JSON**. A set, a
+`Path` or `bytes` raises, which `_call_api` turns into a failed call the page reports - loud and findable. `NaN` and
+`Infinity` would not: Python writes them happily and `JSON.parse` then rejects the *whole* answer, so the call would
+fail with a parse error nowhere near the method that produced the number. `json.dumps(..., allow_nan=False)` makes
+that one loud too, and `tests/test_api_json.py` calls every read-only method and sends its answer through the same
+round trip, so most of them never get the chance.
+
 So `src/ui/js/webserver-bridge.js` puts an object with pywebview's shape in pywebview's place: one real function per public
 method of `Api`, each posting its arguments to `POST /api/<method>` and returning the answer. A call that raises in Python
 rejects in JS, as it did under pywebview.

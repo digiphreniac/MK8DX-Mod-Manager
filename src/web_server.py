@@ -233,7 +233,11 @@ class _Handler(BaseHTTPRequestHandler):
         with self.server.lifecycle.answering():
             try:
                 result = getattr(self.server.api, method)(*args)
-                body = json.dumps({"result": result})
+                # allow_nan=False on purpose. Python writes NaN and Infinity happily, but neither is JSON and the
+                # browser's JSON.parse refuses the whole answer - so the call would fail with a parse error nowhere
+                # near the method that produced the number. Refusing it here names the method instead, in the log and
+                # in what the page is told. tests/test_api_json.py keeps the Api's own answers clean.
+                body = json.dumps({"result": result}, allow_nan=False)
             except Exception as e:      # noqa: BLE001 - the page gets every failure as a rejected promise, as under pywebview
                 diag.log("api", f"{method}() failed: {type(e).__name__}: {e}")
                 self._json(HTTPStatus.OK, {"error": f"{type(e).__name__}: {e}"})
