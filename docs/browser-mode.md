@@ -15,7 +15,7 @@ the rest of the app put together:
 | Linux package | download | unpacked |
 | --- | --- | --- |
 | 0.4.2, Qt WebEngine, gzip | 211 MB | 597 MB |
-| 0.4.3 development, Qt trimmed, xz | 123 MB | 417 MB |
+| 0.4.3 + Qt trimmed, xz (never released) | 123 MB | 417 MB |
 | **browser mode** | **18 MB** | **50 MB** |
 
 `libQt6WebEngineCore.so.6` alone was 194 MB, already stripped, with 169 MB of that executable code; `libicudata.so.73` another

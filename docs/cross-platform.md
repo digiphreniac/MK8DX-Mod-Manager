@@ -46,7 +46,7 @@ Carrying one meant carrying Qt WebEngine, which is Chromium, and that set the fl
 | Linux package | download | unpacked |
 | --- | --- | --- |
 | 0.4.2 - Qt WebEngine, gzip | 211 MB | 597 MB |
-| 0.4.3 development - Qt trimmed (`tools/linux_trim.py`), xz | 123 MB | 417 MB |
+| 0.4.3 + Qt trimmed (`tools/linux_trim.py`), xz - never released | 123 MB | 417 MB |
 | **now - no web view, the page goes to the user's browser** | **18 MB** | **49 MB** |
 
 Trimming Qt had already taken out everything that could go (QML modules, translations, Chromium's other languages and its
