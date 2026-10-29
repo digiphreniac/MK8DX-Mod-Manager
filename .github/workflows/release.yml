@@ -176,9 +176,9 @@ jobs:
       - name: Check the package contents
         run: |
           set -e
-          pkg="dist/MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-linux-x86_64.tar.gz"
+          pkg="dist/MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-linux-x86_64.tar.xz"
           test -f "$pkg" || { echo "Expected $pkg was not built"; exit 1; }
-          mkdir check && tar -xzf "$pkg" -C check
+          mkdir check && tar -xJf "$pkg" -C check
           app="check/MK8DX Mod Manager"
           for f in mk8dx-mod-manager LICENSE.txt THIRD-PARTY-NOTICES.txt README.md _internal/ui/index.html _internal/roster.json \
                    _internal/name-labels.json _internal/known-shared-files.json _internal/7zip/7zz _internal/7zip/License.txt; do
@@ -206,6 +206,9 @@ jobs:
           cat "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log" || true
           test "${code:-0}" -eq 124 || { echo "The packaged app exited within 20 seconds (code ${code:-0})"; exit 1; }
           if grep -q Traceback "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log"; then echo "Traceback in mod-manager.log"; exit 1; fi
+          # (the page's own first log line: Qt, Chromium, the page's scripts and the bridge to Python all work - the check that a
+          # trimmed package, tools/linux_trim.py, still has everything)
+          grep -q "page-start" "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log" || { echo "The page never reported that it started"; exit 1; }
 
       - name: Keep the package with this run
         uses: actions/upload-artifact@v4
@@ -213,7 +216,7 @@ jobs:
           name: MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-linux
           retention-days: ${{ github.event_name == 'pull_request' && 3 || 0 }}      # (0: the repository's default)
           path: |
-            dist/*.tar.gz
+            dist/*.tar.xz
             dist/*.sha256
           if-no-files-found: error
 
@@ -287,7 +290,7 @@ jobs:
           tag="v${{ needs.gate.outputs.version }}"
           ls -l dist
           shopt -s nullglob          # (a package that was not built simply isn't in the list)
-          files=(dist/*.zip dist/*.tar.gz dist/*.sha256)
+          files=(dist/*.zip dist/*.tar.xz dist/*.sha256)
 
           # The release notes are the message of the commit that last changed src/version.py (the version bump), minus its first
           # line (the subject, e.g. "Bump version to 0.4.2") and any Co-Authored-By / "Generated with" trailers. GitHub's own list of

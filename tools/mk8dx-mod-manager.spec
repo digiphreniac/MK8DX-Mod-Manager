@@ -51,6 +51,19 @@ a = Analysis(
     hiddenimports=hiddenimports,
     excludes=excludes,
 )
+if IS_LINUX and not os.environ.get("MK8DX_NO_TRIM"):
+    # PyQt6 brings the whole of Qt; leave out what the app never loads (tools/linux_trim.py). MK8DX_NO_TRIM=1 builds it all, to compare.
+    sys.path.insert(0, str(ROOT / "tools"))
+    import linux_trim  # noqa: E402
+    from PyInstaller.depend import bindepend  # noqa: E402
+
+    def _linked(path):
+        # (no fallback: a file whose libraries can't be listed would have them left out, so the build stops instead)
+        return [name for name, _full in bindepend.get_imports(path)]
+
+    before = len(a.binaries) + len(a.datas)
+    a.binaries, a.datas, _left_out = linux_trim.trim(a.binaries, a.datas, _linked)
+    print(f"linux_trim: left out {len(_left_out)} of {before} files Qt brought that the app never loads")
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,

@@ -47,7 +47,7 @@ app (or the folder you chose in Settings), which isn't part of the zip, so they'
 
 **Linux**
 
-1. Download `MK8DX-Mod-Manager-v<version>-linux-x86_64.tar.gz` and extract it (`tar -xzf <file>`).
+1. Download `MK8DX-Mod-Manager-v<version>-linux-x86_64.tar.xz` and extract it (your file manager can, or `tar -xf <file>`).
 2. Run `./mk8dx-mod-manager` in the extracted folder.
 
 The window library (Qt WebEngine) is inside the folder. Your data, settings and the log live in

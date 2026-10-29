@@ -2,7 +2,7 @@
 Builds the release package for the system it runs on (a PyInstaller build cannot be made for another system):
 
     Windows  dist/MK8DX-Mod-Manager-v<version>-windows.zip
-    Linux    dist/MK8DX-Mod-Manager-v<version>-linux-<x86_64|aarch64>.tar.gz   (Qt WebEngine inside; see docs/cross-platform.md)
+    Linux    dist/MK8DX-Mod-Manager-v<version>-linux-<x86_64|aarch64>.tar.xz   (Qt WebEngine inside; see docs/cross-platform.md)
     macOS    dist/MK8DX-Mod-Manager-v<version>-macos-<arm64|x86_64>.zip         (an unsigned .app)
 
     python tools/build_release.py             (on Windows also: double-click "Build Release.bat")
@@ -27,6 +27,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -57,7 +58,7 @@ def package_name(version=VERSION, system=None, machine=None):
         return f"MK8DX-Mod-Manager-v{version}-windows.zip"
     if system == "macos":
         return f"MK8DX-Mod-Manager-v{version}-macos-{arch_name(machine)}.zip"
-    return f"MK8DX-Mod-Manager-v{version}-linux-{arch_name(machine)}.tar.gz"
+    return f"MK8DX-Mod-Manager-v{version}-linux-{arch_name(machine)}.tar.xz"
 
 
 def build_python():
@@ -143,7 +144,11 @@ def main():
     elif SYSTEM == "linux":
         add_documents(out, vpy)
         archive_path.unlink(missing_ok=True)
-        archive = shutil.make_archive(str(archive_path)[: -len(".tar.gz")], "gztar", dist, APP_NAME)    # (keeps execute permissions)
+        # xz at its strongest: about a third smaller than gzip for this package (Qt WebEngine compresses well), for a few minutes
+        # more here and a few seconds more to unpack (docs/cross-platform.md, "Package size"). Keeps execute permissions and links.
+        with tarfile.open(archive_path, "w:xz", preset=9) as tar:
+            tar.add(out, arcname=APP_NAME)
+        archive = str(archive_path)
     else:
         add_documents(out, vpy)
         archive = shutil.make_archive(str(archive_path)[: -len(".zip")], "zip", dist, APP_NAME)

@@ -265,8 +265,8 @@ class TheReleasePackages(unittest.TestCase):
     def test_the_file_names_say_the_system_and_the_processor(self):
         self.assertEqual(build_release.package_name("1.2.3", "windows"), "MK8DX-Mod-Manager-v1.2.3-windows.zip")
         with mock.patch.object(build_release, "SYSTEM", "linux"):
-            self.assertEqual(build_release.package_name("1.2.3", "linux", "x86_64"), "MK8DX-Mod-Manager-v1.2.3-linux-x86_64.tar.gz")
-            self.assertEqual(build_release.package_name("1.2.3", "linux", "arm64"), "MK8DX-Mod-Manager-v1.2.3-linux-aarch64.tar.gz")
+            self.assertEqual(build_release.package_name("1.2.3", "linux", "x86_64"), "MK8DX-Mod-Manager-v1.2.3-linux-x86_64.tar.xz")
+            self.assertEqual(build_release.package_name("1.2.3", "linux", "arm64"), "MK8DX-Mod-Manager-v1.2.3-linux-aarch64.tar.xz")
         with mock.patch.object(build_release, "SYSTEM", "macos"):
             self.assertEqual(build_release.package_name("1.2.3", "macos", "arm64"), "MK8DX-Mod-Manager-v1.2.3-macos-arm64.zip")
             self.assertEqual(build_release.package_name("1.2.3", "macos", "x86_64"), "MK8DX-Mod-Manager-v1.2.3-macos-x86_64.zip")

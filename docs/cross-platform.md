@@ -14,7 +14,7 @@ has not been tested. (User-facing install steps are in the `README.md`; building
 | Folder-name case | Linux is case-sensitive; macOS usually is not but keeps case. The code joins `romfs`/`exefs` onto a mod's folder in about 40 places, and mods made on Windows are often spelled `Romfs`. So `normalize_case()` renames those two folder names to lowercase when a mod is unpacked, and once on every start on macOS/Linux for a data folder that came from Windows (`_normalize_library_case()`). A rename goes through a temporary name (a case-only rename is a rename onto itself on a case-insensitive file system). Other names are looked up case-insensitively (`_ci_child`, `_ci_descend`). | `mod_manager.py` |
 | Start-up failure | Windows: a message box. macOS: an `osascript` alert. Linux: `zenity`, `kdialog` or `notify-send` when one is installed. Never raises. | `report_startup_failure()` |
 | Launchers | `Run Mod Manager.bat` / `.sh` / `.command` (and `(Dev)` variants): make `.venv`, install `requirements.txt` when it changed, start the app. The shell scripts must keep LF line endings (`.gitattributes`). | repository root |
-| Packages | Windows: PyInstaller folder, zipped. Linux: PyInstaller folder with Qt WebEngine and the system libraries it needs copied in (they are installed on the build machine), `tar.gz`, built on Ubuntu 22.04 for glibc 2.35. macOS: PyInstaller `.app`, ad-hoc signed by PyInstaller, zipped with `ditto` (keeps symlinks and permissions), Apple Silicon only. | `tools/mk8dx-mod-manager.spec`, `tools/build_release.py`, `.github/workflows/release.yml` |
+| Packages | Windows: PyInstaller folder, zipped. Linux: PyInstaller folder with Qt WebEngine and the system libraries it needs copied in (they are installed on the build machine) and the parts of Qt it never loads left out ("Package size" below), `tar.xz`, built on Ubuntu 22.04 for glibc 2.35. macOS: PyInstaller `.app`, ad-hoc signed by PyInstaller, zipped with `ditto` (keeps symlinks and permissions), Apple Silicon only. | `tools/mk8dx-mod-manager.spec`, `tools/build_release.py`, `.github/workflows/release.yml` |
 | Fonts, example paths | The font stacks name a system font for each system. The game-data guide shows the example paths of the system the page is on (`examplePath()` in `menu-icons-text.js`). | `base.css`, `menu-icons-text.js` |
 | Notices | The notices file lists the packages of one system (pythonnet on Windows, Qt on Linux, pyobjc on macOS) - `third_party_notices.build(system=...)`. The Linux one also names the system libraries copied into the package. | `tools/third_party_notices.py` |
 | HTTPS to GameBanana | Every request passes an explicit `ssl.SSLContext` built from certifi's CA bundle. Without it, a packaged **macOS** build failed every request with `CERTIFICATE_VERIFY_FAILED`: its Python has no system trust store, and OpenSSL's compiled-in default verify path is a folder on whatever machine built it, which doesn't exist on the end user's Mac. Windows (schannel) and Linux (`/etc/ssl/certs`, present on the systems the package targets) didn't show this, but the explicit context is used everywhere for one code path. | `gamebanana_api._ssl_context()`, `requirements.txt` (`certifi`) |
@@ -35,6 +35,36 @@ runner label is not relied on): they run from source.
 - Qt WebEngine's sandbox can refuse to start on Ubuntu 24.04+ when AppArmor restricts unprivileged user namespaces ("No usable sandbox").
   The README tells the user the `QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox` workaround; the app does not turn the sandbox off by itself.
 - The Linux package is x86_64 only (an arm64 build needs an arm64 runner).
+
+## Package size
+
+Windows and macOS lend the app their own web view (WebView2, WebKit), so their packages are about 20 MB. Linux has none to lend: the
+package carries Qt WebEngine, which is Chromium (its one library is 200 MB unpacked), and the 0.4.2 package was 237 MB. Two things
+make it smaller:
+
+- **What Qt the app loads.** PyQt6's wheels hold the whole of Qt and PyInstaller copied all of it: Qt Quick and QML, Quick 3D,
+  Multimedia, PDF, Sensors, Text to Speech, every Chromium language and its developer tools. `tools/linux_trim.py`, run by the spec
+  on PyInstaller's own file lists, leaves out every Qt library and plugin that nothing kept loads (followed through each file's linked
+  libraries, from the Python modules PyInstaller found and the desktop plugins in `KEEP_PLUGIN_DIRS` / `KEEP_PLATFORMS`), the system
+  libraries only those needed (libcups, libpulse ...), Qt's QML modules and translations (pywebview loads none), Chromium's languages
+  but en-US (it falls back to en-US) and its developer tools (so `MK8DX_DEBUG=1`'s dev tools are blank in the Linux package; run
+  from source for them). A system library nothing links to is never touched: Chromium loads NSS's modules by name. The GTK theme
+  plugin and its libraries (16 MB) stay, for the desktop's own look and file dialogs. `MK8DX_NO_TRIM=1` builds it all, to compare.
+- **xz instead of gzip** (`build_release.py`, level 9): about a third smaller, for some minutes more in the build and seconds more to
+  unpack.
+
+Measured on an arm64 build of the same spec and wheels (Ubuntu 24.04 container on an Apple Silicon Mac, the newest PyQt6 6.12 /
+WebEngine 6.11.2): 211 MB as before (gzip, everything) -> 160 MB trimmed (gzip) -> 104 MB trimmed and xz; unpacked 597 MB in 0.4.2,
+388 MB trimmed. Both builds started in a clean container (Xvfb, `--shm-size=1g`, a font package; system language German, to check
+Chromium's fall-back) and loaded the page (`page-start` in the log); screenshots of the two were identical pixel for pixel. The
+release workflow's "Start the packaged app once" step now also looks for that `page-start` line.
+
+One thing found on the way, not changed: the newest PyQt6 wheels for **arm64** (manylinux_2_39) no longer carry some libraries
+themselves (GLib, snappy, opus, minizip, lcms2, WebP, Xcomposite/Xfixes/Xrandr/Xtst), so a build machine without them makes a package
+that can't load Qt ("No Qt bindings could be found"). The x86_64 release builds on Ubuntu 22.04 (glibc 2.35), where pip picks
+older wheels that still carry them, so it is not affected today; `requirements.txt` does not pin PyQt6, so a future wheel could
+change that. The build machine's `apt-get` list would then need those libraries (Ubuntu 24.04 names: `libglib2.0-0t64 libsnappy1v5
+libopus0 libminizip1t64 liblcms2-2 libwebpdemux2 libwebpmux3 libxcomposite1 libxfixes3 libxrandr2 libxtst6`).
 
 ## What has been tested
 

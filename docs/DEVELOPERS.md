@@ -84,7 +84,7 @@ Contributors (and coding agents - see [AGENTS.md](../AGENTS.md)) should read the
 
 `Build Release.bat` (or `python tools/build_release.py`) makes the package for the system it runs on - a PyInstaller build cannot be
 made for another one: `dist/MK8DX-Mod-Manager-v<version>-windows.zip` (a PyInstaller folder build, `tools/mk8dx-mod-manager.spec`, no console
-window), `...-linux-<x86_64|aarch64>.tar.gz` (Qt WebEngine inside) or `...-macos-<arm64|x86_64>.zip` (an unsigned `.app`). Each holds the app,
+window), `...-linux-<x86_64|aarch64>.tar.xz` (Qt WebEngine inside, trimmed to what the app loads) or `...-macos-<arm64|x86_64>.zip` (an unsigned `.app`). Each holds the app,
 its Python runtime and 7-Zip's command-line tool, plus the license, a `THIRD-PARTY-NOTICES.txt` and a short readme. On Windows install
 7-Zip on the build machine first (or pass `--no-7zip`); on Linux and macOS `tools/fetch_7zip.py` downloads the official `7zz` (pinned
 version and SHA-256). On Linux install the system libraries Qt WebEngine needs first, so PyInstaller copies them into the package
