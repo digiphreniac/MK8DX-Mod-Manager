@@ -60,6 +60,50 @@ async function renderUiSetupSettingsCard() {
   if (damaged.length) body.appendChild(ui.hint(`A built menu file has a problem (${damaged.join(", ")}) - commit again to build it fresh.`, { tone: "warn" }));
 }
 
+// ---- Choosing a folder where there may be no folder picker ----
+// In browser mode (how Linux runs - docs/browser-mode.md) the app has no window of its own, so the picker comes from
+// `zenity` or `kdialog`. On a desktop with neither, a "Choose a folder..." button would do nothing at all, so the pages
+// offer a box to type the path into instead. Asked once: it cannot change while the app is running.
+let folderPickerAvailable = null;
+async function canPickFolders() {
+  if (folderPickerAvailable !== null) return folderPickerAvailable;
+  try {
+    folderPickerAvailable = (await pywebview.api.can_pick_folders()) !== false;
+  } catch (e) {
+    return true;    // the bridge isn't up yet, or an older backend: assume one - behind a window there always is
+  }
+  return folderPickerAvailable;
+}
+
+// The "Or paste a path instead" box for a folder, built like the game-files one (gameFilesPathRow in menu-icons-text.js).
+// The button that reveals it goes into `actions`; the row itself is returned, for the caller to put underneath. `onTyped(path)`
+// is given what was typed and is expected to re-render. With no picker on this system the row is open from the start and
+// there is no button, since it is the only way in.
+function folderPathRow(onTyped, actions, placeholder, { alwaysOpen = false } = {}) {
+  const inputRow = ui.el("div", "uis-path-row");
+  inputRow.hidden = !alwaysOpen;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = placeholder;
+  const go = button("Use this path", "small", async () => {
+    const path = input.value.trim();
+    if (!path) { input.focus(); return; }
+    go.disabled = true;
+    try { await onTyped(path); } finally { go.disabled = false; }
+  });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") go.click(); });
+  inputRow.append(input, go);
+  if (!alwaysOpen) {
+    const toggle = button("Or paste a path instead", "ghost small uis-paste-toggle", () => {
+      toggle.hidden = true;
+      inputRow.hidden = false;
+      input.focus();
+    });
+    actions.appendChild(toggle);
+  }
+  return inputRow;
+}
+
 // Shared by the first-run setup overlay and the Settings "Change..." flow:
 // renders the "here's what you picked, bring your files or start fresh?"
 // step into `container`, given a folder the user just chose via the native
@@ -134,17 +178,34 @@ function renderMasterDirConfirmStep(container, chosenPath, onSuccess, onChooseAg
   container.appendChild(resultBox);
 }
 
-async function runMasterDirSetup() {
-  const chosen = await pywebview.api.pick_master_dir();
-  if (!chosen) return;
+// The first-run overlay's "where should my data go" step: the native picker where there is one, and a box to type a path
+// into (the only way in where there is no picker - see canPickFolders). Rebuilt whenever the user comes back to it with
+// "← Choose a different folder", so that way back works with a typed path too.
+async function renderMasterDirChooseStep() {
   const body = document.getElementById("setup-overlay-body");
-  renderMasterDirConfirmStep(body, chosen, async () => {
+  body.replaceChildren();
+  const actions = ui.el("div", "uis-actions");
+  const canPick = await canPickFolders();
+  if (canPick) actions.appendChild(button("Choose Folder…", "primary", runMasterDirSetup));
+  body.append(actions, folderPathRow(confirmMasterDir, actions, "Full path to a folder for the app's data",
+                                     { alwaysOpen: !canPick }));
+}
+
+function confirmMasterDir(chosen) {
+  renderMasterDirConfirmStep(document.getElementById("setup-overlay-body"), chosen, async () => {
     await loadMods();
     await loadSettings();
     openSetupWizard(1, false);
-  }, runMasterDirSetup);
+  }, renderMasterDirChooseStep);
 }
-document.getElementById("btn-setup-choose-folder").addEventListener("click", runMasterDirSetup);
+
+async function runMasterDirSetup() {
+  const chosen = await pywebview.api.pick_master_dir();
+  if (chosen) confirmMasterDir(chosen);
+}
+// (the bridge is in place before any script in browser mode, but pywebview injects its own only once the page has loaded)
+if (window.pywebview && window.pywebview.api) renderMasterDirChooseStep();
+else window.addEventListener("pywebviewready", renderMasterDirChooseStep, { once: true });
 
 // The "Clear All Mods" question (the Maintenance card's button in app-modals.js asks it): a tick box for the mod files, and the
 // clearing itself runs inside the dialog, which then says what it did. Afterwards the page forgets everything it remembered about

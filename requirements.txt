@@ -1,4 +1,6 @@
-pywebview[qt]>=5; sys_platform == "linux"
+# Linux is not listed for pywebview on purpose: there the app shows its page in the user's own browser
+# (docs/browser-mode.md), so it needs no window library at all. For a window on Linux instead, install one
+# yourself and say which: pip install "pywebview[qt]"  ->  MK8DX_GUI=qt python src/mod_manager.py
 pywebview>=5; sys_platform != "linux"
 Pillow
 certifi

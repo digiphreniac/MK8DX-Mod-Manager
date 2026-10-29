@@ -45,6 +45,10 @@ notes, measurements and rules live in `docs/` (index below).
 - `src/mod_list.py` - the shareable list of mods (Export / Import, Settings); page side `src/ui/js/mod-list.js`.
 - Windows, Linux and macOS: the system-specific parts are `app_paths.py` (`APP_ROOT`, `user_data_dir()`), `gamebanana_api.py` (`find_7zip()`, `fix_backslash_names()`),
   `mod_manager.py` (`normalize_case()`, `window_library()`, `report_startup_failure()`), the `Run Mod Manager.*` launchers and `tools/` (spec, `fetch_7zip.py`).
+- `src/web_server.py` + `src/ui/js/webserver-bridge.js` - **browser mode**: how the app runs on Linux. No window of its own; it serves `src/ui/`
+  on 127.0.0.1 and `POST /api/<method>` calls the same `Api`, so the page's ~200 `pywebview.api.*` calls are untouched. `docs/browser-mode.md`.
+- `src/host_tools.py` - the browser and the file/folder dialogs (`zenity`/`kdialog`), and `system_env()`: EVERY program the app starts must go
+  through it, or it inherits the PyInstaller bundle's `LD_LIBRARY_PATH` and dies loading our libraries instead of its own.
 - `src/gamebanana_api.py` - GameBanana client. `roster.json` - every character/course/part/item; `name-labels.json` - text ids.
 - `src/image_cache.py`, `library_cache.py`, `gb_desc_cache.py` - caches (see below).
 - `src/ui/` - `index.html` frame, `html/` the remaining modal markup, `css/`, `js/` scripts (see "Frontend rules"). `js/ui/` is the component
@@ -121,5 +125,6 @@ notes, measurements and rules live in `docs/` (index below).
 | The user's notes on mods | `docs/mod-notes.md` |
 | Export / Import of the mod list | `docs/mod-list.md` |
 | Linux and macOS: what differs by system, what was tested | `docs/cross-platform.md` |
+| Browser mode (how Linux runs): the page server, the bridge, when it stops | `docs/browser-mode.md` |
 | `.ips` code patches | `docs/code-patches.md` |
 | The log, page errors, "Copy details" | `docs/diagnostics.md` |

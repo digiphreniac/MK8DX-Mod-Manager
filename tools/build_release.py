@@ -2,7 +2,8 @@
 Builds the release package for the system it runs on (a PyInstaller build cannot be made for another system):
 
     Windows  dist/MK8DX-Mod-Manager-v<version>-windows.zip
-    Linux    dist/MK8DX-Mod-Manager-v<version>-linux-<x86_64|aarch64>.tar.xz   (Qt WebEngine inside; see docs/cross-platform.md)
+    Linux    dist/MK8DX-Mod-Manager-v<version>-linux-<x86_64|aarch64>.tar.xz   (no web view: it serves its page to the
+                                                                                user's browser - see docs/browser-mode.md)
     macOS    dist/MK8DX-Mod-Manager-v<version>-macos-<arm64|x86_64>.zip         (an unsigned .app)
 
     python tools/build_release.py             (on Windows also: double-click "Build Release.bat")
@@ -14,8 +15,8 @@ tools/third_party_notices.py from the build environment's packages) and the read
 release/README-linux.md, release/README-macos.md; each is the only readme in the package, not the repository's README.md) to the output
 folder, and packs it. 7-Zip's command-line files are copied from this machine's 7-Zip install on Windows (or the folder in
 MK8DX_7ZIP_DIR), so install 7-Zip before building there; on Linux and macOS tools/fetch_7zip.py downloads the official `7zz`
-(checked against a pinned SHA-256). On Linux install the system libraries Qt WebEngine needs first (the list is in docs/DEVELOPERS.md):
-PyInstaller copies the ones it finds into the package, which is what makes it self-contained.
+(checked against a pinned SHA-256). The Linux build needs no system libraries installed beyond what Python itself uses: it
+carries no web view (docs/browser-mode.md), so there is no Qt and no NSS/xcb/GTK to copy in.
 
 Build with a mainstream Python (3.11-3.13 is the safe range for PyInstaller and pywebview's
 dependencies); the release then runs without Python installed.
@@ -144,8 +145,8 @@ def main():
     elif SYSTEM == "linux":
         add_documents(out, vpy)
         archive_path.unlink(missing_ok=True)
-        # xz at its strongest: about a third smaller than gzip for this package (Qt WebEngine compresses well), for a few minutes
-        # more here and a few seconds more to unpack (docs/cross-platform.md, "Package size"). Keeps execute permissions and links.
+        # xz at its strongest: still noticeably smaller than gzip, and now that the package is tens of megabytes rather than
+        # hundreds it costs seconds rather than minutes (docs/cross-platform.md, "Package size"). Keeps permissions and links.
         with tarfile.open(archive_path, "w:xz", preset=9) as tar:
             tar.add(out, arcname=APP_NAME)
         archive = str(archive_path)

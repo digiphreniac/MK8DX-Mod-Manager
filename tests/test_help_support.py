@@ -18,15 +18,25 @@ UI = Path(__file__).resolve().parent.parent / "src" / "ui"
 
 
 def help_html():
-    """The Help window's spec (js/app-modals.js): its two sections as the source writes them."""
+    """The Help window's spec (js/app-modals.js): its sections as the source writes them."""
     js = (UI / "js" / "app-modals.js").read_text(encoding="utf-8")
     return js[js.index("const helpModal = ui.modal({"):js.index("const guessedNamesModal")]
 
 
+def help_section(title):
+    """One section of it, up to wherever the next one starts - so a new section in between cannot quietly be read as
+    part of this one (the browser-mode section sits between "Known issues" and "More support")."""
+    html = help_html()
+    start = html.index(f'title: "{title}"')
+    # The next top-level entry of the sections list - another ui.section(...), the "..." of a conditional one, or the
+    # comment above either (everything inside a section body is indented deeper than these four spaces).
+    nxt = re.search(r"\n    (?://|\.\.\.\(|ui\.section\(\{)", html[start:])
+    return html[start:start + nxt.start()] if nxt else html[start:]
+
+
 class TheSupportSection(unittest.TestCase):
     def section(self):
-        html = help_html()
-        return html[html.index('title: "More support"'):]
+        return help_section("More support")
 
     def test_it_says_to_ask_on_discord_and_that_the_log_file_will_be_asked_for(self):
         text = self.section()
@@ -61,8 +71,7 @@ class TheSupportSection(unittest.TestCase):
         self.assertIn("openExternal(DISCORD_URL)", js)
 
     def test_known_issues_keeps_its_three_entries(self):
-        html = help_html()
-        issues = html[html.index("Known issues"):html.index("More support")]
+        issues = help_section("Known issues")
         self.assertEqual(issues.count('class: "help-status-term"'), 3)
         self.assertIn("slow motion on the Switch", issues)
         self.assertIn("comes from the track itself, not the app", issues)
@@ -72,8 +81,7 @@ class TheSupportSection(unittest.TestCase):
         self.assertNotIn("clash", issues.lower())
 
     def test_the_three_known_issues_are_short_and_say_what_to_do(self):
-        html = help_html()
-        issues = html[html.index("Known issues"):html.index("More support")]
+        issues = help_section("Known issues")
         titles = re.findall(r'class: "help-status-term", text: "((?:[^"\\]|\\.)*)"', issues)
         self.assertEqual(titles, [
             "A modded course feels like it's playing in slow motion",

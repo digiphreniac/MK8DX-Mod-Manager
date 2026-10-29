@@ -46,10 +46,21 @@ class SupportCard(unittest.TestCase):
         self.addCleanup(shutil.rmtree, parent, True)
         api = mm.Api(parent)
         urls = [constant("GITHUB_URL"), constant("SUPPORT_URL"), constant("DISCORD_URL")] + ([constant("GAMEBANANA_PAGE_URL")] if constant("GAMEBANANA_PAGE_URL") else [])
-        with mock.patch.object(mm.webbrowser, "open") as opened:
+        # Every link goes through host_tools.open_browser, which gives the browser the system's own library path
+        # instead of the PyInstaller bundle's (docs/browser-mode.md).
+        with mock.patch.object(mm.host_tools, "open_browser", return_value=True) as opened:
             for url in urls:
                 self.assertTrue(api.open_external_url(url)["success"], url)
         self.assertEqual([c.args[0] for c in opened.call_args_list], urls)
+
+    def test_a_browser_that_will_not_open_is_reported_and_does_not_raise(self):
+        parent = Path(tempfile.mkdtemp(prefix="mk8dx-support-"))
+        self.addCleanup(shutil.rmtree, parent, True)
+        api = mm.Api(parent)
+        with mock.patch.object(mm.host_tools, "open_browser", return_value=False):
+            result = api.open_external_url(constant("GITHUB_URL"))
+        self.assertFalse(result["success"])
+        self.assertIn("browser", result["error"].lower())
 
     def test_the_all_done_page_shows_the_card_and_no_longer_the_single_button(self):
         flow = (JS / "flow.js").read_text(encoding="utf-8")

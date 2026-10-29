@@ -50,9 +50,12 @@ app (or the folder you chose in Settings), which isn't part of the zip, so they'
 1. Download `MK8DX-Mod-Manager-v<version>-linux-x86_64.tar.xz` and extract it (your file manager can, or `tar -xf <file>`).
 2. Run `./mk8dx-mod-manager` in the extracted folder.
 
-The window library (Qt WebEngine) is inside the folder. Your data, settings and the log live in
-`~/.local/share/mk8dx-mod-manager` (or under `$XDG_DATA_HOME`), so replacing the folder to update keeps them. If it doesn't start, run it
-from a terminal to see why; the folder's `README.md` lists the usual fixes.
+**The app opens in your web browser** (nothing leaves your computer - it serves its page to `127.0.0.1` on your own machine and
+quits when you close it). Linux has no web view to lend the app the way Windows and macOS do, and carrying one would make the
+download seven times bigger, so it borrows the browser you already have; keep the terminal open while you use it. If no browser
+opens by itself, the terminal prints the link. Nothing needs installing - no Qt, no GTK. Your data, settings and the log live in
+`~/.local/share/mk8dx-mod-manager` (or under `$XDG_DATA_HOME`), so replacing the folder to update keeps them. The folder's
+`README.md` has the details.
 
 **macOS**
 
@@ -72,13 +75,14 @@ If you'd rather not use the packaged build, install
 `sudo apt install 7zip`). Then:
 
 - **Windows:** double-click **`Run Mod Manager.bat`** in the repository.
-- **Linux:** run **`./Run Mod Manager.sh`**. On Debian and Ubuntu you may first need `sudo apt install python3-venv`, and the web view
-  (Qt WebEngine) needs a few system libraries: `sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libnss3 libasound2 libxdamage1`.
+- **Linux:** run **`./Run Mod Manager.sh`**. On Debian and Ubuntu you may first need `sudo apt install python3-venv`. The app opens
+  in your browser (as the packaged build does); `zenity` or `kdialog` gives it your desktop's folder picker, and without one it
+  offers a box to type paths into instead.
 - **macOS:** double-click **`Run Mod Manager.command`** (or run `./Run Mod Manager.sh`).
 
 The first launch creates a private Python environment in a `.venv` folder and downloads the libraries the app needs
-(`pywebview`, `Pillow` and `certifi`, plus Qt on Linux), which needs an internet connection. A console window stays open while it runs, so any
-error messages are visible.
+(`Pillow` and `certifi`, plus `pywebview` on Windows and macOS), which needs an internet connection. A console window stays open
+while it runs, so any error messages are visible.
 
 Design notes for contributors, including how to build the release, are in [docs/DEVELOPERS.md](docs/DEVELOPERS.md).
 
@@ -166,9 +170,10 @@ any later version (see [`LICENSE`](LICENSE)). Copyright (c) 2026 digiphreniac. T
   (GNU GPL v3 or later), included unmodified.
 - The packaged build includes the [7-Zip](https://www.7-zip.org/) command-line tool by Igor Pavlov (GNU LGPL, with the unRAR
   restriction; its license is in the `7zip` folder next to the program's libraries).
-- Built with [pywebview](https://pywebview.flowrl.com/) (BSD-3-Clause) and [Pillow](https://python-pillow.org/) (MIT-CMU); the
-  Linux build's window is [Qt](https://www.qt.io/) 6 and Qt WebEngine through PyQt6 (LGPL-3.0 and GPL-3.0). The
-  packaged build also contains Python and a few small libraries, all listed in `THIRD-PARTY-NOTICES.txt`.
+- Built with [pywebview](https://pywebview.flowrl.com/) (BSD-3-Clause), which gives the app its window on Windows and macOS, and
+  [Pillow](https://python-pillow.org/) (MIT-CMU). The Linux build has no window library at all: it serves its page to the
+  browser you already have. The packaged build also contains Python and a few small libraries, all listed in
+  `THIRD-PARTY-NOTICES.txt`.
 - Reference data draws on the MK8DX modding community's research: the
   [Mario Kart 8 Deluxe Information Dump](https://docs.google.com/spreadsheets/d/1B0XM1LqJxmp5L5pD3xgSSc3nBNcBAgVHL6q9RcIO_8E)
   spreadsheet and GameBanana's course-name tutorials ([Wave 1](https://gamebanana.com/tuts/14836),

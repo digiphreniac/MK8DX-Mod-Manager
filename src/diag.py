@@ -150,6 +150,7 @@ def library_line() -> str:
         from importlib import metadata
         parts.append(f"pywebview {metadata.version('pywebview')}")
     except Exception:   # noqa: BLE001
-        parts.append("pywebview version unknown")
+        # Not a problem in browser mode, which is how Linux runs: the package carries no pywebview at all.
+        parts.append("pywebview not installed")
     parts.append(f"text encoding {locale.getpreferredencoding(False)}")
     return ", ".join(parts)

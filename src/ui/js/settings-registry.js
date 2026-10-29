@@ -252,12 +252,18 @@ async function fillPathControl(def, box) {
     await fillPathControl(def, box);
   };
   const row = ui.el("div", "uis-actions");
-  row.appendChild(button("Change folder...", "small", async () => {
-    const chosen = await pywebview.api.pick_folder();
-    if (chosen) await done(await def.choose(chosen));
-  }));
+  const canPick = await canPickFolders();
+  if (canPick) {
+    row.appendChild(button("Change folder...", "small", async () => {
+      const chosen = await pywebview.api.pick_folder();
+      if (chosen) await done(await def.choose(chosen));
+    }));
+  }
   if (!dir.is_recommended) row.appendChild(button("Use the recommended folder", "ghost small", async () => done(await def.reset())));
   box.appendChild(row);
+  // ...and, where this system can open no picker at all, the only way in: a box to type the path into.
+  box.appendChild(folderPathRow(async (path) => done(await def.choose(path)), row, "Full path to the folder",
+                                { alwaysOpen: !canPick }));
 }
 
 // The data folder: where it is, and how to change it. Before setup has been finished there is nothing to bring along, so a new folder is
@@ -281,9 +287,7 @@ async function fillFolderControl(def, box, ctx) {
     await loadSettings();
     if (ctx.afterFolderChange) ctx.afterFolderChange();
   };
-  const change = async () => {
-    const chosen = await pywebview.api.pick_master_dir();
-    if (!chosen) return;
+  const useChosen = async (chosen) => {
     if (!firstRun) {
       box.replaceChildren();
       renderMasterDirConfirmStep(box, chosen, afterChanged, () => fillFolderControl(def, box, ctx));
@@ -293,15 +297,22 @@ async function fillFolderControl(def, box, ctx) {
     if (!result.success) { failed(result.error); return; }
     await afterChanged();
   };
+  const change = async () => {
+    const chosen = await pywebview.api.pick_master_dir();
+    if (chosen) await useChosen(chosen);
+  };
   const useRecommended = async () => {
     const result = await diag.attempt(() => pywebview.api.use_default_master_dir());
     if (!result.success) { failed(result.error); return; }
     await afterChanged();
   };
   const row = ui.el("div", "uis-actions");
-  row.appendChild(button("Change folder...", "small", change));
+  const canPick = await canPickFolders();
+  if (canPick) row.appendChild(button("Change folder...", "small", change));
   if (!dir.is_default && firstRun) row.appendChild(button("Use the recommended folder", "ghost small", useRecommended));
   box.appendChild(row);
+  // ...and, where this system can open no picker at all, the only way in: a box to type the path into.
+  box.appendChild(folderPathRow(useChosen, row, "Full path to a folder for the app's data", { alwaysOpen: !canPick }));
 }
 
 // ---- "Reset to default" on a group's card (its header action in app-modals.js): only available while something differs ----

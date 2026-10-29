@@ -6,17 +6,19 @@ Extract the folder anywhere you like, open a terminal in it and run:
 
     ./mk8dx-mod-manager
 
-(or double-click `mk8dx-mod-manager` in your file manager and choose "Run").
+**The app opens in your web browser.** It is not a browser-based service - nothing leaves your computer. Unlike Windows and macOS, Linux has no
+web view the app can borrow for a window of its own, and carrying one would have made this download seven times bigger (123 MB instead of 18 MB),
+so the app shows its page in the browser you already have. It starts a small server on your own machine (`127.0.0.1`, a different port and a new
+one-time key every time), opens the page, and quits once you close it.
 
-It needs a 64-bit desktop (X11 or Wayland) and a reasonably recent distribution (it is built on Ubuntu 22.04, so glibc 2.35 or newer). The window
-(Qt WebEngine) and the helper libraries it needs are inside the folder; nothing else needs installing. If the window doesn't open, start it from
-a terminal to see why. A missing system library is named there; on Debian and Ubuntu these are the usual ones:
+If no browser opens by itself, the terminal prints the link to open - it looks like `http://127.0.0.1:41591/?t=...`. The key in it is what lets
+the page talk to the app, so open the whole link.
 
-    sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libnss3 libasound2 libxdamage1
-
-On a few systems (Ubuntu 24.04 and newer with AppArmor's restriction on user namespaces) the web view stops with "No usable sandbox". Starting the
-app once with `QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox ./mk8dx-mod-manager` works around it (that turns off the web view's own sandbox, which
-only matters for web pages the app does not show).
+* **Keep the terminal open** while you use the app: closing it stops the app. Closing the page stops the app too.
+* It needs a 64-bit distribution with glibc 2.35 or newer (it is built on Ubuntu 22.04). Nothing else needs installing - no Qt, no GTK.
+* The "Choose a folder" buttons open your desktop's own folder picker, which needs `zenity` (GNOME and most desktops) or `kdialog` (KDE). If you
+  have neither, the app gives you a box to type the path into instead, so everything still works:
+  `sudo apt install zenity` / `sudo dnf install zenity` if you would rather have the picker.
 
 Where the app keeps its files: your data folder (downloaded mods and settings; you choose it on first run, the suggested one is
 `~/.local/share/mk8dx-mod-manager/data`), `app-config.json` and the log file `mod-manager.log` in `~/.local/share/mk8dx-mod-manager/`
@@ -39,4 +41,4 @@ No AI was used for generating artwork or assets.
 
 It is free software under the GNU General Public License, version 3 or later (LICENSE.txt); its source code is at
 https://github.com/digiphreniac/MK8DX-Mod-Manager. The icons are Tabler Icons (MIT). THIRD-PARTY-NOTICES.txt lists everything else in this folder that
-is someone else's (BNTX Editor, 7-Zip, Qt, pywebview, Pillow, Python and more) with its license. Full credits: https://github.com/digiphreniac/MK8DX-Mod-Manager#about-license-and-credits
+is someone else's (BNTX Editor, 7-Zip, Pillow, Python and more) with its license. Full credits: https://github.com/digiphreniac/MK8DX-Mod-Manager#about-license-and-credits
