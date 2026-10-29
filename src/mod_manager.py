@@ -26,7 +26,6 @@ import time
 import traceback
 import types
 import uuid
-import webbrowser
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,18 +37,27 @@ import diag
 # Run from source as the program, the same file is kept and the console still gets everything (a tee); a plain import
 # (the tests, a script) changes nothing. The app runs as __main__ and game_files imports it again by name: that copy shares the log.
 if app_paths.FROZEN or __name__ == "__main__":
-    LOG_PATH = app_paths.redirect_output_to_log(tee=not app_paths.FROZEN)
+    # A packaged Windows or macOS build has no console to write to, so its output only goes to the log. The packaged LINUX
+    # build is started from a terminal and prints the link to open (web_server.serve), so there it has to go to both.
+    LOG_PATH = app_paths.redirect_output_to_log(tee=not app_paths.FROZEN or sys.platform.startswith("linux"))
 else:
     LOG_PATH = app_paths.current_log_path()
 diag.LOG_PATH = LOG_PATH
 if app_paths.FROZEN and sys.platform == "win32":   # (also before the import below: pythonnet is refused by Windows while the zip's "downloaded" mark is on it)
     print(f"Cleared the downloaded-file mark from {app_paths.unblock_downloaded_files()} bundled files")
 
-import webview
+# pywebview opens the window on Windows and macOS. On Linux the app serves its page to the user's browser
+# instead (web_server.py, docs/browser-mode.md) and the Linux package does not carry pywebview at all - so a
+# missing pywebview is only a problem for someone who asked for a window. BROWSER_ONLY says which case we are in.
+try:
+    import webview
+except ImportError:
+    webview = None
 
 import bntx_decode
 import bntx_encode
 import cup_icons
+import host_tools
 import image_cache
 import library_cache
 import mod_list
@@ -63,6 +71,7 @@ import voice_audio
 import voice_edit
 import game_files
 import gb_desc_cache
+import web_server
 from version import VERSION as APP_VERSION
 from voice_api import VoiceEditMixin, VOICE_EDITS_FILENAME, VOICE_CUSTOM_DIRNAME
 from mod_notes import ModNotesMixin, NOTES_FILENAME
@@ -2003,6 +2012,8 @@ class Api(VoiceEditMixin, ModNotesMixin):
             except (OSError, KeyError, ValueError) as e:
                 lines.append(f"Game files on disk: couldn't check ({type(e).__name__}: {e})")
             lines.append(f"7-Zip: {gamebanana_api.find_7zip() or 'none found'}")
+            lines.append(f"Page shown in: {'the browser' if serving_in_browser() else (window_library() or 'the system web view')}"
+                         f"; folder picker: {host_tools.dialog_tool() or ('the window' if self._window is not None else 'NONE')}")
             lines.append(f"Libraries: {diag.library_line()}")
         return [diag.scrub(x) for x in lines]
 
@@ -2044,11 +2055,16 @@ class Api(VoiceEditMixin, ModNotesMixin):
 
     def pick_master_dir(self):
         """Opens a native folder-picker. Returns the chosen path, or None if
-        the window isn't ready yet or the user cancelled."""
+        the user cancelled (or this system has no picker at all - see can_pick_folders)."""
         if self._window is None:
-            return None
+            return host_tools.pick_folder("Choose a folder for the Mod Manager's data")
         result = self._window.create_file_dialog(webview.FileDialog.FOLDER)
         return result[0] if result else None
+
+    def can_pick_folders(self):
+        """Whether "Choose a folder..." can open a picker at all. False in browser mode on a system with no
+        `zenity` or `kdialog` installed, where the page offers a box to type a path into instead."""
+        return self._window is not None or host_tools.available()
 
     def set_master_dir(self, new_path_str, move_existing):
         new_path = Path(new_path_str)
@@ -3523,9 +3539,10 @@ class Api(VoiceEditMixin, ModNotesMixin):
         doc = built["list"]
         if path is None:
             if self._window is None:
-                return {"success": False, "error": "The window isn't ready yet."}
-            path = self._dialog_path(self._window.create_file_dialog(
-                webview.FileDialog.SAVE, save_filename="mk8dx-mod-list.json", file_types=("Mod list (*.json)",)))
+                path = host_tools.save_file("Save the mod list", "mk8dx-mod-list.json", ("Mod list", "*.json"))
+            else:
+                path = self._dialog_path(self._window.create_file_dialog(
+                    webview.FileDialog.SAVE, save_filename="mk8dx-mod-list.json", file_types=("Mod list (*.json)",)))
             if path is None:
                 return {"success": False, "cancelled": True}
         try:
@@ -3543,9 +3560,10 @@ class Api(VoiceEditMixin, ModNotesMixin):
             return {"success": False, "error": "Choose a data folder first."}
         if path is None:
             if self._window is None:
-                return {"success": False, "error": "The window isn't ready yet."}
-            path = self._dialog_path(self._window.create_file_dialog(
-                webview.FileDialog.OPEN, file_types=("Mod list (*.json)",)))
+                path = host_tools.open_file("Open a mod list", ("Mod list", "*.json"))
+            else:
+                path = self._dialog_path(self._window.create_file_dialog(
+                    webview.FileDialog.OPEN, file_types=("Mod list (*.json)",)))
             if path is None:
                 return {"success": False, "cancelled": True}
         try:
@@ -5224,11 +5242,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         clicking a mod name doesn't navigate this app's own window away."""
         if not re.match(r"^https?://(www\.)?gamebanana\.com/", url):
             return {"success": False, "error": "Refusing to open a non-GameBanana URL."}
-        try:
-            webbrowser.open(url)
+        if host_tools.open_browser(url):
             return {"success": True}
-        except OSError as e:
-            return {"success": False, "error": f"Couldn't open a browser. Details: {e}"}
+        return {"success": False, "error": "Couldn't open a browser. The log says why."}
 
     def open_external_url(self, url):
         """Opens a link from a mod's description (a video, a Discord invite, the author's page...) in the user's default
@@ -5236,11 +5252,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         nothing else (no file:, no javascript:)."""
         if not isinstance(url, str) or len(url) > 2000 or not re.match(r"^https?://[^\s]+$", url, re.IGNORECASE):
             return {"success": False, "error": "Refusing to open that link."}
-        try:
-            webbrowser.open(url)
+        if host_tools.open_browser(url):
             return {"success": True}
-        except OSError as e:
-            return {"success": False, "error": f"Couldn't open a browser. Details: {e}"}
+        return {"success": False, "error": "Couldn't open a browser. The log says why."}
 
     def open_help_link(self, url):
         """Opens one of the Help page's own curated reference links in the
@@ -5249,11 +5263,9 @@ class Api(VoiceEditMixin, ModNotesMixin):
         gb_open_url(), not a general "open any URL" method."""
         if not re.match(r"^https://(www\.)?(gamebanana\.com|mkwiiki\.org|docs\.google\.com)/", url):
             return {"success": False, "error": "Refusing to open an untrusted URL."}
-        try:
-            webbrowser.open(url)
+        if host_tools.open_browser(url):
             return {"success": True}
-        except OSError as e:
-            return {"success": False, "error": f"Couldn't open a browser. Details: {e}"}
+        return {"success": False, "error": "Couldn't open a browser. The log says why."}
 
     @mutates_library
     def _download_and_extract_one(self, category, item_name, mod_name, file_entry):
@@ -8087,7 +8099,7 @@ def default_window_size():
     just conflict with it."""
     target_w, target_h = 1280, 720
     try:
-        screen = webview.screens[0]
+        screen = webview.screens[0]   # (only ever reached with a pywebview window; see main())
         target_w = min(target_w, screen.width - 40)
         target_h = min(target_h, screen.height - 80)
     except (IndexError, AttributeError):
@@ -8133,14 +8145,25 @@ def startup_failure_command(text, platform, which):
     return None
 
 
+BROWSER_GUI = "browser"     # not a pywebview library: the app's own page server (web_server.py)
+
+
 def window_library():
-    """Which pywebview window library to ask for: Qt on Linux (the build bundles it; from source requirements.txt installs it - so
-    the app never depends on GTK and WebKit packages from the system), the platform's own elsewhere (WebView2 on Windows, Cocoa
-    on macOS). MK8DX_GUI overrides it (for example "gtk")."""
+    """How the app shows its page: the platform's own web view through pywebview on Windows (WebView2) and macOS
+    (Cocoa/WebKit), and on Linux the user's browser - Linux has no web view to lend, and carrying one (Qt
+    WebEngine, which is Chromium) made the package 123 MB against about 20 MB elsewhere. docs/browser-mode.md.
+
+    MK8DX_GUI overrides it: "qt" or "gtk" for a pywebview window on Linux (install pywebview's extra for it
+    first - the Linux package does not carry one), "browser" for the page server anywhere."""
     chosen = os.environ.get("MK8DX_GUI", "").strip().lower()
     if chosen:
         return chosen
-    return "qt" if sys.platform.startswith("linux") else None
+    return BROWSER_GUI if sys.platform.startswith("linux") else None
+
+
+def serving_in_browser():
+    """True when this run shows its page in the user's browser rather than a window of its own."""
+    return window_library() == BROWSER_GUI
 
 
 def window_icon():
@@ -8155,9 +8178,9 @@ def window_icon():
 
 def choose_window_library():
     """Tells pywebview which window library to use BEFORE anything asks it for the screens (webview.screens picks one on its own,
-    and on Linux would look for Qt 5 and GTK instead of the Qt 6 that requirements.txt installs). Returns the choice."""
+    and on Linux would look for Qt 5 and GTK). Returns the choice; None or "browser" means pywebview is not used at all."""
     gui = window_library()
-    if gui:
+    if gui and gui != BROWSER_GUI:
         os.environ.setdefault("PYWEBVIEW_GUI", gui)
     if gui == "qt":
         os.environ.setdefault("QT_API", "pyqt6")
@@ -8165,9 +8188,15 @@ def choose_window_library():
 
 
 def main():
-    choose_window_library()
+    gui = choose_window_library()
     api = Api(load_master_dir_pointer() or default_master_dir())
     diag.log("startup", "\n".join(api._diag_lines_safe()))
+    if gui == BROWSER_GUI:
+        web_server.serve(api, SCRIPT_DIR / "ui")
+        return
+    if webview is None:
+        raise RuntimeError("pywebview isn't installed, so there is no window to open. Leave MK8DX_GUI unset to "
+                           "show the page in your browser instead, or `pip install pywebview[qt]` for a window.")
     window_w, window_h = default_window_size()
     window = webview.create_window(
         "Mario Kart 8 Mod Manager",
@@ -8215,9 +8244,25 @@ def self_check():
         return f"{len(data)} entries"
 
     def page():
-        for rel in ("index.html", "js/bootstrap.js", "js/diagnostics.js", "css/base.css", "js/app-modals.js", "js/ui/modal.js"):
+        for rel in ("index.html", "js/bootstrap.js", "js/diagnostics.js", "css/base.css", "js/app-modals.js", "js/ui/modal.js",
+                    "js/webserver-bridge.js"):
             if not (SCRIPT_DIR / "ui" / rel).is_file():
                 raise FileNotFoundError(f"ui/{rel}")
+        # The server puts the bridge into <head>; without that marker the page would load with no pywebview.api at all.
+        if "</head>" not in (SCRIPT_DIR / "ui" / "index.html").read_text(encoding="utf-8"):
+            raise ValueError("index.html has no </head> for the browser-mode bridge to go before")
+
+    def page_server():
+        """Browser mode (how Linux runs): it must be able to listen on the loopback address and to find every
+        method the page will call on the Api."""
+        if not web_server.self_test_socket():
+            raise OSError("couldn't open a socket on 127.0.0.1")
+        methods = web_server.api_methods(Api)      # (the class: the same public methods, without building one)
+        for needed in ("get_flow_status", "get_master_dir_status", "save_checked", "merge"):
+            if needed not in methods:
+                raise ValueError(f"the page server wouldn't expose {needed}()")
+        return f"{len(methods)} methods, " + ("a folder picker: " + host_tools.dialog_tool()
+                                              if host_tools.available() else "NO folder picker (zenity/kdialog)")
 
     def pictures():
         import PIL
@@ -8253,6 +8298,7 @@ def self_check():
 
     check("version", lambda: APP_VERSION)
     check("page files", page)
+    check("page server", page_server)
     check("roster.json", lambda: data_file(ROSTER_FILENAME, 10, "characters"))
     check("name-labels.json", lambda: data_file("name-labels.json", 2))
     check("known-shared-files.json", lambda: data_file(KNOWN_SHARED_FILES_FILENAME, 1))

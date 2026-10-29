@@ -162,50 +162,76 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install the system libraries Qt WebEngine needs
-        # PyInstaller copies the ones it finds here into the package, which is what lets the package run without them installed.
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libnss3 libnspr4 libasound2 libegl1 libgl1 libfontconfig1 libdbus-1-3 libxkbfile1 libxdamage1 \
-            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 \
-            libxkbcommon-x11-0 xvfb
-
+      # No system libraries to install: the package carries no web view at all. It serves its page to the user's own
+      # browser (docs/browser-mode.md), which is what took it from 123 MB to about 18 MB and dropped the whole
+      # Qt/NSS/xcb/GTK list that used to be here.
       - name: Build the package
         run: python tools/build_release.py
 
       - name: Check the package contents
         run: |
           set -e
-          pkg="dist/MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-linux-x86_64.tar.gz"
+          pkg="dist/MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-linux-x86_64.tar.xz"
           test -f "$pkg" || { echo "Expected $pkg was not built"; exit 1; }
-          mkdir check && tar -xzf "$pkg" -C check
+          mkdir check && tar -xJf "$pkg" -C check
           app="check/MK8DX Mod Manager"
           for f in mk8dx-mod-manager LICENSE.txt THIRD-PARTY-NOTICES.txt README.md _internal/ui/index.html _internal/roster.json \
                    _internal/name-labels.json _internal/known-shared-files.json _internal/7zip/7zz _internal/7zip/License.txt; do
             test -e "$app/$f" || { echo "Package is missing $f"; exit 1; }
           done
           test -x "$app/mk8dx-mod-manager" && test -x "$app/_internal/7zip/7zz" || { echo "A program in the package is not executable"; exit 1; }
+          test -e "$app/_internal/ui/js/webserver-bridge.js" || { echo "Package is missing the browser-mode bridge"; exit 1; }
           readmes=$(find "$app" -maxdepth 1 -type f -iname '*read*me*' | wc -l)
           test "$readmes" -eq 1 || { echo "Expected exactly one readme in the package, found $readmes"; exit 1; }
+          # The size win is the point of this package: a web view creeping back in would take it from ~18 MB to ~123 MB.
+          for toolkit in PyQt5 PyQt6 PySide2 PySide6 webview; do
+            test ! -e "$app/_internal/$toolkit" || { echo "The package carries $toolkit; it must carry no web view"; exit 1; }
+          done
+          size=$(du -sm "$app" | cut -f1)
+          echo "Unpacked package: ${size} MB"
+          test "$size" -lt 150 || { echo "The unpacked package is ${size} MB; something large got in"; exit 1; }
           (cd dist && sha256sum "$(basename "$pkg")" > "$(basename "$pkg").sha256")
 
       - name: Self-check the packaged app
-        # Opens no window; see the Windows job.
+        # Opens no window and no browser; see the Windows job. Also checks that it can listen on 127.0.0.1.
         run: |
           app="check/MK8DX Mod Manager"
-          QT_QPA_PLATFORM=offscreen timeout 120 "$app/mk8dx-mod-manager" --self-check || { cat "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log" || true; exit 1; }
+          timeout 120 "$app/mk8dx-mod-manager" --self-check || { cat "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log" || true; exit 1; }
           cat "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log" || true
 
-      - name: Start the packaged app once
-        # Not blocking: it runs on a virtual screen, so a failure here is a warning.
+      - name: Serve the page and load it in a real browser
+        # The whole path end to end: the app serves its page, a headless Chrome loads it, the page's scripts run and call back
+        # into Python over the bridge - the "page-start" line is written by the page itself, so it only appears if all of that
+        # worked. MK8DX_NO_BROWSER stops the app opening a browser of its own, so this drives one at the link instead.
+        # Not blocking yet, because it has not run on a runner before: once it has passed, delete the next line.
         continue-on-error: true
         run: |
+          set -e
+          browser=$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)
+          test -n "$browser" || { echo "No Chrome/Chromium on this runner to load the page with"; exit 1; }
           app="check/MK8DX Mod Manager"
-          rm -f "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log"
-          QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox --disable-gpu" timeout 20 xvfb-run -a "$app/mk8dx-mod-manager" || code=$?
-          cat "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log" || true
-          test "${code:-0}" -eq 124 || { echo "The packaged app exited within 20 seconds (code ${code:-0})"; exit 1; }
-          if grep -q Traceback "$HOME/.local/share/mk8dx-mod-manager/mod-manager.log"; then echo "Traceback in mod-manager.log"; exit 1; fi
+          log="$HOME/.local/share/mk8dx-mod-manager/mod-manager.log"
+          rm -f "$log"
+          MK8DX_NO_BROWSER=1 MK8DX_PORT=8731 "$app/mk8dx-mod-manager" & pid=$!
+          for _ in $(seq 1 30); do grep -q "Open this in your browser" "$log" 2>/dev/null && break; sleep 1; done
+          url=$(grep -o 'http://127.0.0.1:[^ ]*' "$log" | head -1)
+          test -n "$url" || { echo "The app never printed a link"; cat "$log" || true; kill $pid; exit 1; }
+          timeout 120 "$browser" --headless --no-sandbox --disable-gpu --user-data-dir=/tmp/chromeprof \
+            --virtual-time-budget=20000 --screenshot=/tmp/page.png "$url"
+          sleep 2
+          cat "$log"
+          kill $pid 2>/dev/null || true
+          grep -q "page-start" "$log" || { echo "The page never reported that it started"; exit 1; }
+          grep -q Traceback "$log" && { echo "Traceback in mod-manager.log"; exit 1; } || true
+
+      - name: Keep the screenshot of the page
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-page-screenshot
+          path: /tmp/page.png
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Keep the package with this run
         uses: actions/upload-artifact@v4
@@ -213,7 +239,7 @@ jobs:
           name: MK8DX-Mod-Manager-v${{ needs.gate.outputs.version }}-linux
           retention-days: ${{ github.event_name == 'pull_request' && 3 || 0 }}      # (0: the repository's default)
           path: |
-            dist/*.tar.gz
+            dist/*.tar.xz
             dist/*.sha256
           if-no-files-found: error
 
@@ -287,7 +313,7 @@ jobs:
           tag="v${{ needs.gate.outputs.version }}"
           ls -l dist
           shopt -s nullglob          # (a package that was not built simply isn't in the list)
-          files=(dist/*.zip dist/*.tar.gz dist/*.sha256)
+          files=(dist/*.zip dist/*.tar.xz dist/*.sha256)
 
           # The release notes are the message of the commit that last changed src/version.py (the version bump), minus its first
           # line (the subject, e.g. "Bump version to 0.4.2") and any Co-Authored-By / "Generated with" trailers. GitHub's own list of

@@ -112,22 +112,36 @@ class FindingSevenZip(unittest.TestCase):
 
 
 class TheWindow(unittest.TestCase):
-    def test_linux_asks_for_qt_and_the_others_for_their_own(self):
+    def test_linux_serves_to_the_browser_and_the_others_use_their_own_web_view(self):
         with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop("MK8DX_GUI", None)
             with mock.patch.object(mm.sys, "platform", "linux"):
-                self.assertEqual(mm.window_library(), "qt")
-            with mock.patch.object(mm.sys, "platform", "darwin"):
-                self.assertIsNone(mm.window_library())
-            with mock.patch.object(mm.sys, "platform", "win32"):
-                self.assertIsNone(mm.window_library())
+                self.assertEqual(mm.window_library(), "browser")
+                self.assertTrue(mm.serving_in_browser())
+            for platform in ("darwin", "win32"):
+                with mock.patch.object(mm.sys, "platform", platform):
+                    self.assertIsNone(mm.window_library())
+                    self.assertFalse(mm.serving_in_browser())
 
     def test_the_choice_can_be_overridden(self):
         with mock.patch.dict(os.environ, {"MK8DX_GUI": "GTK"}):
             self.assertEqual(mm.window_library(), "gtk")
+        with mock.patch.dict(os.environ, {"MK8DX_GUI": "qt"}), mock.patch.object(mm.sys, "platform", "linux"):
+            self.assertEqual(mm.window_library(), "qt")       # a Qt window on Linux is still there for whoever wants it
+            self.assertFalse(mm.serving_in_browser())
+        with mock.patch.dict(os.environ, {"MK8DX_GUI": "browser"}), mock.patch.object(mm.sys, "platform", "win32"):
+            self.assertTrue(mm.serving_in_browser())          # ...and the page server can be asked for anywhere
+
+    def test_browser_mode_does_not_set_pywebview_s_variables(self):
+        env = {k: v for k, v in os.environ.items() if k not in ("PYWEBVIEW_GUI", "QT_API", "MK8DX_GUI")}
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch.object(mm.sys, "platform", "linux"):
+            self.assertEqual(mm.choose_window_library(), "browser")
+            self.assertNotIn("PYWEBVIEW_GUI", os.environ)
+            self.assertNotIn("QT_API", os.environ)
 
     def test_pywebview_is_told_before_anything_asks_it_for_the_screens(self):
         env = {k: v for k, v in os.environ.items() if k not in ("PYWEBVIEW_GUI", "QT_API", "MK8DX_GUI")}
+        env["MK8DX_GUI"] = "qt"
         with mock.patch.dict(os.environ, env, clear=True), mock.patch.object(mm.sys, "platform", "linux"):
             self.assertEqual(mm.choose_window_library(), "qt")
             self.assertEqual(os.environ["PYWEBVIEW_GUI"], "qt")
@@ -136,16 +150,25 @@ class TheWindow(unittest.TestCase):
         main = source[source.index("def main():"):]
         self.assertLess(main.index("choose_window_library()"), main.index("default_window_size()"))
 
+    def test_a_missing_pywebview_is_only_a_problem_when_a_window_was_asked_for(self):
+        # The Linux package carries no pywebview at all: importing the app must still work.
+        source = (ROOT / "src" / "mod_manager.py").read_text(encoding="utf-8")
+        self.assertIn("except ImportError:\n    webview = None", source)
+        main = source[source.index("def main():"):]
+        self.assertLess(main.index("web_server.serve("), main.index("if webview is None:"))
+
     def test_the_icon_is_only_for_linux(self):
         with mock.patch.object(mm.sys, "platform", "win32"):
             self.assertIsNone(mm.window_icon())
         with mock.patch.object(mm.sys, "platform", "linux"):
             self.assertTrue(mm.window_icon().endswith("app-icon.png"))
 
-    def test_requirements_install_qt_on_linux_only(self):
+    def test_requirements_leave_the_window_library_out_on_linux(self):
+        # Nothing to install there: the page goes to the user's browser, which is why the Linux package is
+        # about 18 MB instead of the 123 MB it was when it carried Qt WebEngine.
         text = (ROOT / "requirements.txt").read_text(encoding="utf-8")
-        self.assertIn('pywebview[qt]>=5; sys_platform == "linux"', text)
         self.assertIn('pywebview>=5; sys_platform != "linux"', text)
+        self.assertNotIn('pywebview[qt]>=5; sys_platform == "linux"', text)
 
 
 class WhenStartingFails(unittest.TestCase):
@@ -265,8 +288,8 @@ class TheReleasePackages(unittest.TestCase):
     def test_the_file_names_say_the_system_and_the_processor(self):
         self.assertEqual(build_release.package_name("1.2.3", "windows"), "MK8DX-Mod-Manager-v1.2.3-windows.zip")
         with mock.patch.object(build_release, "SYSTEM", "linux"):
-            self.assertEqual(build_release.package_name("1.2.3", "linux", "x86_64"), "MK8DX-Mod-Manager-v1.2.3-linux-x86_64.tar.gz")
-            self.assertEqual(build_release.package_name("1.2.3", "linux", "arm64"), "MK8DX-Mod-Manager-v1.2.3-linux-aarch64.tar.gz")
+            self.assertEqual(build_release.package_name("1.2.3", "linux", "x86_64"), "MK8DX-Mod-Manager-v1.2.3-linux-x86_64.tar.xz")
+            self.assertEqual(build_release.package_name("1.2.3", "linux", "arm64"), "MK8DX-Mod-Manager-v1.2.3-linux-aarch64.tar.xz")
         with mock.patch.object(build_release, "SYSTEM", "macos"):
             self.assertEqual(build_release.package_name("1.2.3", "macos", "arm64"), "MK8DX-Mod-Manager-v1.2.3-macos-arm64.zip")
             self.assertEqual(build_release.package_name("1.2.3", "macos", "x86_64"), "MK8DX-Mod-Manager-v1.2.3-macos-x86_64.zip")
@@ -313,8 +336,17 @@ class TheReleasePackages(unittest.TestCase):
         self.assertIn('binaries.append((str(Path(sevenzip_dir) / "7zz"), "7zip"))', spec)
         self.assertIn("BUNDLE(", spec)
         self.assertIn("app-icon.icns", spec)
-        self.assertIn('"webview.platforms.qt"', spec)
         self.assertTrue((ROOT / "tools" / "app-icon.icns").is_file())
+
+    def test_the_spec_keeps_every_web_view_out_of_the_linux_package(self):
+        # This is the whole size win (123 MB -> about 18 MB): one toolkit creeping back in undoes it.
+        spec = (ROOT / "tools" / "mk8dx-mod-manager.spec").read_text(encoding="utf-8")
+        linux_part = spec[spec.index("if IS_LINUX:"):]
+        for name in ("webview", "PyQt6", "PySide6", "qtpy"):
+            self.assertIn(f'"{name}"', linux_part)
+        self.assertIn("must carry no web view", spec)       # ...and the build fails loudly if one does
+        self.assertNotIn("linux_trim", spec)                # (the Qt trimmer went with Qt itself)
+        self.assertFalse((ROOT / "tools" / "linux_trim.py").exists())
 
     def test_the_notices_of_each_system_name_what_is_in_its_package(self):
         import third_party_notices
@@ -323,9 +355,14 @@ class TheReleasePackages(unittest.TestCase):
         macos = third_party_notices.build(strict=False, system="macos")
         self.assertIn("pythonnet", windows)
         self.assertNotIn("pythonnet", linux + macos)
-        for heading in ("PyQt6", "Qt 6 and Qt WebEngine", "QtPy"):
-            self.assertIn(heading, linux)
-            self.assertNotIn(heading, windows + macos)
+        # The Linux package has no window library in it at all, so it must claim none - not Qt, and not pywebview.
+        for absent in ("PyQt6", "Qt WebEngine", "QtPy", "pywebview", "bottle"):
+            self.assertNotIn(absent, linux)
+        self.assertIn("No web browser is included", linux)
+        self.assertNotIn("No web browser is included", windows + macos)
+        for present in ("pywebview", "bottle"):
+            self.assertIn(present, windows)
+            self.assertIn(present, macos)
         self.assertIn("pyobjc-core", macos)
         self.assertNotIn("pyobjc-core", windows + linux)
         self.assertIn("7zip/7zz", linux)

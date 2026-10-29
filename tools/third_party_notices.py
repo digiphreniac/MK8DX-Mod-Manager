@@ -6,8 +6,8 @@ tools/build_release.py runs this with the build environment's Python, so the Pyt
 are really in the release. The texts that do not come from a package (the icons, libffi, Apache-2.0) are in release/licenses/.
 The release also carries LICENSE.txt (this app's own license) and _internal/7zip/License.txt (7-Zip's).
 
-The packages differ by system (pythonnet on Windows, Qt on Linux, pyobjc on macOS): build(system=...) writes the notices for one of them,
-by default the system this runs on.
+The packages differ by system (pythonnet on Windows, pyobjc on macOS, and on Linux none of them - that package has no window
+library at all, see docs/browser-mode.md): build(system=...) writes the notices for one of them, by default the system this runs on.
 """
 import importlib.metadata as metadata
 import re
@@ -33,13 +33,8 @@ PACKAGES = [
     ("typing_extensions", "used by pywebview", "PSF-2.0", None),
     ("certifi", "a root-certificate bundle, used to verify HTTPS connections to GameBanana", "MPL-2.0", None),
     ("setuptools", "used by the packaged app; it carries the licenses of its own bundled parts in its folder", "MIT", None),
-    # Linux: the window is Qt (PyQt6 and QtWebEngine - the GPL-3.0 bindings; the Qt libraries themselves are LGPL-3.0)
-    ("PyQt6", "the Linux window: Python bindings for Qt 6", "GPL-3.0-only", None),
-    ("PyQt6-Qt6", "the Qt 6 libraries inside PyQt6", "LGPL-3.0", None),
-    ("PyQt6-sip", "used by PyQt6", "BSD-2-Clause", None),
-    ("PyQt6-WebEngine", "the Linux window's web view: Python bindings for Qt WebEngine", "GPL-3.0-only", None),
-    ("PyQt6-WebEngine-Qt6", "Qt WebEngine (Chromium) and its libraries", "LGPL-3.0 and others (see below)", None),
-    ("QtPy", "lets pywebview use PyQt6", "MIT", None),
+    # (Linux has no entries of its own: the package carries no window library at all - it serves its page to the
+    #  user's browser, on Python's own http.server. See NOT_IN and docs/browser-mode.md.)
     # macOS: the window is the system's own WebKit, reached through pyobjc
     ("pyobjc-core", "pywebview's link to macOS", "MIT",
      "pyobjc (https://github.com/ronaldoussoren/pyobjc), MIT license, Copyright (c) 2002-2026 Ronald Oussoren, Bill Bumgarner, Steve Majewski, "
@@ -52,9 +47,12 @@ PACKAGES = [
 # Packages that are in the release of one system only (every other package is in all of them).
 SYSTEM_ONLY = {
     "windows": {"pythonnet", "clr_loader", "cffi", "pycparser"},
-    "linux": {"PyQt6", "PyQt6-Qt6", "PyQt6-sip", "PyQt6-WebEngine", "PyQt6-WebEngine-Qt6", "QtPy"},
+    "linux": set(),
     "macos": {"pyobjc-core", "pyobjc-framework-Cocoa", "pyobjc-framework-Quartz", "pyobjc-framework-WebKit", "pyobjc-framework-Security"},
 }
+# ...and the other way round: pywebview and the packages it brings are in every release EXCEPT the Linux one,
+# which opens no window of its own (docs/browser-mode.md) and so does not carry them.
+NOT_IN = {"linux": {"pywebview", "bottle", "proxy_tools", "typing_extensions"}}
 
 
 def current_system():
@@ -64,6 +62,7 @@ def current_system():
 def packages_for(system):
     """The PACKAGES entries that are in the release for `system`."""
     other = set().union(*(names for key, names in SYSTEM_ONLY.items() if key != system))
+    other |= NOT_IN.get(system, set())
     return [entry for entry in PACKAGES if entry[0] not in other]
 
 
@@ -132,16 +131,10 @@ def build(strict=True, system=None):
                    "restriction for its RAR code. The license text is in 7zip/License.txt (with the program's libraries); 7-Zip's source code is\n"
                    "available from https://www.7-zip.org/.\n")
     if system == "linux":
-        out.append(rule("Qt 6 and Qt WebEngine - the Linux window"))
-        out.append("The window on Linux is Qt 6 (the LGPL-3.0 libraries from the PyQt6-Qt6 and PyQt6-WebEngine-Qt6 packages, listed below with their\n"
-                   "licenses), shown through PyQt6 (GPL-3.0, like this program). The Qt libraries are in this folder as separate files that the\n"
-                   "program loads, so you can replace them with your own build of Qt. Qt's source code is at https://download.qt.io/ and\n"
-                   "https://code.qt.io/. Qt WebEngine is built on Chromium and contains code under other licenses, listed at\n"
-                   "https://doc.qt.io/qt-6/qtwebengine-attribution.html.\n\n"
-                   "The package also carries a few system libraries copied from the machine that built it, so that it runs without installing them\n"
-                   "(NSS and NSPR, MPL-2.0 or GPL/LGPL; libxcb and its helper libraries and libxkbcommon/libxkbfile, MIT/X11). Their source code is\n"
-                   "available from the distribution that built the package (for Ubuntu: https://packages.ubuntu.com/) and from the projects'\n"
-                   "own sites (https://www.mozilla.org/projects/security/pki/nss/, https://xcb.freedesktop.org/).\n")
+        out.append(rule("No web browser is included"))
+        out.append("This package carries no web view and no browser of its own. It serves its page over HTTP on your own computer\n"
+                   "(127.0.0.1), using Python's standard library, and opens it in whichever browser you already have. Nothing of that\n"
+                   "browser is part of this package, and nothing leaves your computer.\n")
 
     missing = []
     for name, purpose, spdx, note in packages_for(system):

@@ -97,6 +97,20 @@ const helpModal = ui.modal({
           " on the SD card (or in your emulator's mod folder) first, then copy the staging folder again."),
       ],
     }),
+    // Only when the app is showing this page in the user's own browser rather than in a window of its own (how it runs on
+    // Linux - docs/browser-mode.md). The bridge sets pywebview.platform; a real pywebview window never does.
+    ...(window.pywebview && window.pywebview.platform === "browser" ? [ui.section({
+      title: "Running in your browser",
+      body: [
+        ui.el("div", { class: "help-status-def", text: "This page is the Mod Manager itself, not a website. The app runs on your own computer and serves this page to your browser - Linux has no built-in window the app can use, and bringing one along would have made the download seven times bigger. Nothing you do here leaves your computer." }),
+        ui.el("div", { class: "help-status-term", text: "Closing this page quits the app" }),
+        ui.el("div", { class: "help-status-def", text: "So does closing the terminal you started it from. Reloading the page is fine - the app waits a few seconds for it to come back. Anything already running, like a merge or a download, is always allowed to finish." }),
+        ui.el("div", { class: "help-status-term", text: "The link only works for this run" }),
+        ui.el("div", { class: "help-status-def", text: "It carries a one-time key, new every time the app starts, which is what stops anything else on your computer from reaching the app. Bookmarking it won't work; start the app again and open the new link it prints." }),
+        ui.el("div", { class: "help-status-term", text: "\"Choose a folder\" does nothing" }),
+        ui.el("div", { class: "help-status-def", text: "The folder picker is your desktop's own, which needs zenity or kdialog installed. Without one, the app shows a box to type or paste the path into instead - everything still works." }),
+      ],
+    })] : []),
     ui.section({
       title: "More support",
       body: [

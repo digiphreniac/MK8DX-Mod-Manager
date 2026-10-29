@@ -36,12 +36,12 @@ if IS_LINUX or IS_MAC:
     datas.append((str(ROOT / "tools" / "app-icon.png"), "."))      # (the window's icon on Linux; see window_icon() in mod_manager.py)
 
 if IS_LINUX:
-    # The window is Qt (PyQt6 + QtWebEngine, chosen in mod_manager.choose_window_library); pywebview imports it by name at run time,
-    # so PyInstaller cannot see it. The system libraries Qt needs (NSS, xcb ...) must be installed where this is built: PyInstaller
-    # copies the ones it finds into the package.
-    hiddenimports += ["webview.platforms.qt", "qtpy", "PyQt6.QtCore", "PyQt6.QtGui", "PyQt6.QtWidgets", "PyQt6.QtNetwork",
-                      "PyQt6.QtWebChannel", "PyQt6.QtWebEngineCore", "PyQt6.QtWebEngineWidgets"]
-    excludes += ["PyQt5", "PySide2", "PySide6", "gi"]
+    # No window library at all. Linux has no system web view to lend the app, and the one it could carry - Qt WebEngine, which is
+    # Chromium - was 194 MB of the package on its own (123 MB to download, 417 MB unpacked, against about 20 MB on Windows and
+    # macOS). So the Linux package serves its page to the user's own browser instead (src/web_server.py, docs/browser-mode.md) and
+    # leaves every web view out: about 18 MB to download, 50 MB unpacked. pywebview must go too - mod_manager imports it inside a
+    # try/except for exactly this - or PyInstaller would follow it to a toolkit again.
+    excludes += ["webview", "pywebview", "PyQt5", "PyQt6", "PySide2", "PySide6", "qtpy", "gi", "clr", "clr_loader", "pythonnet"]
 
 a = Analysis(
     [str(SRC / "mod_manager.py")],
@@ -51,6 +51,12 @@ a = Analysis(
     hiddenimports=hiddenimports,
     excludes=excludes,
 )
+if IS_LINUX:
+    # A toolkit that slipped in anyway would quietly put the package back to hundreds of megabytes, so the build stops instead.
+    _toolkits = sorted({name.split("/")[0] for name, _src, _kind in a.binaries + a.datas
+                        if name.split("/")[0] in ("PyQt5", "PyQt6", "PySide2", "PySide6", "webview")})
+    if _toolkits:
+        raise SystemExit(f"The Linux package must carry no web view, but PyInstaller collected: {', '.join(_toolkits)}")
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,

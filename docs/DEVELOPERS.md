@@ -26,8 +26,8 @@ Given a character or a course, it can:
 
 ## Running it from source
 
-Python 3.9+ with the dependencies in `requirements.txt` (`pywebview`, `Pillow`, `certifi`; on Linux `pywebview[qt]`, which brings PyQt6 and
-Qt WebEngine):
+Python 3.9+ with the dependencies in `requirements.txt` (`Pillow`, `certifi`, and `pywebview` on Windows and macOS - **not** on
+Linux, where the app shows its page in the user's browser instead of a window of its own, see [browser mode](browser-mode.md)):
 
 ```
 pip install -r requirements.txt
@@ -36,8 +36,9 @@ python src/mod_manager.py
 
 Or use a launcher: on Windows double-click `Run Mod Manager.bat`; on Linux run `./Run Mod Manager.sh`; on macOS double-click
 `Run Mod Manager.command`. Each creates a private `.venv`, installs the requirements (again when `requirements.txt` changes)
-and starts the app (the `(Dev)` variants also turn on the web view's dev tools). On Linux the web view needs a few system
-libraries (`libxcb-cursor0 libxkbcommon-x11-0 libnss3 libasound2 ...`, see [Linux and macOS](cross-platform.md)). Packaged
+and starts the app (the `(Dev)` variants also turn on the web view's dev tools; in browser mode the browser's own are always
+there). On Linux nothing else needs installing, though `zenity` or `kdialog` gives the app your desktop's folder picker
+(see [Linux and macOS](cross-platform.md)). Packaged
 releases are built with PyInstaller - see "Building a release" below.
 
 The first launch asks for a **master folder** (where downloads, extracted mods and the app's own data are kept), then walks
@@ -84,12 +85,12 @@ Contributors (and coding agents - see [AGENTS.md](../AGENTS.md)) should read the
 
 `Build Release.bat` (or `python tools/build_release.py`) makes the package for the system it runs on - a PyInstaller build cannot be
 made for another one: `dist/MK8DX-Mod-Manager-v<version>-windows.zip` (a PyInstaller folder build, `tools/mk8dx-mod-manager.spec`, no console
-window), `...-linux-<x86_64|aarch64>.tar.gz` (Qt WebEngine inside) or `...-macos-<arm64|x86_64>.zip` (an unsigned `.app`). Each holds the app,
+window), `...-linux-<x86_64|aarch64>.tar.xz` (no web view at all - it serves its page to the user's browser, [browser mode](browser-mode.md))
+or `...-macos-<arm64|x86_64>.zip` (an unsigned `.app`). Each holds the app,
 its Python runtime and 7-Zip's command-line tool, plus the license, a `THIRD-PARTY-NOTICES.txt` and a short readme. On Windows install
 7-Zip on the build machine first (or pass `--no-7zip`); on Linux and macOS `tools/fetch_7zip.py` downloads the official `7zz` (pinned
-version and SHA-256). On Linux install the system libraries Qt WebEngine needs first, so PyInstaller copies them into the package
-(Debian/Ubuntu: `libnss3 libnspr4 libasound2 libegl1 libgl1 libfontconfig1 libdbus-1-3 libxkbfile1 libxdamage1 libxcb-cursor0 libxcb-icccm4
-libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 libxkbcommon-x11-0`). The version comes from
+version and SHA-256). The Linux build needs nothing installed on the build machine beyond Python: the spec excludes every web view
+and stops the build if PyInstaller collected one anyway. The version comes from
 `src/version.py`; bump it before building. What differs by system, and what was and was not tested: [Linux and macOS](cross-platform.md).
 
 - **Publishing and release notes.** Bumping `VERSION` on `master` publishes a GitHub Release (`.github/workflows/release.yml`). Its notes are the body

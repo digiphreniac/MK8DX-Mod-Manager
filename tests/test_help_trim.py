@@ -18,7 +18,10 @@ class HelpPopup(unittest.TestCase):
         modals = read("js", "app-modals.js")
         help_html = modals[modals.index("const helpModal = ui.modal({"):modals.index("const guessedNamesModal")]
         titles = re.findall(r'ui\.section\(\{\s*title: "([^"]*)"', help_html)
-        self.assertEqual(titles, ["Known issues", "More support", "About"])
+        # "Running in your browser" is only built when the app is serving this page to the user's own browser (how it
+        # runs on Linux - docs/browser-mode.md); in a pywebview window it is not in the list at all.
+        self.assertEqual(titles, ["Known issues", "Running in your browser", "More support", "About"])
+        self.assertIn('window.pywebview.platform === "browser" ?', help_html)
         for gone in ("What the labels on a mod mean", "UI art only", "Needs romfs folder", "Needs manual fix", "Slot / music mismatch",
                      "Voice: mute a line", "Two mods clash", "If something goes wrong"):
             self.assertNotIn(gone, help_html)
