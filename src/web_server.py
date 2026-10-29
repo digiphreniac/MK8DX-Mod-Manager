@@ -26,6 +26,7 @@ import json
 import os
 import secrets
 import socket
+import socketserver
 import sys
 import threading
 import time
@@ -70,6 +71,17 @@ class _Server(ThreadingHTTPServer):
     # socket sitting in TIME_WAIT. On Unix that is all it does - it cannot take a port another program is
     # listening on. On Windows it can, so there it stays off.
     allow_reuse_address = sys.platform != "win32"
+
+    def server_bind(self):
+        """Binds the socket WITHOUT http.server's reverse-DNS lookup.
+
+        HTTPServer.server_bind calls socket.getfqdn() to fill in `server_name`, which nothing here ever reads.
+        On a machine with no reverse entry for 127.0.0.1 that call blocks until the resolver gives up - seconds
+        at a time, before the app has printed the link to open, so it simply looks hung. Seen on a macOS CI
+        runner: the first few starts took over ten seconds each, then the OS cached the answer and the rest were
+        instant."""
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[0], self.server_address[1]
 
 
 class _Handler(BaseHTTPRequestHandler):

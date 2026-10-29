@@ -7,7 +7,9 @@ isn't there - and none of those show up when the handler is called directly.
 import json
 import sys
 import threading
+import time
 import unittest
+import unittest.mock
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -66,7 +68,7 @@ class ServerTestCase(unittest.TestCase):
             target=lambda: web_server.serve(self.api, UI_DIR, port=0, open_browser=False, announce=announce),
             daemon=True)
         self.thread.start()
-        self.assertTrue(started.wait(10), "the server never said it had started")
+        self.assertTrue(started.wait(30), "the server never said it had started")
 
     def tearDown(self):
         try:
@@ -167,6 +169,41 @@ class TestWhoMayCall(ServerTestCase):
     def test_a_host_header_that_is_not_loopback_is_refused(self):
         status, _ = self.request("/js/bootstrap.js", headers={"Host": "mod-manager.evil.test"})
         self.assertEqual(status, 403)
+
+
+class TestStartingUp(unittest.TestCase):
+    """Starting must not wait on anything that can hang. Nothing here may touch the network."""
+
+    def test_binding_does_not_do_a_reverse_dns_lookup(self):
+        """http.server's own server_bind calls socket.getfqdn() to fill in a name nothing reads. On a machine with
+        no reverse entry for 127.0.0.1 it blocks until the resolver gives up - which on a macOS CI runner was over
+        ten seconds per start, before the app had printed the link, so it looked hung. _Server must not call it."""
+        import socket as socket_module
+        calls = []
+
+        def refuse(*args):
+            calls.append(args)
+            raise AssertionError("socket.getfqdn() was called while starting the server")
+
+        started = threading.Event()
+        with unittest.mock.patch.object(socket_module, "getfqdn", refuse):
+            thread = threading.Thread(
+                target=lambda: web_server.serve(FakeApi(), UI_DIR, port=0, open_browser=False,
+                                                announce=lambda text: started.set()),
+                daemon=True)
+            thread.start()
+            self.assertTrue(started.wait(10), "the server did not start")
+        self.assertEqual(calls, [], "starting the server did a reverse DNS lookup")
+
+    def test_it_starts_quickly_enough_to_be_worth_waiting_for(self):
+        # Not a benchmark - a floor. Anything that makes this take seconds is something blocking that should not be.
+        started = threading.Event()
+        begun = time.monotonic()
+        threading.Thread(target=lambda: web_server.serve(FakeApi(), UI_DIR, port=0, open_browser=False,
+                                                         announce=lambda text: started.set()),
+                         daemon=True).start()
+        self.assertTrue(started.wait(10), "the server did not start")
+        self.assertLess(time.monotonic() - begun, 5.0)
 
 
 class TestKeepAlive(ServerTestCase):

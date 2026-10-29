@@ -56,6 +56,14 @@ everything else. In a pywebview window the server never runs, `window.__mk8dxSer
 The `pywebviewready` event is fired at `DOMContentLoaded`, not earlier: `bootstrap.js` only replays the event for the scripts it
 loads if its own listener was registered when it went off, and that listener is only there once `bootstrap.js` itself has run.
 
+## Starting
+
+Binding the socket does **not** go through `http.server`'s own `server_bind`. That one calls `socket.getfqdn()` to fill in a
+`server_name` nothing here ever reads, and on a machine with no reverse entry for `127.0.0.1` the lookup blocks until the
+resolver gives up - before the app has printed the link, so it just looks hung. A macOS CI runner showed it plainly: the first
+three servers took over ten seconds each to come up, then the OS cached the answer and every one after was instant.
+`_Server.server_bind` calls `socketserver.TCPServer.server_bind` and sets the two names itself.
+
 ## Keeping it closed
 
 The server answers only on `127.0.0.1`, so nothing else on the network can reach it. Against the other machine-local risk - a web
